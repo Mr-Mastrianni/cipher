@@ -31,7 +31,10 @@ import {
 const DEMO_MEMBER_CLERK_ID = "user_demo_member";
 
 export const metadata: Metadata = {
-  title: "Dashboard",
+  // The template is repeated here because a nested layout that declares its own
+  // `title` stops inheriting the root's template, which would otherwise leave
+  // the member pages reading "Courses" instead of "Courses · The Cipher".
+  title: { default: "Dashboard", template: "%s · The Cipher" },
   robots: { index: false, follow: false },
 };
 

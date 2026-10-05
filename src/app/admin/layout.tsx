@@ -21,8 +21,11 @@ import { getAccessLevel } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = {
-  title: "Admin",
+  // Repeated deliberately: a nested layout that sets `title` stops inheriting
+  // the root's title template, so the suffix has to be re-declared here.
+  title: { default: "Admin", template: "%s · The Cipher" },
   description: "The Cipher admin console.",
+  robots: { index: false, follow: false },
 };
 
 /**
