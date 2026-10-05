@@ -1,0 +1,26 @@
+{
+  "name": "The Cipher",
+  "short_name": "Cipher",
+  "description": "Your natal chart and Human Design bodygraph, computed and read.",
+  "start_url": "/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0b0b11",
+  "theme_color": "#0b0b11",
+  "categories": ["education", "lifestyle"],
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}
