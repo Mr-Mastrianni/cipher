@@ -290,6 +290,13 @@ export const users = pgTable(
     location: text("location"),
     /** IANA zone the member reads the schedule in. */
     timezone: text("timezone"),
+    /** Opt-in to appear in cosmic matching. Off by default: nobody is shown without consent. */
+    matchingOptIn: boolean("matching_opt_in").notNull().default(false),
+    /** Interests chosen for matching, from `MATCH_INTERESTS`. */
+    interests: text("interests")
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
     role: userRoleEnum("role").notNull().default("member"),
     membershipStatus: membershipStatusEnum("membership_status")
       .notNull()

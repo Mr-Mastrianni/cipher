@@ -324,6 +324,23 @@ export default function MessagesPage() {
     }
   };
 
+  // Arriving from cosmic matching with `?with=<memberId>` opens that
+  // conversation once. The URL is read directly (not via useSearchParams) so
+  // the page needs no Suspense boundary.
+  const openedFromLink = useRef(false);
+  useEffect(() => {
+    if (openedFromLink.current) return;
+    const target = new URLSearchParams(window.location.search).get("with");
+    if (!target) return;
+    openedFromLink.current = true;
+    window.history.replaceState(null, "", window.location.pathname);
+    void Promise.resolve().then(() =>
+      startConversation({ id: target, name: "member", imageUrl: null, tier: "" }),
+    );
+    // startConversation is stable for this purpose; run once on arrival.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   /* ── Scroll ────────────────────────────────────────────────────────────── */
 
   useEffect(() => {

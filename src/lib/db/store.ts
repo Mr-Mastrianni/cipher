@@ -36,6 +36,7 @@ import {
 
 
 import { db, isDatabaseConfigured, type Database } from "./client";
+import { COLLECTIVE_ROOMS } from "../community/rooms";
 import {
   agentMessages,
   agentSessions,
@@ -152,6 +153,8 @@ export interface UserWritableFields {
   pronouns?: string | null;
   location?: string | null;
   timezone?: string | null;
+  matchingOptIn?: boolean;
+  interests?: string[];
   role?: UserRole;
   membershipStatus?: MembershipStatus;
   tier?: TierKey;
@@ -419,6 +422,11 @@ export interface Store {
   upsertBirthProfile(input: UpsertBirthProfileInput): Promise<BirthProfile>;
   /** A user's birth profile, if onboarding has produced one. */
   getBirthProfileByUser(userId: string): Promise<BirthProfile | null>;
+  /**
+   * Approved, non-deleted members who opted in to cosmic matching and have a
+   * birth profile. Capped; matching is computed over this pool.
+   */
+  listMatchingProfiles(limit?: number): Promise<Array<{ user: User; profile: BirthProfile }>>;
 
   // ── Channels & messages ──────────────────────────────────────────────────
   /** All channels, oldest first. */
@@ -765,6 +773,8 @@ export class MemoryStore implements Store {
       pronouns: null,
       location: null,
       timezone: null,
+      matchingOptIn: false,
+      interests: [],
       role: "member",
       membershipStatus: "none",
       tier: "free",
@@ -928,6 +938,18 @@ export class MemoryStore implements Store {
   /** {@inheritDoc Store.getBirthProfileByUser} */
   async getBirthProfileByUser(userId: string): Promise<BirthProfile | null> {
     return this.profiles.get(userId) ?? null;
+  }
+
+  /** {@inheritDoc Store.listMatchingProfiles} */
+  async listMatchingProfiles(limit = 500): Promise<Array<{ user: User; profile: BirthProfile }>> {
+    const out: Array<{ user: User; profile: BirthProfile }> = [];
+    for (const user of this.users.values()) {
+      if (!user.matchingOptIn || user.deletedAt || user.membershipStatus !== "approved") continue;
+      const profile = this.profiles.get(user.id);
+      if (profile) out.push({ user, profile });
+      if (out.length >= limit) break;
+    }
+    return out;
   }
 
   /* ── Channels & messages ────────────────────────────────────────────────── */
@@ -1638,6 +1660,8 @@ export class MemoryStore implements Store {
     if (fields.pronouns !== undefined) patch.pronouns = fields.pronouns;
     if (fields.location !== undefined) patch.location = fields.location;
     if (fields.timezone !== undefined) patch.timezone = fields.timezone;
+    if (fields.matchingOptIn !== undefined) patch.matchingOptIn = fields.matchingOptIn;
+    if (fields.interests !== undefined) patch.interests = fields.interests;
     if (fields.role !== undefined) patch.role = fields.role;
     if (fields.membershipStatus !== undefined) {
       patch.membershipStatus = fields.membershipStatus;
@@ -1729,6 +1753,54 @@ export class MemoryStore implements Store {
       onboardingCompletedAt: daysAgo(45),
     });
 
+    // Mira can try cosmic matching: a verified birth profile, opted out until
+    // she chooses otherwise.
+    void this.upsertBirthProfile({
+      userId: member.id,
+      birthDate: "1991-02-09",
+      birthTime: "08:17:26",
+      birthTimeZone: "America/New_York",
+      birthLatitude: 40.7128,
+      birthLongitude: -74.006,
+      birthPlaceName: "New York",
+    });
+    member.interests = ["human-design", "kp-timing", "creative"];
+
+    // A small opted-in pool so matching is explorable without a database.
+    // Charts are derived from birth data on demand; no snapshot is seeded.
+    const pool: Array<{
+      clerkUserId: string;
+      first: string;
+      last: string;
+      tier: TierKey;
+      bio: string;
+      interests: string[];
+      birth: [string, string, string, number, number, string];
+    }> = [
+      { clerkUserId: "user_demo_asha", first: "Asha", last: "Rao", tier: "adept", bio: "KP student of eight years; horary on Sunday mornings.", interests: ["kp-horary", "kp-timing", "meditation", "teaching"], birth: ["1992-11-03", "06:42:17", "Asia/Kolkata", 12.9716, 77.5946, "Bengaluru"] },
+      { clerkUserId: "user_demo_leo", first: "Leo", last: "Marquez", tier: "initiate", bio: "Painter following his Venus line around the world.", interests: ["astrocartography", "creative", "starseed"], birth: ["1988-04-21", "23:05:40", "America/Mexico_City", 19.4326, -99.1332, "Mexico City"] },
+      { clerkUserId: "user_demo_noor", first: "Noor", last: "Haddad", tier: "initiate", bio: "Projector, bodyworker, Pleiadian-curious.", interests: ["human-design", "relationships", "healing", "starseed"], birth: ["1995-08-14", "14:20:03", "Asia/Dubai", 25.2048, 55.2708, "Dubai"] },
+      { clerkUserId: "user_demo_kai", first: "Kai", last: "Lindqvist", tier: "oracle", bio: "Builds tools; tracks dashas in a spreadsheet.", interests: ["research", "kp-timing", "business", "human-design"], birth: ["1983-01-30", "03:11:55", "Europe/Stockholm", 59.3293, 18.0686, "Stockholm"] },
+    ];
+    for (const seed of pool) {
+      const user = this.seedUser({
+        clerkUserId: seed.clerkUserId,
+        email: `${seed.first.toLowerCase()}@thecipher.test`,
+        firstName: seed.first,
+        lastName: seed.last,
+        displayName: `${seed.first} ${seed.last}`,
+        role: "member",
+        membershipStatus: "approved",
+        tier: seed.tier,
+        bio: seed.bio,
+        matchingOptIn: true,
+        interests: seed.interests,
+        onboardingCompletedAt: daysAgo(30),
+      });
+      const [birthDate, birthTime, birthTimeZone, birthLatitude, birthLongitude, birthPlaceName] = seed.birth;
+      void this.upsertBirthProfile({ userId: user.id, birthDate, birthTime, birthTimeZone, birthLatitude, birthLongitude, birthPlaceName });
+    }
+
     const applicant = this.seedUser({
       clerkUserId: "user_demo_applicant",
       email: "applicant@thecipher.test",
@@ -1780,16 +1852,20 @@ export class MemoryStore implements Store {
       },
     );
 
-    const general = this.seedChannel({
-      slug: "general",
-      name: "General",
-      description: "Introductions, questions, and everyday chatter.",
-    });
-    const experiments = this.seedChannel({
-      slug: "experiments",
-      name: "Experiments",
-      description: "Try the thing, report what happened.",
-    });
+    // The Starseed Collective's rooms, from the shared catalogue.
+    const rooms = new Map(
+      COLLECTIVE_ROOMS.map((room) => [
+        room.slug,
+        this.seedChannel({
+          slug: room.slug,
+          name: room.name,
+          description: room.description,
+          tierRequired: room.tierRequired,
+        }),
+      ]),
+    );
+    const general = rooms.get("general") as Channel;
+    const experiments = rooms.get("experiments") as Channel;
 
     this.seedMessage(
       general.id,
@@ -1821,6 +1897,17 @@ export class MemoryStore implements Store {
       "That is the bug we spent a week on. Thank you for confirming.",
       daysAgo(2),
     );
+
+    const byClerk = (clerkUserId: string) =>
+      [...this.users.values()].find((u) => u.clerkUserId === clerkUserId) as User;
+    const origins = rooms.get("starseed-origins") as Channel;
+    const dasha = rooms.get("dasha-circle") as Channel;
+    const lines = rooms.get("lines-and-places") as Channel;
+    this.seedMessage(origins.id, byClerk("user_demo_noor").id, "Projector here, Pleiadian-curious, listening first. Where do you each feel you come from?", daysAgo(3));
+    this.seedMessage(origins.id, byClerk("user_demo_leo").id, "Arcturian, if I had to name it. Mostly it is the feeling of arriving somewhere I already knew.", daysAgo(2));
+    this.seedMessage(dasha.id, byClerk("user_demo_kai").id, "Saturn–Mercury bhukti since spring. Quietly the most productive stretch I have had.", daysAgo(4));
+    this.seedMessage(dasha.id, byClerk("user_demo_asha").id, "Check which houses Mercury signifies through its star lord in your chart — the bhukti lord delivers those.", daysAgo(3));
+    this.seedMessage(lines.id, byClerk("user_demo_leo").id, "My Venus Lagna line runs just west of Lisbon. Three weeks there and I painted more than in the whole winter.", daysAgo(1));
 
     this.seedCourse({
       slug: "foundations",
@@ -1990,6 +2077,8 @@ export class MemoryStore implements Store {
       pronouns: input.pronouns ?? null,
       location: input.location ?? null,
       timezone: input.timezone ?? null,
+      matchingOptIn: input.matchingOptIn ?? false,
+      interests: input.interests ?? [],
       role: input.role,
       membershipStatus: input.membershipStatus,
       tier: input.tier,
@@ -2013,6 +2102,7 @@ export class MemoryStore implements Store {
     slug: string;
     name: string;
     description?: string;
+    tierRequired?: TierKey | null;
   }): Channel {
     const now = new Date();
     const channel: Channel = {
@@ -2021,7 +2111,7 @@ export class MemoryStore implements Store {
       name: input.name,
       description: input.description ?? null,
       kind: "public",
-      tierRequired: null,
+      tierRequired: input.tierRequired ?? null,
       createdAt: now,
       updatedAt: now,
     };
@@ -2428,6 +2518,24 @@ export class PostgresStore implements Store {
       .where(eq(birthProfiles.userId, userId))
       .limit(1);
     return row ?? null;
+  }
+
+  /** {@inheritDoc Store.listMatchingProfiles} */
+  async listMatchingProfiles(limit = 500): Promise<Array<{ user: User; profile: BirthProfile }>> {
+    const rows = await this.db
+      .select({ user: users, profile: birthProfiles })
+      .from(users)
+      .innerJoin(birthProfiles, eq(birthProfiles.userId, users.id))
+      .where(
+        and(
+          eq(users.matchingOptIn, true),
+          eq(users.membershipStatus, "approved"),
+          isNull(users.deletedAt),
+        ),
+      )
+      .orderBy(desc(users.lastSeenAt))
+      .limit(Math.max(1, Math.min(500, Math.floor(limit))));
+    return rows;
   }
 
   /* ── Channels & messages ────────────────────────────────────────────────── */
@@ -3208,6 +3316,8 @@ function userInsertPatch(
   if (fields.pronouns !== undefined) patch.pronouns = fields.pronouns;
   if (fields.location !== undefined) patch.location = fields.location;
   if (fields.timezone !== undefined) patch.timezone = fields.timezone;
+  if (fields.matchingOptIn !== undefined) patch.matchingOptIn = fields.matchingOptIn;
+  if (fields.interests !== undefined) patch.interests = fields.interests;
   if (fields.role !== undefined) patch.role = fields.role;
   if (fields.membershipStatus !== undefined) {
     patch.membershipStatus = fields.membershipStatus;

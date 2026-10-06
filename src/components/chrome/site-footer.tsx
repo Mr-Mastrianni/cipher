@@ -15,7 +15,7 @@ const COLUMNS = [
   {
     title: "Community",
     links: [
-      { href: "/collective", label: "The Collective" },
+      { href: "/collective", label: "Starseed Collective" },
       { href: "/journal", label: "Journal" },
       { href: "/support", label: "Support" },
     ],

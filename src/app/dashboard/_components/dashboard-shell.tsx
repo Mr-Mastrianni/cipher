@@ -7,6 +7,7 @@ import { motion, useReducedMotion } from "motion/react";
 import {
   Bell,
   Globe2,
+  HeartHandshake,
   BookOpen,
   Check,
   Copy,
@@ -64,6 +65,7 @@ const NAV_ITEMS: readonly NavItem[] = [
   { href: "/dashboard/chart", label: "My Chart", icon: Sparkles },
   { href: "/dashboard/map", label: "Cosmic Map", icon: Globe2 },
   { href: "/dashboard/community", label: "Community", icon: MessagesSquare },
+  { href: "/dashboard/matching", label: "Matching", icon: HeartHandshake },
   { href: "/dashboard/messages", label: "Messages", icon: MessageCircle },
   { href: "/dashboard/calls", label: "Calls", icon: Layers },
   { href: "/dashboard/courses", label: "Courses", icon: BookOpen },

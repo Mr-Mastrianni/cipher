@@ -21,7 +21,6 @@ import { ArrowRight, Check, TriangleAlert } from "lucide-react";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Field, Input, RadioGroup, Radio, Textarea } from "@/components/ui";
-import { SiteHeader } from "@/components/chrome/site-header";
 import { useSound } from "@/components/providers/sound-provider";
 import { cn } from "@/lib/utils";
 
@@ -189,7 +188,6 @@ export default function ApplyPage() {
 
   return (
     <>
-      <SiteHeader />
       <main id="main" className="flex-1">
         <div className="mx-auto w-full max-w-3xl px-4 py-12 sm:px-6 sm:py-20">
           {submitted ? (

@@ -4,14 +4,14 @@ import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { AlertTriangle, CircleCheck, Sparkles } from "lucide-react";
 import { clerkConfigured, getCurrentUser } from "@/lib/auth";
-import { getStore, type UpsertBirthProfileInput } from "@/lib/db/store";
-import type { Bodygraph as StoredBodygraph, User } from "@/lib/db/schema";
+import { getStore } from "@/lib/db/store";
+import type { User } from "@/lib/db/schema";
 import { computeReading } from "@/lib/cipher/compute-reading";
 import type { ShareableBirth } from "@/lib/cipher/share-code";
 import { describeIssue, kpBirthSchema } from "@/lib/kp/birth-schema";
 import type { VerifiedBirth } from "@/components/cipher/birth-verification";
 import { BirthDataForm } from "./birth-data-form";
-import { CHANNEL_BY_GATES, type CenterKey } from "@/lib/human-design";
+import { profileInputFromReading } from "@/lib/cipher/profile-snapshot";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/input";
@@ -49,77 +49,6 @@ async function currentMember(): Promise<User | null> {
   if (signedIn) return signedIn;
   if (!clerkConfigured) return getStore().getUserByClerkId(DEMO_MEMBER_CLERK_ID);
   return null;
-}
-
-/** Zero-pad a number for a date/time string. */
-function pad(value: number, width = 2): string {
-  return String(value).padStart(width, "0");
-}
-
-/**
- * Project a freshly computed reading onto the birth-profile columns.
- *
- * @param userId - The member's id.
- * @param input - The birth input that produced the reading.
- * @param reading - The computed reading.
- * @returns An input for `store.upsertBirthProfile`.
- */
-function profileInputFromReading(
-  userId: string,
-  input: ShareableBirth,
-  reading: ReturnType<typeof computeReading>,
-): UpsertBirthProfileInput {
-  const graph = reading.bodygraph;
-  const centerKeys = Object.keys(graph.centers) as CenterKey[];
-  const definedCenters = centerKeys.filter((key) => graph.centers[key].defined);
-  const openCenters = centerKeys.filter((key) => !graph.centers[key].defined);
-
-  const bodygraph: StoredBodygraph = {
-    type: graph.type,
-    authority: graph.authority,
-    profile: graph.profile,
-    definition: graph.definition.label,
-    definedCenters,
-    openCenters,
-    channels: graph.channels.map((channel) => ({
-      gates: [channel.gates[0], channel.gates[1]],
-      name: channel.name,
-      circuit: CHANNEL_BY_GATES.get(channel.key)?.circuit,
-    })),
-    gates: graph.activations.map((activation) => ({
-      gate: activation.gate,
-      line: activation.line,
-      color: activation.color,
-      tone: activation.tone,
-      base: activation.base,
-      side: activation.source,
-      planet: activation.body,
-    })),
-    variables: {
-      determination: graph.variables.determination?.name,
-      environment: graph.variables.environment?.name,
-      motivation: graph.variables.motivation?.name,
-      perspective: graph.variables.perspective?.name,
-    },
-  };
-
-  return {
-    userId,
-    birthDate: `${input.year}-${pad(input.month)}-${pad(input.day)}`,
-    birthTime: `${pad(input.hour)}:${pad(input.minute)}:${pad(input.second ?? 0)}`,
-    birthTimeZone: input.timeZone,
-    birthLatitude: input.latitude,
-    birthLongitude: input.longitude,
-    birthPlaceName: input.placeName ?? null,
-    // JSON round-trip: the snapshot is stored as plain data.
-    kpChart: JSON.parse(JSON.stringify(reading.kp)) as Record<string, unknown>,
-    bodygraph,
-    auraSeat: reading.avatar?.seat ?? "",
-    auraFormat: reading.avatar?.format ?? "",
-    auraLabel: reading.avatar?.label ?? "",
-    strengths: reading.category.strengths,
-    weaknesses: reading.category.growthEdges,
-  };
 }
 
 /**

@@ -2,8 +2,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, Check, Minus } from "lucide-react";
 import { PageHeader, PageShell, Section } from "@/components/chrome";
-import { SiteHeader } from "@/components/chrome/site-header";
-import { SiteFooter } from "@/components/chrome/site-footer";
 import { Badge, Button } from "@/components/ui";
 import { cn } from "@/lib/utils";
 
@@ -202,7 +200,6 @@ export default function MembershipPage() {
 
   return (
     <>
-      <SiteHeader />
       <main id="main" className="flex-1">
         <PageShell width="wide">
           <PageHeader
@@ -401,7 +398,6 @@ export default function MembershipPage() {
           </Section>
         </PageShell>
       </main>
-      <SiteFooter />
     </>
   );
 }

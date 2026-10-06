@@ -4,16 +4,29 @@ import {
   ArrowRight,
   Bell,
   BookOpen,
+  CalendarClock,
+  Compass,
+  Globe2,
+  HeartHandshake,
+  Hourglass,
   Layers,
   MessagesSquare,
+  Repeat,
   Sparkles,
   Timer,
 } from "lucide-react";
 import { clerkConfigured, getCurrentUser } from "@/lib/auth";
 import { getStore } from "@/lib/db/store";
+import { getCompleteProfile } from "@/lib/cipher/profile-snapshot";
 import type { BirthProfile, User } from "@/lib/db/schema";
 import type { Bodygraph as StoredBodygraph } from "@/lib/db/schema";
 import { COURSES } from "@/content";
+import { COLLECTIVE_ROOMS } from "@/lib/community/rooms";
+import { memberTiming } from "@/lib/kp/periods";
+import { findMatches } from "@/lib/matching/find";
+import { tierRank } from "@/lib/payments/stripe";
+import { COURSE_INTERESTS } from "@/lib/recommendations/catalog";
+import { recommend, type RecommendationKind } from "@/lib/recommendations/recommend";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -134,6 +147,28 @@ function greeting(): string {
  *
  * @returns The member's dashboard home.
  */
+const RECOMMENDATION_ICON: Record<RecommendationKind, typeof Sparkles> = {
+  setup: Compass,
+  timing: Hourglass,
+  event: CalendarClock,
+  course: BookOpen,
+  community: MessagesSquare,
+  match: HeartHandshake,
+  map: Globe2,
+  practice: Repeat,
+};
+
+const RECOMMENDATION_LABEL: Record<RecommendationKind, string> = {
+  setup: "Begin",
+  timing: "KP timing",
+  event: "Event",
+  course: "Study",
+  community: "Collective",
+  match: "Matching",
+  map: "Cosmic map",
+  practice: "Practice",
+};
+
 export default async function DashboardOverviewPage() {
   const user = await currentMember();
   if (!user) return null;
@@ -141,7 +176,7 @@ export default async function DashboardOverviewPage() {
   const store = getStore();
   const [profile, channels, progressRows, decks, dueCards, upcoming] =
     await Promise.all([
-      store.getBirthProfileByUser(user.id),
+      getCompleteProfile(user.id),
       store.listChannels(),
       store.getLessonProgressForUser(user.id),
       store.listFlashcardDecks(),
@@ -243,6 +278,53 @@ export default async function DashboardOverviewPage() {
 
   const dueToday = dueCards.length;
 
+  /* ── For you ───────────────────────────────────────────────────────────── */
+
+  const now = new Date();
+  const rankOf = (tier: string | null | undefined) =>
+    tierRank((tier ?? "initiate") as Parameters<typeof tierRank>[0]);
+  const memberRank = user.role === "admin" ? 3 : user.membershipStatus === "approved" ? tierRank(user.tier) : 0;
+  const [events, savedPlaces, topMatches] = await Promise.all([
+    store.listUpcomingCalls(10),
+    store.listSavedLocations(user.id),
+    // Matching is for approved members (the API enforces the same rule).
+    profile && user.matchingOptIn && (user.membershipStatus === "approved" || user.role === "admin")
+      ? findMatches(store, user, profile, 1, now).catch(() => [])
+      : Promise.resolve([]),
+  ]);
+  const recommendations = recommend({
+    now,
+    tierRank: memberRank,
+    hasBirthProfile: Boolean(profile),
+    interests: user.interests ?? [],
+    hdType: profile?.bodygraph?.type ?? null,
+    timing: profile ? memberTiming(profile, now) : null,
+    courses: courseProgress.map((course) => ({
+      slug: course.slug,
+      title: course.title,
+      tierRank: rankOf(course.tier),
+      percent: course.percent,
+      interests: COURSE_INTERESTS[course.slug] ?? [],
+    })),
+    events: events.map((event) => ({
+      id: event.id,
+      title: event.title,
+      startsAt: event.startsAt,
+      // Live calls are a paid feature; a call can raise the floor further.
+      tierRank: rankOf(event.tierRequired ?? "initiate"),
+    })),
+    channels: COLLECTIVE_ROOMS.map((room) => ({
+      slug: room.slug,
+      name: room.name,
+      interests: room.interests,
+      tierRank: room.tierRequired ? rankOf(room.tierRequired) : 0,
+    })),
+    matchingOptIn: user.matchingOptIn,
+    topMatch: topMatches[0] ? { name: topMatches[0].member.name, score: topMatches[0].score } : null,
+    savedPlaces: savedPlaces.length,
+    dueFlashcards: dueToday,
+  });
+
   return (
     <PageShell width="wide">
       <PageHeader
@@ -266,6 +348,36 @@ export default async function DashboardOverviewPage() {
       />
 
       <div className="flex flex-col gap-12">
+        {/* For you ---------------------------------------------------------- */}
+        {recommendations.length > 0 ? (
+          <Section eyebrow="For you" title="What your chart and the Collective suggest now">
+            <ul className="m-0 grid list-none gap-4 p-0 sm:grid-cols-2 xl:grid-cols-3">
+              {recommendations.map((item) => {
+                const Icon = RECOMMENDATION_ICON[item.kind];
+                return (
+                  <li key={item.id}>
+                    <Link
+                      href={item.href}
+                      className="surface group flex h-full flex-col gap-3 rounded-lg p-5 transition-colors hover:border-gold/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+                    >
+                      <span className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.18em] text-gold">
+                        <Icon aria-hidden="true" className="h-4 w-4" strokeWidth={1.5} />
+                        {RECOMMENDATION_LABEL[item.kind]}
+                      </span>
+                      <span className="font-display text-lg leading-snug text-bone">{item.title}</span>
+                      <span className="text-sm leading-relaxed text-muted">{item.body}</span>
+                      <span className="mt-auto flex items-center justify-between gap-2 pt-2 text-xs text-faint">
+                        <span>Why: {item.reason}</span>
+                        <ArrowRight aria-hidden="true" className="h-3.5 w-3.5 shrink-0 transition-transform group-hover:translate-x-0.5" strokeWidth={1.5} />
+                      </span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </Section>
+        ) : null}
+
         {/* Chart at a glance ------------------------------------------------ */}
         <Section
           eyebrow="At a glance"

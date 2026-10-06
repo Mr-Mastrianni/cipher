@@ -2,7 +2,9 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { Hash, Lock, MessagesSquare, Sparkles } from "lucide-react";
 import { clerkConfigured, getCurrentUser } from "@/lib/auth";
+import { ensureCollectiveRooms } from "@/lib/community/rooms";
 import { getStore } from "@/lib/db/store";
+import { getCompleteProfile } from "@/lib/cipher/profile-snapshot";
 import type { BirthProfile, Channel, User } from "@/lib/db/schema";
 import type { AuraAvatar } from "@/lib/cipher/aura-avatar";
 import { categorizeMember, type MemberCategory } from "@/lib/cipher/categorization";
@@ -166,9 +168,11 @@ export default async function CommunityPage() {
   if (!user) return null;
 
   const store = getStore();
+  // Create any Starseed Collective room a real database does not have yet.
+  await ensureCollectiveRooms(store);
   const [channels, profile] = await Promise.all([
     store.listChannels(),
-    store.getBirthProfileByUser(user.id),
+    getCompleteProfile(user.id),
   ]);
   const placement = placementFor(profile);
 
@@ -202,9 +206,9 @@ export default async function CommunityPage() {
   return (
     <PageShell width="lg">
       <PageHeader
-        eyebrow="Community"
+        eyebrow="The Starseed Collective"
         title="The rooms"
-        description="Every channel is a room with a purpose. Start in the one you were placed in, and read before you post."
+        description="A community space for starseeds, KP students and Human Design experimenters. Every room has a purpose: start in the one you were placed in, find your people through cosmic matching, and read before you post."
         actions={
           <Button asChild variant="secondary" size="sm">
             <Link href="/dashboard/messages">

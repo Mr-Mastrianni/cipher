@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { Globe2 } from "lucide-react";
 import { clerkConfigured, getCurrentUser } from "@/lib/auth";
 import { getStore } from "@/lib/db/store";
+import { getCompleteProfile } from "@/lib/cipher/profile-snapshot";
 import type { BirthProfile, User } from "@/lib/db/schema";
 import { astrocartography } from "@/lib/astrocartography/lines";
 import { encodeBirthInput, type ShareableBirth } from "@/lib/cipher/share-code";
@@ -61,7 +62,7 @@ export default async function MapPage() {
   if (!user) return null;
   const store = getStore();
   const [profile, saved] = await Promise.all([
-    store.getBirthProfileByUser(user.id),
+    getCompleteProfile(user.id),
     store.listSavedLocations(user.id),
   ]);
   const birth = profile ? birthFromProfile(profile) : null;

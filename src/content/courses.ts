@@ -12,6 +12,8 @@
  * psychological care.
  */
 
+import { KP_FOUNDATIONS } from "./kp-course";
+
 export type ContentBlock =
   | { type: "prose"; heading?: string; body: string }
   | { type: "callout"; tone: "note" | "warning" | "key"; body: string }
@@ -617,6 +619,9 @@ export const COURSES: readonly Course[] = [
       },
     ],
   },
+  // The KP course sits second: the first course's lesson ids are mapped to
+  // seeded store rows by position (see dashboard/courses).
+  KP_FOUNDATIONS,
   {
     slug: "the-experiment",
     title: "The Experiment",

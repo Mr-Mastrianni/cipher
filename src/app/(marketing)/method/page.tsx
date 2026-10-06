@@ -2,8 +2,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, BadgeCheck, CircleDot, Clock, Orbit, Ruler, Sigma } from "lucide-react";
 import { PageHeader, PageShell, Section } from "@/components/chrome";
-import { SiteHeader } from "@/components/chrome/site-header";
-import { SiteFooter } from "@/components/chrome/site-footer";
 import { Button } from "@/components/ui";
 
 export const metadata: Metadata = {
@@ -138,7 +136,6 @@ const VERIFIED = [
 export default function MethodPage() {
   return (
     <>
-      <SiteHeader />
       <main id="main" className="flex-1">
         <PageShell width="lg">
           <PageHeader
@@ -331,7 +328,6 @@ export default function MethodPage() {
           </Section>
         </PageShell>
       </main>
-      <SiteFooter />
     </>
   );
 }

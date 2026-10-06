@@ -6,34 +6,33 @@ import {
   Lock,
   MessagesSquare,
   Radio,
+  Sparkles,
   Users,
 } from "lucide-react";
 import { PageHeader, PageShell, Section } from "@/components/chrome";
-import { SiteHeader } from "@/components/chrome/site-header";
-import { SiteFooter } from "@/components/chrome/site-footer";
 import { Badge, Button } from "@/components/ui";
 
 export const metadata: Metadata = {
-  title: "The Collective",
+  title: "The Starseed Collective",
   description:
-    "Channels, weekly calls and reading circles — how the community at The Cipher is organised, what is public, and what opens when you are accepted.",
+    "A global community space for starseeds, KP students and Human Design experimenters: themed rooms, cosmic matching, live events and reading circles.",
   openGraph: {
     type: "website",
     siteName: "The Cipher",
-    title: "The Collective — how the room is organised",
+    title: "The Starseed Collective — how the space is organised",
     description:
-      "Channels, weekly calls and reading circles. What is public, what is open to members, and how to apply.",
+      "Themed rooms, cosmic matching, live events and reading circles. What is public, what is open to members, and how to apply.",
   },
 };
 
 const ROOMS = [
   {
     icon: MessagesSquare,
-    title: "Channels and direct messages",
+    title: "Rooms and direct messages",
     public:
-      "The public rooms are typed, not general: a feed where members post experiments, questions and results, and nothing is sold from the stage.",
+      "Rooms with a purpose, not a general feed: Starseed Origins, the Dasha Circle, Lines & Places, Design Experiments, the Sanctuary — and nothing is sold from the stage.",
     members:
-      "Members get the cohort rooms — one for each type — the archetype and lane channels, and direct messages that stay private. Ask a question and get an answer from someone running the same circuitry.",
+      "Members get every room, the KP horary Prashna Room and Signal Studio from Initiate, and direct messages that stay private. Ask a question and get an answer from someone running the same period or circuitry.",
     badge: "Partly public",
   },
   {
@@ -43,6 +42,15 @@ const ROOMS = [
       "One hour, once a week, recorded and archived. We read charts live, take questions in the order they were asked, and work through whatever the room is stuck on.",
     members:
       "Members join live, can put a chart in the queue, and get every recording. The call moves through the same shape each week so you always know where you are in it.",
+    badge: "Members",
+  },
+  {
+    icon: Sparkles,
+    title: "Cosmic matching",
+    public:
+      "Opt in and meet members through what you share: chosen interests, Human Design mechanics (the channels you complete together) and KP signatures like a shared Moon nakshatra or running the same mahadasha.",
+    members:
+      "Every match shows its reasons, and nobody is shown without consent. Birth dates, times and places are never revealed — only derived signatures.",
     badge: "Members",
   },
   {
@@ -83,13 +91,12 @@ const AGREEMENTS = [
 export default function CollectivePage() {
   return (
     <>
-      <SiteHeader />
       <main id="main" className="flex-1">
         <PageShell width="lg">
           <PageHeader
-            eyebrow="The Collective"
-            title="You cannot run an experiment alone in a room."
-            description="A reading tells you what your design is. Twelve people running the same experiment tell you what it does. This is how the room is organised and where the door is."
+            eyebrow="The Starseed Collective"
+            title="A global space for the ones who came from somewhere else."
+            description="A reading tells you what your chart is. A room of people running the same periods and the same experiments tells you what it does. This is how the space is organised, how members find each other, and where the door is."
             actions={
               <>
                 <Button asChild variant="primary">
@@ -107,10 +114,10 @@ export default function CollectivePage() {
 
           <Section
             eyebrow="The rooms"
-            title="Three places the work actually happens."
+            title="Four ways the Collective meets."
             description="Public where it can be, private where it has to be. Nothing here is a leaderboard."
           >
-            <div className="grid gap-5 lg:grid-cols-3">
+            <div className="grid gap-5 md:grid-cols-2">
               {ROOMS.map((room) => (
                 <article
                   key={room.title}
@@ -240,7 +247,6 @@ export default function CollectivePage() {
           </Section>
         </PageShell>
       </main>
-      <SiteFooter />
     </>
   );
 }

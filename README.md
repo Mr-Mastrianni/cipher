@@ -1,11 +1,16 @@
 # The Cipher
 
-A rebuilt, more accurate implementation of **The Cipher** — a Human Design and
-Western astrology platform, with tiered membership, a community, courses,
-flashcards, and an admin-only AI agent that can research and change the site.
+A futuristic cosmic portal for **Krishnamurti Paddhati (KP) astrology**, Human
+Design and astrocartography, with a Starseed community: cosmic matching,
+themed rooms, live events, courses, flashcards, personalised recommendations,
+tiered membership, and an admin-only AI agent that can research the site and
+propose changes as pull requests.
 
-The reference product is <https://cipher.l10raw.com>. This is a ground-up
-rebuild that keeps the concept and discards the inaccuracies.
+**KP is the only astrology on the platform.** It is sidereal (KP ayanamsa),
+uses Placidus cusps and sub lords, and has no Western or tropical chart and no
+fallback to one. Every chart is cast from a birth time given to the second,
+after the person confirms the resolved time zone, UTC offset and daylight
+saving.
 
 ---
 
@@ -45,9 +50,9 @@ The traps that most calculators fall into, and what this codebase does instead:
   of a line or gate edge is reported, because a one-minute birth-time error
   moves the Ascendant about 15′ and the Moon about 33″.
 
-The astrology engine was independently checked against
-[astro-charts.com's Einstein chart](https://astro-charts.com/persons/chart/albert-einstein/):
-all ten planets agree to **≤ 0.7 arcminutes**.
+The KP engine is tested against the Swiss Ephemeris (`swetest -sid5`) on
+every run: across 16 charts from 1900 to 2049 the grahas agree to ≤ 0.5″, the
+true and mean nodes to ≤ 0.2″ and the Placidus cusps to ≤ 0.04″.
 
 ### 2. The Aura Avatar is free and shareable
 
@@ -71,33 +76,37 @@ parallel sets, one theme storage key rather than three, and no dead themes.
 
 ## Calculation engines
 
-### Western astrology — `src/lib/astrology/`
+### KP — `src/lib/kp/`
 
 | Module | Responsibility |
 |---|---|
-| `ephemeris.ts` | Planetary positions via `astronomy-engine`, true node, mean Lilith, ΔT, sidereal time, obliquity |
-| `houses.ts` | Placidus (semi-arc fixed point), Porphyry, Whole Sign, Equal, polar fallbacks |
-| `aspects.ts` | 12 aspect definitions, applying/separating, strength |
-| `time.ts` | Wall-clock → UTC with explicit DST gap and fold handling |
-| `chart.ts` | `computeNatalChart` |
+| `ayanamsa.ts` | KP (Krishnamurti) ayanamsa: 22°21′50″ at J1900 + IAU 2006 precession, reproducing the Swiss Ephemeris to < 0.01″ |
+| `ephemeris.ts` | Full VSOP87D planets and ELP/MPP02 Moon (via `astronomia`, MIT), light time and aberration, mean and true node |
+| `positions.ts` | Sidereal positions of the nine grahas; Placidus cusps from true obliquity; refuses Placidus-undefined latitudes |
+| `lords.ts` | Sign, star, sub and sub-sub lords; the 249-row sub table generated from first principles |
+| `significators.ts` | Four-level house significators, with Rahu/Ketu as agents of their sign lords |
+| `ruling-planets.ts` | Ruling planets, with the day lord taken from local sunrise |
+| `dasha.ts` | Vimshottari dasha to antara (365.25-day year) |
+| `chart.ts` | `computeKpChart`: verified birth moment (seconds required, DST folds explicit) → full chart |
+| `birth-schema.ts` | The one validation schema for KP birth data |
 
-**On the ephemeris choice.** The industry standard is Swiss Ephemeris, which
-matches astro.com to roughly 0.001″. It is also dual-licensed AGPL-3.0 or
-commercial, and the AGPL's network clause would require *this entire
-application* to be AGPL because it is offered as a public service. The
-commercial licence is a one-time 700 CHF.
+Shared astronomy (time scales, ΔT from the IERS series, Placidus geometry)
+lives in `src/lib/astronomy/`. It contains no astrology of its own.
 
-We use `astronomy-engine` (MIT) instead. It is validated to roughly an
-arcsecond — verified here against three published equinox instants and three
-solar eclipse maxima, where the Sun's error was **≤ 1.5″**. That is two orders
-of magnitude finer than a single line (0.9375°), so it is more than sufficient.
+### Astrocartography — `src/lib/astrocartography/`
 
-The ephemeris sits behind a provider interface in `ephemeris.ts`. Swapping in
-`swisseph-wasm` for arcsecond parity is a single-file change plus a licence
-purchase; nothing else in the codebase moves.
+Rising (Lagna), setting (7th), culminating (10th) and nadir (4th) lines for
+each graha from apparent right ascension and declination — pure astronomy,
+independent of any zodiac — plus KP charts relocated to any place.
 
-**Known gap:** Chiron is not available from `astronomy-engine`. It is omitted
-with an explicit warning rather than faked.
+### Community and matching
+
+- `src/lib/community/rooms.ts` — the Starseed Collective's rooms, created on
+  first visit in a real database.
+- `src/lib/matching/` — opt-in cosmic matching over shared interests, Human
+  Design (electromagnetic and companionship channels) and KP signatures.
+- `src/lib/recommendations/` — the dashboard's "For you" ranking, each item
+  with its reason.
 
 ### Human Design — `src/lib/human-design/`
 
@@ -179,7 +188,7 @@ Four tiers, with the base paid tier at **$15/month**:
 |---|---|---|
 | Threshold | Free | Full chart and bodygraph, Aura Avatar, one foundation course, public feed |
 | Initiate | $15/mo | The Experiment track, community + DMs, weekly live call, full flashcard decks |
-| Adept | $29/mo | Signal & Transmission track, synastry, transits, call priority |
+| Adept | $29/mo | Signal & Transmission track, KP horary and ruling-planet timing (in development), call priority |
 | Oracle | $59/mo | Monthly reading circle, direct studio line, early access |
 
 Membership is by application. An admin reviews each one and approves or denies
@@ -248,5 +257,7 @@ All editorial prose in `src/content/` is original to this project. Nothing was
 copied from the reference site; its content was used only as a factual
 cross-check.
 
-`astronomy-engine` is MIT licensed. See the note above on why Swiss Ephemeris
-was not used.
+`astronomy-engine` and `astronomia` are MIT licensed; `d3-geo`,
+`topojson-client` and `world-atlas` (Natural Earth data) are ISC. The Swiss
+Ephemeris (AGPL/commercial) is **not** a dependency: it was used only offline
+to generate the reference values in `src/lib/kp/__tests__/`.

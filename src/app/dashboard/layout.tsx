@@ -3,6 +3,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { clerkConfigured, getCurrentUser } from "@/lib/auth";
 import { getStore } from "@/lib/db/store";
+import { getCompleteProfile } from "@/lib/cipher/profile-snapshot";
 import type { User } from "@/lib/db/schema";
 import type { AuraAvatar } from "@/lib/cipher/aura-avatar";
 import { Button } from "@/components/ui/button";
@@ -205,6 +206,11 @@ export default async function DashboardLayout({
 
   if (!user) redirect("/sign-in");
   if (!user.onboardingCompletedAt) redirect("/onboarding");
+
+  // Profiles saved before the KP engine (or seeded with birth data only) get
+  // their KP chart and bodygraph snapshots computed once, here, so every
+  // dashboard page reads a complete profile.
+  await getCompleteProfile(user.id);
 
   const isAdmin = user.role === "admin";
   if (user.membershipStatus !== "approved" && !isAdmin) {

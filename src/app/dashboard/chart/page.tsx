@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import { AlertTriangle, Compass, Info, Sparkles } from "lucide-react";
 import { clerkConfigured, getCurrentUser } from "@/lib/auth";
 import { getStore } from "@/lib/db/store";
+import { getCompleteProfile } from "@/lib/cipher/profile-snapshot";
 import type { BirthProfile, User } from "@/lib/db/schema";
 import type { KpBirthInput } from "@/lib/kp/chart";
 import { toKpView } from "@/lib/kp/view";
@@ -122,8 +123,7 @@ export default async function ChartPage() {
   const user = await currentMember();
   if (!user) return null;
 
-  const store = getStore();
-  const profile = await store.getBirthProfileByUser(user.id);
+  const profile = await getCompleteProfile(user.id);
 
   const headerList = await headers();
   const host = headerList.get("host") ?? "localhost:3000";

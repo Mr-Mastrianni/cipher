@@ -167,3 +167,22 @@ test("ruling planets: the Vedic day starts at sunrise", () => {
   const afterSunrise = vedicDayLord(new Date("2024-04-08T03:30:00Z"), 28.6139, 77.209, "Asia/Kolkata");
   assert.equal(afterSunrise.lord, "moon");
 });
+
+test("KP Foundations course: the facts its quizzes teach match the engine", () => {
+  // 20° Mesha is in Bharani, star lord Venus.
+  assert.equal(kpLords(20).nakshatra.name, "Bharani");
+  assert.equal(kpLords(20).starLord, "venus");
+  // Sun sub = 40′, Venus sub = 2°13′20″.
+  const table = kpSubTable();
+  const width = (row: (typeof table)[number]) => Math.round((row.end - row.start) * 3600);
+  assert.equal(width(table.find((r) => r.starLord === "ketu" && r.subLord === "sun")!), 40 * 60);
+  assert.equal(width(table.find((r) => r.starLord === "ketu" && r.subLord === "venus")!), 2 * 3600 + 13 * 60 + 20);
+  // Moon 3/4 through Rohini (40°–53°20′) → Moon dasha with 2.5 years left.
+  const rohini = vimshottari(40 + 0.75 * (40 / 3), new Date("2000-01-01T00:00:00Z"), 1);
+  assert.equal(rohini.birthLord, "moon");
+  assert.ok(Math.abs(rohini.balanceYears - 2.5) < 1e-9);
+  // KP runs 5′49″ below Lahiri; the course quotes the KP value at 2000-01-01 12:00 UT
+  // as 23°45′23″ including nutation.
+  const ayan = kpAyanamsaMean(new Date("2000-01-01T12:00:00Z"));
+  assert.ok(Math.abs(ayan * 3600 - (23 * 3600 + 45 * 60 + 36.9)) < 1, "mean ≈ 23°45′36.9″ (true ≈ 23°45′23″)");
+});

@@ -21,7 +21,7 @@ const NAV_ITEMS = [
   { href: "/", label: "Threshold" },
   { href: "/method", label: "The Method" },
   { href: "/membership", label: "Membership" },
-  { href: "/collective", label: "The Collective" },
+  { href: "/collective", label: "Starseed Collective" },
 ] as const;
 
 const ICON_BUTTON =
