@@ -1,4 +1,18 @@
+import { existsSync } from "node:fs";
 import { defineConfig } from "drizzle-kit";
+
+// Load DATABASE_URL from .env.local / .env like Next.js does, so `pnpm db:push`
+// works without exporting it in the shell. Real environment variables win.
+for (const file of [".env.local", ".env"]) {
+  if (existsSync(file)) process.loadEnvFile(file);
+}
+
+if (!process.env.DATABASE_URL) {
+  throw new Error(
+    "DATABASE_URL is not set. Add your Postgres connection string to .env.local " +
+      "(DATABASE_URL=postgresql://...) or run: DATABASE_URL=postgresql://... pnpm db:push",
+  );
+}
 
 /**
  * Drizzle Kit configuration.
@@ -18,7 +32,7 @@ export default defineConfig({
   out: "./drizzle",
   dialect: "postgresql",
   dbCredentials: {
-    url: process.env.DATABASE_URL ?? "",
+    url: process.env.DATABASE_URL,
   },
   strict: true,
   verbose: true,
