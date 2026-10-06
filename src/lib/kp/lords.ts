@@ -120,7 +120,14 @@ export function formatRasiDegree(longitude: number): string {
  * stretch of the zodiac with one (sign lord, star lord, sub lord) triple.
  * Exposed for tests and for the reference table in the UI.
  */
-export function kpSubTable(): Array<{
+let subTableCache: ReturnType<typeof buildSubTable> | null = null;
+
+export function kpSubTable(): ReturnType<typeof buildSubTable> {
+  subTableCache ??= buildSubTable();
+  return subTableCache;
+}
+
+function buildSubTable(): Array<{
   number: number;
   start: number;
   end: number;

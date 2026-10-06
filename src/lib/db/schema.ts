@@ -1107,6 +1107,31 @@ export const savedLocations = pgTable(
   (t) => [index("saved_locations_user_created_idx").on(t.userId, t.createdAt)],
 );
 
+/** KP horary questions a member has asked, with the judgement shown at the time. */
+export const horaryQuestions = pgTable(
+  "horary_questions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    /** 1–249 for the number method; null for the time method. */
+    number: integer("number"),
+    category: text("category").notNull(),
+    question: text("question").notNull(),
+    askedAt: timestamp("asked_at", { withTimezone: true }).notNull(),
+    latitude: doublePrecision("latitude").notNull(),
+    longitude: doublePrecision("longitude").notNull(),
+    timeZone: text("time_zone").notNull(),
+    nodeType: text("node_type").notNull().default("mean"),
+    verdict: text("verdict").notNull(),
+    /** The judgement and a compact chart summary, as shown. */
+    snapshot: jsonb("snapshot").$type<Record<string, unknown>>(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("horary_questions_user_created_idx").on(t.userId, t.createdAt)],
+);
+
 /** Every privileged action, including every agent tool call. */
 export const auditLog = pgTable(
   "audit_log",
@@ -1215,6 +1240,7 @@ export type NewAgentMessage = typeof agentMessages.$inferInsert;
 
 export type Notification = typeof notifications.$inferSelect;
 export type SavedLocation = typeof savedLocations.$inferSelect;
+export type HoraryQuestion = typeof horaryQuestions.$inferSelect;
 export type NewNotification = typeof notifications.$inferInsert;
 
 export type AuditLogEntry = typeof auditLog.$inferSelect;
@@ -1254,7 +1280,7 @@ export const TIER_SEED: readonly NewTier[] = [
     key: "free",
     name: "Threshold",
     description:
-      "The door, open. Your full chart and bodygraph, your Aura Avatar, and one foundation course.",
+      "The door, open. Your full KP chart and bodygraph, your Aura Avatar, and two foundation courses — KP Foundations and Human Design.",
     monthlyPriceCents: 0,
     currency: "usd",
     features: ["community.read", "flashcards.limit", "courses.free"],

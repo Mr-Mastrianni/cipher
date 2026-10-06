@@ -292,14 +292,14 @@ function LordCell({ graha, emphasis = false }: { graha: Graha; emphasis?: boolea
   );
 }
 
-function PlanetTable({ chart, selection, onSelect }: { chart: KpChartView; selection: Selection; onSelect: (s: Selection) => void }) {
+function PlanetTable({ chart, selection, onSelect, stable = true }: { chart: KpChartView; selection: Selection; onSelect: (s: Selection) => void; stable?: boolean }) {
   return (
     <div className="surface overflow-x-auto rounded-lg">
       <table className="w-full min-w-[46rem] border-collapse text-left">
         <caption className="sr-only">KP graha positions with sign, star, sub and sub-sub lords.</caption>
         <thead>
           <tr className="border-b border-hairline">
-            {["Graha", "Position", "Nakshatra", "Sign lord", "Star lord", "Sub lord", "Sub-sub", "House", "Sub holds"].map((h) => (
+            {["Graha", "Position", "Nakshatra", "Sign lord", "Star lord", "Sub lord", "Sub-sub", "House", ...(stable ? ["Sub holds"] : [])].map((h) => (
               <th key={h} scope="col" className={TH}>{h}</th>
             ))}
           </tr>
@@ -332,7 +332,7 @@ function PlanetTable({ chart, selection, onSelect }: { chart: KpChartView; selec
                 <LordCell graha={p.subLord} emphasis />
                 <LordCell graha={p.subSubLord} />
                 <td className={cn(TD, "text-muted")}>{p.house}</td>
-                <td className={cn(TD, TONE_CLASS[s.tone])}>{s.label}</td>
+                {stable ? <td className={cn(TD, TONE_CLASS[s.tone])}>{s.label}</td> : null}
               </tr>
             );
           })}
@@ -342,14 +342,14 @@ function PlanetTable({ chart, selection, onSelect }: { chart: KpChartView; selec
   );
 }
 
-function CuspTable({ chart, selection, onSelect }: { chart: KpChartView; selection: Selection; onSelect: (s: Selection) => void }) {
+function CuspTable({ chart, selection, onSelect, stable = true }: { chart: KpChartView; selection: Selection; onSelect: (s: Selection) => void; stable?: boolean }) {
   return (
     <div className="surface overflow-x-auto rounded-lg">
       <table className="w-full min-w-[42rem] border-collapse text-left">
         <caption className="sr-only">KP Placidus cusps with sign, star, sub and sub-sub lords.</caption>
         <thead>
           <tr className="border-b border-hairline">
-            {["Cusp", "Position", "Nakshatra", "Sign lord", "Star lord", "Sub lord", "Sub-sub", "Sub holds"].map((h) => (
+            {["Cusp", "Position", "Nakshatra", "Sign lord", "Star lord", "Sub lord", "Sub-sub", ...(stable ? ["Sub holds"] : [])].map((h) => (
               <th key={h} scope="col" className={TH}>{h}</th>
             ))}
           </tr>
@@ -375,7 +375,7 @@ function CuspTable({ chart, selection, onSelect }: { chart: KpChartView; selecti
                 <LordCell graha={c.starLord} />
                 <LordCell graha={c.subLord} emphasis />
                 <LordCell graha={c.subSubLord} />
-                <td className={cn(TD, TONE_CLASS[s.tone])}>{s.label}</td>
+                {stable ? <td className={cn(TD, TONE_CLASS[s.tone])}>{s.label}</td> : null}
               </tr>
             );
           })}
@@ -486,7 +486,7 @@ function DetailPanel({ chart, selection }: { chart: KpChartView; selection: Sele
   );
 }
 
-function Dasha({ chart }: { chart: KpChartView }) {
+function Dasha({ chart, horary }: { chart: KpChartView; horary: boolean }) {
   const [open, setOpen] = useState<string | null>(chart.current[0]?.start ?? null);
   const running = new Set(chart.current.map((p) => `${p.lord}:${p.start}`));
   const row = (p: KpPeriodView, depth: number) => {
@@ -506,7 +506,8 @@ function Dasha({ chart }: { chart: KpChartView }) {
   return (
     <div className="flex flex-col gap-4">
       <p className="text-sm text-muted">
-        Born in <span className="text-bone">{name(chart.dasha.birthLord)}</span> mahadasha with{" "}
+        {horary ? "The horary dasha, from the Moon at the moment of judgement, opened in " : "Born in "}
+        <span className="text-bone">{name(chart.dasha.birthLord)}</span> mahadasha with{" "}
         <span className="font-mono text-bone">{chart.dasha.balanceYears.toFixed(2)}</span> years remaining. Now running:{" "}
         <span className="text-gold">{chart.current.map((p) => name(p.lord)).join(" › ") || "—"}</span>.
       </p>
@@ -554,7 +555,8 @@ function Heading({ id, children, note }: { id: string; children: React.ReactNode
 }
 
 /** The full KP chart: method badges, interactive wheel, lord tables, significators, ruling planets and dashas. */
-export function KpChartPanel({ chart }: { chart: KpChartView }) {
+export function KpChartPanel({ chart, mode = "natal" }: { chart: KpChartView; mode?: "natal" | "horary" }) {
+  const horary = mode === "horary";
   const [selection, setSelection] = useState<Selection>(null);
   const rp = chart.rulingPlanets;
 
@@ -587,7 +589,7 @@ export function KpChartPanel({ chart }: { chart: KpChartView }) {
             <DetailPanel chart={chart} selection={selection} />
           </div>
           <div className="surface rounded-lg p-5">
-            <Heading id="kp-ruling">Ruling planets at birth</Heading>
+            <Heading id="kp-ruling">{horary ? "Ruling planets at judgement" : "Ruling planets at birth"}</Heading>
             <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
               {[
                 ["Day lord", rp.dayLord],
@@ -612,17 +614,31 @@ export function KpChartPanel({ chart }: { chart: KpChartView }) {
       </div>
 
       <section aria-labelledby="kp-grahas" className="flex flex-col gap-4">
-        <Heading id="kp-grahas" note="Sidereal positions with the full KP lordship chain. “Sub holds” is how far the birth time could be wrong before the sub lord changes.">
+        <Heading
+          id="kp-grahas"
+          note={
+            horary
+              ? "Sidereal positions at the moment of judgement, with the full KP lordship chain."
+              : "Sidereal positions with the full KP lordship chain. “Sub holds” is how far the birth time could be wrong before the sub lord changes."
+          }
+        >
           Grahas
         </Heading>
-        <PlanetTable chart={chart} selection={selection} onSelect={setSelection} />
+        <PlanetTable chart={chart} selection={selection} onSelect={setSelection} stable={!horary} />
       </section>
 
       <section aria-labelledby="kp-cusps" className="flex flex-col gap-4">
-        <Heading id="kp-cusps" note="Placidus cusps in the sidereal zodiac. The cuspal sub lord is the deciding factor in KP; it is why the birth time must be exact to the second.">
+        <Heading
+          id="kp-cusps"
+          note={
+            horary
+              ? "Horary cusps: the Lagna fixed by the chosen number, the rest raised by Placidus for the place of judgement."
+              : "Placidus cusps in the sidereal zodiac. The cuspal sub lord is the deciding factor in KP; it is why the birth time must be exact to the second."
+          }
+        >
           Cusps
         </Heading>
-        <CuspTable chart={chart} selection={selection} onSelect={setSelection} />
+        <CuspTable chart={chart} selection={selection} onSelect={setSelection} stable={!horary} />
       </section>
 
       <section aria-labelledby="kp-significators" className="flex flex-col gap-4">
@@ -634,7 +650,7 @@ export function KpChartPanel({ chart }: { chart: KpChartView }) {
 
       <section aria-labelledby="kp-dasha" className="flex flex-col gap-4">
         <Heading id="kp-dasha">Vimshottari dasha</Heading>
-        <Dasha chart={chart} />
+        <Dasha chart={chart} horary={horary} />
       </section>
     </div>
   );

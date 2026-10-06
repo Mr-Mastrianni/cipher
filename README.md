@@ -186,9 +186,9 @@ Four tiers, with the base paid tier at **$15/month**:
 
 | Tier | Price | Unlocks |
 |---|---|---|
-| Threshold | Free | Full chart and bodygraph, Aura Avatar, one foundation course, public feed |
+| Threshold | Free | Full KP chart and bodygraph, Aura Avatar, two foundation courses (KP and Human Design), cosmic map, public feed |
 | Initiate | $15/mo | The Experiment track, community + DMs, weekly live call, full flashcard decks |
-| Adept | $29/mo | Signal & Transmission track, KP horary and ruling-planet timing (in development), call priority |
+| Adept | $29/mo | Signal & Transmission track, KP horary (Prashna) with ruling-planet timing, call priority |
 | Oracle | $59/mo | Monthly reading circle, direct studio line, early access |
 
 Membership is by application. An admin reviews each one and approves or denies

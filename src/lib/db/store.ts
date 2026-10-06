@@ -57,6 +57,7 @@ import {
   messages,
   notifications,
   savedLocations,
+  horaryQuestions,
   TIER_SEED,
   tiers,
   users,
@@ -88,6 +89,7 @@ import {
   type MessageAttachment,
   type Notification as NotificationRow,
   type SavedLocation,
+  type HoraryQuestion,
   type NotificationMetadata,
   type NotificationType,
   type OnboardingAnswers,
@@ -332,6 +334,21 @@ export interface CreateSavedLocationInput {
   snapshot?: Record<string, unknown> | null;
 }
 
+/** Input for `Store.createHoraryQuestion`. */
+export interface CreateHoraryQuestionInput {
+  userId: string;
+  number: number | null;
+  category: string;
+  question: string;
+  askedAt: Date;
+  latitude: number;
+  longitude: number;
+  timeZone: string;
+  nodeType: string;
+  verdict: string;
+  snapshot: Record<string, unknown> | null;
+}
+
 /** Input for `Store.createNotification`. */
 export interface CreateNotificationInput {
   userId: string;
@@ -559,6 +576,12 @@ export interface Store {
   /** Delete a saved place; only the owner's row is touched. Returns false when absent. */
   deleteSavedLocation(id: string, userId: string): Promise<boolean>;
 
+  // ── KP horary ───────────────────────────────────────────────────────────
+  /** A member's horary questions, newest first. */
+  listHoraryQuestions(userId: string, limit?: number): Promise<HoraryQuestion[]>;
+  /** Record a judged horary question. */
+  createHoraryQuestion(input: CreateHoraryQuestionInput): Promise<HoraryQuestion>;
+
   // ── Notifications ────────────────────────────────────────────────────────
   /** A user's notifications, newest first. */
   listNotifications(userId: string, limit?: number): Promise<NotificationRow[]>;
@@ -707,6 +730,7 @@ export class MemoryStore implements Store {
   private readonly agentMsgs = new Map<string, AgentMessage>();
   private readonly notifications = new Map<string, NotificationRow>();
   private readonly savedLocations = new Map<string, SavedLocation>();
+  private readonly horaryQuestions = new Map<string, HoraryQuestion>();
   private readonly auditEntries: AuditLogEntry[] = [];
 
   constructor() {
@@ -1574,6 +1598,23 @@ export class MemoryStore implements Store {
     const row = this.savedLocations.get(id);
     if (!row || row.userId !== userId) return false;
     return this.savedLocations.delete(id);
+  }
+
+  /* ── KP horary ──────────────────────────────────────────────────────────── */
+
+  /** {@inheritDoc Store.listHoraryQuestions} */
+  async listHoraryQuestions(userId: string, limit = 50): Promise<HoraryQuestion[]> {
+    return [...this.horaryQuestions.values()]
+      .filter((row) => row.userId === userId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      .slice(0, limit);
+  }
+
+  /** {@inheritDoc Store.createHoraryQuestion} */
+  async createHoraryQuestion(input: CreateHoraryQuestionInput): Promise<HoraryQuestion> {
+    const row: HoraryQuestion = { id: newId(), ...input, createdAt: new Date() };
+    this.horaryQuestions.set(row.id, row);
+    return row;
   }
 
   /* ── Notifications ──────────────────────────────────────────────────────── */
@@ -3187,6 +3228,23 @@ export class PostgresStore implements Store {
   }
 
   /* ── Notifications ──────────────────────────────────────────────────────── */
+
+  /** {@inheritDoc Store.listHoraryQuestions} */
+  async listHoraryQuestions(userId: string, limit = 50): Promise<HoraryQuestion[]> {
+    return this.db
+      .select()
+      .from(horaryQuestions)
+      .where(eq(horaryQuestions.userId, userId))
+      .orderBy(desc(horaryQuestions.createdAt))
+      .limit(clampLimit(limit));
+  }
+
+  /** {@inheritDoc Store.createHoraryQuestion} */
+  async createHoraryQuestion(input: CreateHoraryQuestionInput): Promise<HoraryQuestion> {
+    const [row] = await this.db.insert(horaryQuestions).values(input).returning();
+    if (!row) throw new Error("Failed to record horary question");
+    return row;
+  }
 
   /** {@inheritDoc Store.listSavedLocations} */
   async listSavedLocations(userId: string): Promise<SavedLocation[]> {

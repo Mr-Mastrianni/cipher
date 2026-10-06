@@ -90,7 +90,7 @@ const TIERS = [
       "Your full KP chart and bodygraph",
       "Your Aura Avatar",
       "The nine centres, read in full",
-      "One foundation course",
+      "Two foundation courses: KP Foundations and Human Design",
       "The public collective feed",
     ],
     cta: "Start free",
@@ -122,7 +122,7 @@ const TIERS = [
     features: [
       "Everything in Initiate",
       "Signal & Transmission course track",
-      "KP horary and ruling-planet timing (in development)",
+      "KP horary (Prashna) with ruling-planet timing",
       "Priority in the live call queue",
     ],
     cta: "Apply for membership",

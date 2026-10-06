@@ -21,6 +21,7 @@ export type RecommendationKind =
   | "community"
   | "match"
   | "map"
+  | "horary"
   | "practice";
 
 export interface Recommendation {
@@ -197,6 +198,31 @@ export function recommend(ctx: RecommendationContext, limit = 6): Recommendation
       reason: ctx.interests.includes("astrocartography") ? "You are interested in astrocartography." : "You have not saved a place yet.",
       priority: ctx.interests.includes("astrocartography") ? 50 : 30,
     });
+  }
+
+  // KP horary is an Adept feature (tier rank 2).
+  if (ctx.interests.includes("kp-horary")) {
+    out.push(
+      ctx.tierRank >= 2
+        ? {
+            id: "horary:ask",
+            kind: "horary",
+            title: "Ask a KP horary question",
+            body: "Give a number from 1 to 249 and read the judgement, with ruling planets and timing.",
+            href: "/dashboard/horary",
+            reason: "You are interested in KP horary.",
+            priority: 42,
+          }
+        : {
+            id: "horary:unlock",
+            kind: "horary",
+            title: "KP horary opens at Adept",
+            body: "Number-method Prashna with the full judgement shown, ruling planets and candidate windows.",
+            href: "/membership",
+            reason: "You are interested in KP horary.",
+            priority: 18,
+          },
+    );
   }
 
   if (ctx.dueFlashcards > 0) {

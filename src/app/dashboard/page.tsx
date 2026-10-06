@@ -8,6 +8,7 @@ import {
   Compass,
   Globe2,
   HeartHandshake,
+  HelpCircle,
   Hourglass,
   Layers,
   MessagesSquare,
@@ -155,6 +156,7 @@ const RECOMMENDATION_ICON: Record<RecommendationKind, typeof Sparkles> = {
   community: MessagesSquare,
   match: HeartHandshake,
   map: Globe2,
+  horary: HelpCircle,
   practice: Repeat,
 };
 
@@ -166,6 +168,7 @@ const RECOMMENDATION_LABEL: Record<RecommendationKind, string> = {
   community: "Collective",
   match: "Matching",
   map: "Cosmic map",
+  horary: "KP horary",
   practice: "Practice",
 };
 
