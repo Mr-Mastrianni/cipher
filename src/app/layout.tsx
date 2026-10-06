@@ -1,26 +1,43 @@
 import type { Metadata, Viewport } from "next";
-import { Cinzel, Montserrat, JetBrains_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import { AppProviders } from "@/components/providers/app-providers";
 import "./globals.css";
 
-const cinzel = Cinzel({
+/**
+ * Self-hosted variable fonts.
+ *
+ * These were previously loaded with `next/font/google`, which fetches the font
+ * files from Google during `next build`. That makes every deploy depend on a
+ * third-party network call, and when the fetch hiccups the build dies with the
+ * famously unhelpful `TypeError: Cannot read properties of null (reading '1')`
+ * inside `@next/font/dist/google/loader.js`. Serving the files from the repo
+ * removes the failure mode entirely and cuts two round-trips at runtime.
+ *
+ * Each file is the variable cut, so one file covers the whole weight axis and
+ * only the basic-latin subset is shipped.
+ */
+const cinzel = localFont({
+  src: "./fonts/Cinzel-Variable.woff2",
   variable: "--font-cinzel",
-  subsets: ["latin"],
-  weight: ["500", "600", "700"],
+  weight: "400 900",
   display: "swap",
+  fallback: ["ui-serif", "Georgia", "serif"],
 });
 
-const montserrat = Montserrat({
+const montserrat = localFont({
+  src: "./fonts/Montserrat-Variable.woff2",
   variable: "--font-montserrat",
-  subsets: ["latin"],
+  weight: "100 900",
   display: "swap",
+  fallback: ["ui-sans-serif", "system-ui", "sans-serif"],
 });
 
-const jetbrains = JetBrains_Mono({
+const jetbrainsMono = localFont({
+  src: "./fonts/JetBrainsMono-Variable.woff2",
   variable: "--font-jetbrains",
-  subsets: ["latin"],
-  weight: ["400", "500"],
+  weight: "100 800",
   display: "swap",
+  fallback: ["ui-monospace", "SFMono-Regular", "monospace"],
 });
 
 const description =
@@ -85,7 +102,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       data-theme="dark"
       suppressHydrationWarning
-      className={`${cinzel.variable} ${montserrat.variable} ${jetbrains.variable} h-full`}
+      className={`${cinzel.variable} ${montserrat.variable} ${jetbrainsMono.variable} h-full`}
     >
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeBootstrap }} />
