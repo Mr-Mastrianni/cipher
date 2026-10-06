@@ -25,6 +25,7 @@
  */
 
 import { createHash, createHmac, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
+import { lookup } from "node:dns/promises";
 import { open, readdir, stat } from "node:fs/promises";
 import * as net from "node:net";
 import * as path from "node:path";
@@ -263,10 +264,13 @@ export interface GitHubConfig {
  */
 export function githubConfig(): GitHubConfig | null {
   const token = envString("GITHUB_TOKEN") ?? envString("GITHUB_AGENT_TOKEN");
-  const repo = envString("AGENT_GITHUB_REPO");
+  // `GITHUB_REPO` / `GITHUB_DEFAULT_BRANCH` are the names `.env.example` used
+  // originally; both spellings are accepted.
+  const repo = envString("AGENT_GITHUB_REPO") ?? envString("GITHUB_REPO");
   if (!token || !repo) return null;
   if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repo)) return null;
-  const defaultBranch = envString("AGENT_GITHUB_DEFAULT_BRANCH") ?? "main";
+  const defaultBranch =
+    envString("AGENT_GITHUB_DEFAULT_BRANCH") ?? envString("GITHUB_DEFAULT_BRANCH") ?? "main";
   const baseBranch = envString("AGENT_GITHUB_BASE_BRANCH") ?? defaultBranch;
   return { token, repo, defaultBranch, baseBranch };
 }
@@ -611,10 +615,31 @@ function isBlockedHostname(hostname: string): boolean {
 
   if (net.isIPv6(host)) {
     const normalized = host.toLowerCase();
+    // IPv4-mapped (::ffff:a.b.c.d or ::ffff:7f00:1) — judge the embedded IPv4.
+    const mapped = normalized.match(/^::ffff:(?:0:)?(.+)$/);
+    if (mapped) {
+      const tail = mapped[1];
+      if (net.isIPv4(tail)) return isBlockedHostname(tail);
+      const hex = tail.split(":");
+      if (hex.length === 2) {
+        const high = Number.parseInt(hex[0], 16);
+        const low = Number.parseInt(hex[1], 16);
+        if (Number.isNaN(high) || Number.isNaN(low)) return true;
+        return isBlockedHostname(
+          `${high >> 8}.${high & 0xff}.${low >> 8}.${low & 0xff}`,
+        );
+      }
+      return true;
+    }
     if (
       normalized.startsWith("fc") ||
       normalized.startsWith("fd") ||
-      normalized.startsWith("fe80")
+      normalized.startsWith("fe8") ||
+      normalized.startsWith("fe9") ||
+      normalized.startsWith("fea") ||
+      normalized.startsWith("feb") ||
+      normalized.startsWith("64:ff9b:") ||
+      normalized.startsWith("2002:")
     ) {
       return true;
     }
@@ -623,10 +648,27 @@ function isBlockedHostname(hostname: string): boolean {
   return false;
 }
 
-/** Parse and vet an outbound URL. */
-function parsePublicUrl(
+/**
+ * Resolve a hostname and refuse it if *any* address it resolves to is private.
+ *
+ * Checking the hostname text alone is not enough: a public name can carry an
+ * A record for 127.0.0.1 or the cloud metadata address 169.254.169.254.
+ */
+async function resolvesToBlockedAddress(hostname: string): Promise<boolean> {
+  const host = hostname.replace(/^\[/, "").replace(/\]$/, "");
+  if (net.isIP(host)) return isBlockedHostname(host);
+  try {
+    const addresses = await lookup(host, { all: true, verbatim: true });
+    return addresses.length === 0 || addresses.some((entry) => isBlockedHostname(entry.address));
+  } catch {
+    return true;
+  }
+}
+
+/** Parse and vet an outbound URL, including where its hostname resolves. */
+async function parsePublicUrl(
   raw: string,
-): { ok: true; url: URL } | { ok: false; error: string } {
+): Promise<{ ok: true; url: URL } | { ok: false; error: string }> {
   let url: URL;
   try {
     url = new URL(raw);
@@ -636,7 +678,7 @@ function parsePublicUrl(
   if (url.protocol !== "https:" && url.protocol !== "http:") {
     return { ok: false, error: "Only http and https URLs can be fetched." };
   }
-  if (isBlockedHostname(url.hostname)) {
+  if (isBlockedHostname(url.hostname) || (await resolvesToBlockedAddress(url.hostname))) {
     return {
       ok: false,
       error:
@@ -652,7 +694,7 @@ async function executeFetchUrl(args: unknown): Promise<AgentToolResult> {
   if (!parsed.success) return invalid("fetch_url", parsed.error);
 
   let current: URL;
-  const initial = parsePublicUrl(parsed.data.url);
+  const initial = await parsePublicUrl(parsed.data.url);
   if (!initial.ok) {
     return refused(initial.error, { error: "blocked_url", url: parsed.data.url });
   }
@@ -681,7 +723,7 @@ async function executeFetchUrl(args: unknown): Promise<AgentToolResult> {
       ) {
         const location = response.headers.get("location");
         if (!location) break;
-        const next = parsePublicUrl(new URL(location, current).toString());
+        const next = await parsePublicUrl(new URL(location, current).toString());
         if (!next.ok) {
           return refused(`Refused to follow a redirect: ${next.error}`, {
             error: "blocked_redirect",
@@ -731,6 +773,87 @@ const ListRepoFilesArgs = z.object({
   directory: z.string().max(512).optional(),
 });
 
+/** Read one allowlisted file from the GitHub repository's base branch. */
+async function readRepoFileFromGitHub(
+  config: GitHubConfig,
+  relative: string,
+): Promise<AgentToolResult> {
+  const result = await githubRequest<{
+    type?: unknown;
+    content?: unknown;
+    encoding?: unknown;
+    size?: unknown;
+  }>(
+    config,
+    `${contentsPath(config, relative)}?ref=${encodeURIComponent(config.baseBranch)}`,
+    {},
+    githubSignal(),
+  );
+  if (!result.ok) {
+    return refused(
+      result.status === 404
+        ? `${relative} does not exist on ${config.baseBranch}.`
+        : `Could not read ${relative} from GitHub.`,
+      { error: result.status === 404 ? "not_found" : "read_failed", detail: result.error },
+    );
+  }
+  if (result.data.type !== "file" || typeof result.data.content !== "string") {
+    return refused("That path is not a file.", { error: "not_a_file", path: relative });
+  }
+  const full = Buffer.from(result.data.content, "base64").toString("utf8");
+  const size = typeof result.data.size === "number" ? result.data.size : Buffer.byteLength(full);
+  const content = truncateToBytes(full, MAX_READ_BYTES);
+  const bytes = Buffer.byteLength(content, "utf8");
+  return {
+    ok: true,
+    summary: `Read ${relative} from ${config.repo}@${config.baseBranch} (${bytes} bytes${size > MAX_READ_BYTES ? ", truncated" : ""}).`,
+    data: { path: relative, bytes, truncated: size > MAX_READ_BYTES, content },
+  };
+}
+
+/** List one allowlisted directory level from the GitHub repository's base branch. */
+async function listRepoFilesFromGitHub(
+  config: GitHubConfig,
+  relativeDirectory: string,
+): Promise<AgentToolResult> {
+  const apiPath =
+    relativeDirectory === "."
+      ? `/repos/${config.repo}/contents`
+      : contentsPath(config, relativeDirectory);
+  const result = await githubRequest<unknown>(
+    config,
+    `${apiPath}?ref=${encodeURIComponent(config.baseBranch)}`,
+    {},
+    githubSignal(),
+  );
+  if (!result.ok || !Array.isArray(result.data)) {
+    return refused(`Could not list ${relativeDirectory} from GitHub.`, {
+      error: "list_failed",
+      detail: result.ok ? "not a directory" : result.error,
+    });
+  }
+  const visible = (result.data as Array<{ name?: unknown; type?: unknown }>)
+    .filter((entry): entry is { name: string; type: unknown } => typeof entry.name === "string")
+    .map((entry) => ({
+      path: relativeDirectory === "." ? entry.name : `${relativeDirectory}/${entry.name}`,
+      type: entry.type === "dir" ? "directory" : "file",
+    }))
+    .filter((entry) => !isDeniedPath(entry.path) && isAllowedPath(entry.path))
+    .sort((a, b) =>
+      a.type !== b.type ? (a.type === "directory" ? -1 : 1) : a.path.localeCompare(b.path),
+    );
+  const files = visible.slice(0, MAX_LIST_ENTRIES);
+  return {
+    ok: true,
+    summary: `Listed ${files.length} entr${files.length === 1 ? "y" : "ies"} in ${relativeDirectory} on ${config.baseBranch}${visible.length > files.length ? " (truncated)" : ""}.`,
+    data: {
+      directory: relativeDirectory,
+      truncated: visible.length > files.length,
+      entries: files,
+    },
+  };
+}
+
 /** Read a single allowlisted repository file, capped and never recursive. */
 async function executeReadRepoFile(args: unknown): Promise<AgentToolResult> {
   const parsed = ReadRepoFileArgs.safeParse(args);
@@ -740,6 +863,11 @@ async function executeReadRepoFile(args: unknown): Promise<AgentToolResult> {
   if (!resolved.ok) {
     return refused(resolved.error, { error: "path_not_allowed", path: parsed.data.path });
   }
+
+  // A serverless deployment does not ship the source tree, and the deployed
+  // copy may lag the repository anyway, so read from GitHub when it is set up.
+  const github = githubConfig();
+  if (github) return readRepoFileFromGitHub(github, resolved.relative);
 
   try {
     const info = await stat(resolved.absolute);
@@ -797,6 +925,9 @@ async function executeListRepoFiles(args: unknown): Promise<AgentToolResult> {
     relativeDirectory = resolved.relative;
     absoluteDirectory = resolved.absolute;
   }
+
+  const github = githubConfig();
+  if (github) return listRepoFilesFromGitHub(github, relativeDirectory);
 
   try {
     const entries = await readdir(absoluteDirectory, { withFileTypes: true });
@@ -950,6 +1081,15 @@ type GitHubResult<T> =
   | { ok: false; error: string; status: number };
 
 /** Call the GitHub REST API with the server-only token. */
+/** The Contents API path for a repo-relative file, each segment encoded. */
+function contentsPath(config: GitHubConfig, relativePath: string): string {
+  const encoded = relativePath
+    .split("/")
+    .map((segment) => encodeURIComponent(segment))
+    .join("/");
+  return `/repos/${config.repo}/contents/${encoded}`;
+}
+
 async function githubRequest<T>(
   config: GitHubConfig,
   apiPath: string,
@@ -1112,18 +1252,35 @@ async function executeOpenPullRequest(
   }
 
   for (const change of changes) {
+    // Updating an existing file requires its current blob sha; GitHub answers
+    // 422 without it. A 404 means the file is new and needs no sha.
+    const existing = await githubRequest<{ sha?: unknown }>(
+      config,
+      `${contentsPath(config, change.path)}?ref=${encodeURIComponent(branch)}`,
+      {},
+      signal,
+    );
+    if (!existing.ok && existing.status !== 404) {
+      return refused(`Could not read ${change.path} on ${branch}: ${existing.error}`, {
+        error: "github_error",
+        step: "read_existing_file",
+        branch,
+        path: change.path,
+      });
+    }
+    const sha =
+      existing.ok && typeof existing.data.sha === "string" ? existing.data.sha : undefined;
+
     const written = await githubRequest<unknown>(
       config,
-      `/repos/${config.repo}/contents/${change.path
-        .split("/")
-        .map((segment) => encodeURIComponent(segment))
-        .join("/")}`,
+      contentsPath(config, change.path),
       {
         method: "PUT",
         body: {
           message: `${parsed.data.title}\n\nOpened by the Cipher admin agent.`,
           content: Buffer.from(change.contents, "utf8").toString("base64"),
           branch,
+          ...(sha ? { sha } : {}),
         },
       },
       signal,

@@ -292,8 +292,9 @@ export default function AgentConsolePage() {
 
   /* ── Session list and capability snapshot ── */
 
+  // `loadingSessions` starts true for the first load; later refreshes update
+  // the list in place instead of flashing the spinner.
   const loadSessions = useCallback(async () => {
-    setLoadingSessions(true);
     try {
       const response = await fetch("/api/agent/sessions", { cache: "no-store" });
       const payload: unknown = await response.json().catch(() => null);
@@ -320,6 +321,8 @@ export default function AgentConsolePage() {
   }, []);
 
   useEffect(() => {
+    // False positive: `loadSessions` only sets state after its first `await`.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadSessions();
   }, [loadSessions]);
 
@@ -905,7 +908,7 @@ export default function AgentConsolePage() {
                       disabled={busy}
                       onClick={() => {
                         void send(
-                          `Approved. Re-issue the ${pendingApproval.tool} call with exactly the same arguments you proposed.`,
+                          `Approved. Run the ${pendingApproval.tool} call exactly as proposed.`,
                           pendingApproval.token,
                         );
                       }}

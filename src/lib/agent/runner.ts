@@ -31,9 +31,12 @@ import {
   availableTools,
   executeAgentTool,
   githubConfig,
+  hashToolArguments,
+  verifyConfirmationToken,
   type AgentToolAuditEntry,
   type AgentToolDefinition,
 } from "./tools";
+import { randomUUID } from "node:crypto";
 
 /* ────────────────────────────────────────────────────────────────────────────
  * Public types
@@ -253,6 +256,37 @@ function toChatMessage(row: AgentMessage): ChatMessage | null {
   }
 }
 
+/**
+ * The most recent stored tool call that `token` approves, if any.
+ *
+ * The token is an HMAC over the session, tool name and argument hash, so only
+ * the exact call the operator was shown can match.
+ */
+function findApprovedCall(
+  history: readonly AgentMessage[],
+  sessionId: string,
+  token: string,
+): { name: string; arguments: Record<string, unknown> } | null {
+  // Approved replays already run, newest first, so a resent token is a no-op.
+  const replayed = new Set<string>();
+  for (let i = history.length - 1; i >= 0; i -= 1) {
+    const row = history[i];
+    if (row.role !== "assistant" || !row.toolCalls) continue;
+    for (const call of row.toolCalls) {
+      const args = call.arguments ?? {};
+      const key = `${call.name}:${hashToolArguments(args)}`;
+      if (call.id.startsWith("call_approved_")) {
+        replayed.add(key);
+        continue;
+      }
+      if (verifyConfirmationToken(token, sessionId, call.name, args)) {
+        return replayed.has(key) ? null : { name: call.name, arguments: args };
+      }
+    }
+  }
+  return null;
+}
+
 /** Normalise model-authored arguments into a JSON object for storage. */
 function asArgumentsRecord(value: unknown): Record<string, unknown> {
   return isRecord(value) ? value : { value };
@@ -295,7 +329,8 @@ function buildSystemPrompt(
   const writeRules =
     mode === "write"
       ? [
-          "You may propose file changes and open pull requests. propose_file_change only records a proposal — it never writes. open_pull_request and create_issue need the operator to approve the exact arguments first, so an 'awaiting_confirmation' result is expected and must never be retried on your own.",
+          "You may propose file changes and open pull requests. propose_file_change only records a proposal — it never writes. open_pull_request and create_issue need the operator to approve the exact arguments first, so an 'awaiting_confirmation' result is expected and must never be retried on your own. When the operator approves, the server runs the approved call itself and its result appears in the conversation; report that result and do not issue the call again.",
+          "To change an existing file, read it first with read_repo_file and send its complete new contents: open_pull_request replaces whole files. Keep each pull request small and focused, and give it a clear title and description.",
           "You can never push to the default branch and you cannot deploy. Branches you open are draft pull requests for a human to review.",
         ].join("\n")
       : "This deployment is read-only. Do not claim to have changed anything; you can only read, search, fetch, and describe.";
@@ -599,6 +634,71 @@ export async function* runAgentTurn(
   const apiKey = process.env.OPENAI_API_KEY?.trim() ?? "";
   const baseUrl = agentBaseUrl();
 
+  // An approval replays the exact call the operator saw, server-side. Asking
+  // the model to re-send identical arguments is unreliable for large payloads
+  // (whole files in a pull request), and the token is then consumed so a
+  // repeated call from the model cannot run the same action twice.
+  if (context.confirmationToken) {
+    const approved = findApprovedCall(history, sessionId, context.confirmationToken);
+    if (approved) {
+      const callId = `call_approved_${randomUUID().replace(/-/g, "").slice(0, 16)}`;
+      yield { type: "tool", id: callId, name: approved.name, args: approved.arguments };
+      const execution = await executeAgentTool(
+        { name: approved.name, args: approved.arguments },
+        { adminUserId, sessionId, confirmationToken: context.confirmationToken, store, audit },
+      );
+      const content = JSON.stringify(execution.data ?? { ok: execution.ok }).slice(
+        0,
+        MAX_STORED_TOOL_BYTES,
+      );
+      await store.appendAgentMessage({
+        sessionId,
+        role: "assistant",
+        content: "",
+        toolCalls: [
+          {
+            id: callId,
+            name: approved.name,
+            arguments: approved.arguments,
+            result: compactForStorage(execution.data, MAX_STORED_TOOL_BYTES),
+            status: execution.ok ? "success" : "error",
+            error: execution.ok ? undefined : execution.summary,
+          },
+        ],
+      });
+      await store.appendAgentMessage({
+        sessionId,
+        role: "tool",
+        content,
+        toolCallId: callId,
+        toolName: approved.name,
+      });
+      chat.push(
+        {
+          role: "assistant",
+          content: null,
+          tool_calls: [
+            {
+              id: callId,
+              type: "function",
+              function: { name: approved.name, arguments: JSON.stringify(approved.arguments) },
+            },
+          ],
+        },
+        { role: "tool", tool_call_id: callId, name: approved.name, content },
+      );
+      yield {
+        type: "tool_result",
+        id: callId,
+        name: approved.name,
+        ok: execution.ok,
+        summary: execution.summary,
+        data: execution.data,
+        durationMs: execution.durationMs,
+      };
+    }
+  }
+
   for (let iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration += 1) {
     const completion = yield* streamCompletion({
       chat,
@@ -654,7 +754,8 @@ export async function* runAgentTurn(
       const execution = parsed.ok
         ? await executeAgentTool(
             { name: call.function.name, args: parsed.value },
-            { adminUserId, sessionId, confirmationToken: context.confirmationToken, store, audit },
+            // The approval token was spent on the replay above; never reuse it.
+            { adminUserId, sessionId, store, audit },
           )
         : {
             name: call.function.name,
