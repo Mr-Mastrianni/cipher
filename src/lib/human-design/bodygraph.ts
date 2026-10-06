@@ -63,8 +63,8 @@ import {
 } from "./activation";
 import type { Activation, ActivationSource, BodyKey } from "./activation";
 import { solveDesignTime } from "./design-time";
-import { bodyPosition, sunPosition, trueNode } from "../astrology/ephemeris";
-import { normalize } from "../astrology/zodiac";
+import { bodyPosition, sunPosition, trueNode } from "../astronomy/ephemeris";
+import { normalize } from "../astronomy/angles";
 
 /**
  * One of the twelve profiles. The constants module derives this from its own

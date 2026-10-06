@@ -6,8 +6,11 @@ import { AlertTriangle, CircleCheck, Sparkles } from "lucide-react";
 import { clerkConfigured, getCurrentUser } from "@/lib/auth";
 import { getStore, type UpsertBirthProfileInput } from "@/lib/db/store";
 import type { Bodygraph as StoredBodygraph, User } from "@/lib/db/schema";
-import type { BirthInput } from "@/lib/astrology/types";
 import { computeReading } from "@/lib/cipher/compute-reading";
+import type { ShareableBirth } from "@/lib/cipher/share-code";
+import { describeIssue, kpBirthSchema } from "@/lib/kp/birth-schema";
+import type { VerifiedBirth } from "@/components/cipher/birth-verification";
+import { BirthDataForm } from "./birth-data-form";
 import { CHANNEL_BY_GATES, type CenterKey } from "@/lib/human-design";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -63,7 +66,7 @@ function pad(value: number, width = 2): string {
  */
 function profileInputFromReading(
   userId: string,
-  input: BirthInput,
+  input: ShareableBirth,
   reading: ReturnType<typeof computeReading>,
 ): UpsertBirthProfileInput {
   const graph = reading.bodygraph;
@@ -108,7 +111,8 @@ function profileInputFromReading(
     birthLatitude: input.latitude,
     birthLongitude: input.longitude,
     birthPlaceName: input.placeName ?? null,
-    natalChart: reading.chart,
+    // JSON round-trip: the snapshot is stored as plain data.
+    kpChart: JSON.parse(JSON.stringify(reading.kp)) as Record<string, unknown>,
     bodygraph,
     auraSeat: reading.avatar?.seat ?? "",
     auraFormat: reading.avatar?.format ?? "",
@@ -167,43 +171,18 @@ export default async function SettingsPage({
    *
    * @param formData - The submitted birth-data form.
    */
-  async function updateBirthData(formData: FormData): Promise<void> {
+  async function updateBirthData(birth: VerifiedBirth): Promise<void> {
     "use server";
     const member = await currentMember();
     if (!member) redirect("/sign-in");
 
-    const date = String(formData.get("birthDate") ?? "");
-    const time = String(formData.get("birthTime") ?? "");
-    const timeZone = String(formData.get("birthTimeZone") ?? "").trim();
-    const latitude = Number.parseFloat(String(formData.get("birthLatitude") ?? ""));
-    const longitude = Number.parseFloat(String(formData.get("birthLongitude") ?? ""));
-    const placeName = String(formData.get("birthPlaceName") ?? "").trim();
-
-    const dateMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
-    const timeMatch = /^(\d{2}):(\d{2})$/.exec(time);
-    if (!dateMatch || !timeMatch) {
-      redirect(
-        `/dashboard/settings?error=${encodeURIComponent("Enter a valid date and time.")}`,
-      );
+    // Re-validate on the server: the client's verification is a UX step, the
+    // schema is the rule (time to the second, real date, supported range).
+    const parsed = kpBirthSchema.safeParse(birth);
+    if (!parsed.success) {
+      redirect(`/dashboard/settings?error=${encodeURIComponent(describeIssue(parsed.error))}`);
     }
-    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
-      redirect(
-        `/dashboard/settings?error=${encodeURIComponent("Latitude and longitude must be numbers.")}`,
-      );
-    }
-
-    const input: BirthInput = {
-      year: Number(dateMatch[1]),
-      month: Number(dateMatch[2]),
-      day: Number(dateMatch[3]),
-      hour: Number(timeMatch[1]),
-      minute: Number(timeMatch[2]),
-      second: 0,
-      timeZone,
-      latitude,
-      longitude,
-      placeName: placeName || undefined,
-    };
+    const input: ShareableBirth = parsed.data;
 
     try {
       const reading = computeReading(input);
@@ -284,7 +263,7 @@ export default async function SettingsPage({
         <Section
           eyebrow="Chart"
           title="Birth data"
-          description="Saving this re-runs the full reading: Western chart, Human Design bodygraph, Aura Avatar and placement. If the birth time is uncertain, the accuracy panel tells you which activations are near a boundary."
+          description="Saving re-casts the KP chart and re-runs the Human Design bodygraph, Aura Avatar and placement. The birth time is required to the second and the resolved moment must be confirmed before it is saved."
         >
           {profile ? (
             <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-faint">
@@ -298,71 +277,17 @@ export default async function SettingsPage({
             </p>
           )}
 
-          <form action={updateBirthData} className="mt-4 flex flex-col gap-5">
-            <div className="grid gap-5 sm:grid-cols-2">
-              <Field label="Birth date" required>
-                <Input
-                  type="date"
-                  name="birthDate"
-                  required
-                  defaultValue={profile?.birthDate ?? ""}
-                />
-              </Field>
-              <Field label="Birth time (local clock)" required>
-                <Input
-                  type="time"
-                  name="birthTime"
-                  required
-                  defaultValue={profile?.birthTime?.slice(0, 5) ?? ""}
-                />
-              </Field>
-            </div>
-            <Field
-              label="Timezone"
-              required
-              description="IANA name, e.g. Europe/London. This is the zone at the place of birth on that date."
-            >
-              <Input
-                name="birthTimeZone"
-                required
-                defaultValue={profile?.birthTimeZone ?? ""}
-                placeholder="America/New_York"
-                autoComplete="off"
-              />
-            </Field>
-            <div className="grid gap-5 sm:grid-cols-2">
-              <Field label="Latitude" required description="Decimal degrees, south negative.">
-                <Input
-                  name="birthLatitude"
-                  required
-                  inputMode="decimal"
-                  defaultValue={profile ? String(profile.birthLatitude) : ""}
-                  placeholder="40.7128"
-                />
-              </Field>
-              <Field label="Longitude" required description="Decimal degrees, west negative.">
-                <Input
-                  name="birthLongitude"
-                  required
-                  inputMode="decimal"
-                  defaultValue={profile ? String(profile.birthLongitude) : ""}
-                  placeholder="-74.006"
-                />
-              </Field>
-            </div>
-            <Field label="Place name" description="Optional. Used for display only.">
-              <Input
-                name="birthPlaceName"
-                defaultValue={profile?.birthPlaceName ?? ""}
-                maxLength={120}
-              />
-            </Field>
-            <div>
-              <Button type="submit" variant="primary" size="sm">
-                Save and re-run the reading
-              </Button>
-            </div>
-          </form>
+          <BirthDataForm
+            save={updateBirthData}
+            defaults={{
+              birthDate: profile?.birthDate ?? "",
+              birthTime: profile?.birthTime?.slice(0, 8) ?? "",
+              birthTimeZone: profile?.birthTimeZone ?? "",
+              birthLatitude: profile ? String(profile.birthLatitude) : "",
+              birthLongitude: profile ? String(profile.birthLongitude) : "",
+              birthPlaceName: profile?.birthPlaceName ?? "",
+            }}
+          />
         </Section>
 
         <Section eyebrow="Interface" title="Preferences and billing">

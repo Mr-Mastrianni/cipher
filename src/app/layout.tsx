@@ -41,7 +41,7 @@ const jetbrainsMono = localFont({
 });
 
 const description =
-  "Enter your coordinates. Cross the threshold. The Cipher computes your natal chart and Human Design bodygraph, then turns the result into a signal you can actually run.";
+  "Enter your coordinates. Cross the threshold. The Cipher casts your KP (Krishnamurti Paddhati) chart and Human Design bodygraph, then turns the result into a signal you can actually run.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(
@@ -57,7 +57,9 @@ export const metadata: Metadata = {
   keywords: [
     "Human Design",
     "bodygraph",
-    "natal chart",
+    "KP astrology",
+    "Krishnamurti Paddhati",
+    "sub lord",
     "astrology",
     "incarnation cross",
     "aura avatar",

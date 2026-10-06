@@ -70,8 +70,8 @@ const COMPUTES = [
   },
   {
     icon: Sparkles,
-    title: "The natal chart",
-    body: "A full tropical chart: planets, angles, houses and aspects, computed from your birth moment with the same ephemeris the bodygraph uses.",
+    title: "The KP chart",
+    body: "Krishnamurti Paddhati, and only KP: the sidereal zodiac with the KP ayanamsa, Placidus cusps, and the sign, star, sub and sub-sub lord of every graha and cusp — verified to within half an arcsecond of the Swiss Ephemeris.",
   },
   {
     icon: BookOpen,
@@ -87,7 +87,7 @@ const TIERS = [
     cadence: "",
     tagline: "The door, open.",
     features: [
-      "Your full natal chart and bodygraph",
+      "Your full KP chart and bodygraph",
       "Your Aura Avatar",
       "The nine centres, read in full",
       "One foundation course",
@@ -122,8 +122,7 @@ const TIERS = [
     features: [
       "Everything in Initiate",
       "Signal & Transmission course track",
-      "Chart comparison and synastry",
-      "Transit and progression tracking",
+      "KP horary and ruling-planet timing (in development)",
       "Priority in the live call queue",
     ],
     cta: "Apply for membership",
@@ -151,11 +150,11 @@ const TIERS = [
 const FAQ = [
   {
     q: "Do I need to know my exact birth time?",
-    a: "It helps enormously. The Sun and the outer planets barely move in a day, but the Moon moves about thirteen degrees and the Ascendant crosses the whole zodiac in twenty-four hours. Without a birth time we still compute your type, profile and most activations, and we label clearly which parts are stable and which are not.",
+    a: "Yes — to the second. KP judges every house by the sub lord of its cusp, and a cusp moves about fifteen arcseconds per second of clock time, so a sub lord can change within a minute. We ask for hours, minutes and seconds, show you the resolved time zone, UTC offset and daylight saving, and cast nothing until you confirm it. Every cusp is labelled with how many seconds of error it can absorb.",
   },
   {
     q: "Where does the calculation come from?",
-    a: "Positions come from an ephemeris validated against JPL data and checked here against published equinox instants and solar eclipse maxima. The Human Design layer uses the true lunar node and solves the Design side as exactly eighty-eight degrees of solar arc, not eighty-eight days — the mistake that quietly ruins most bodygraphs.",
+    a: "The KP chart uses the full VSOP87 planetary theory and the ELP/MPP02 lunar theory, with the KP (Krishnamurti) ayanamsa and Placidus cusps, tested against the Swiss Ephemeris to within half an arcsecond for the grahas and a tenth of an arcsecond for the cusps. There is no Western or tropical chart and no fallback to one. The Human Design layer solves the Design side as exactly eighty-eight degrees of solar arc, not eighty-eight days.",
   },
   {
     q: "Why is membership an application?",

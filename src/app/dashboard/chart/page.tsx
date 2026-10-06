@@ -5,11 +5,10 @@ import { AlertTriangle, Compass, Info, Sparkles } from "lucide-react";
 import { clerkConfigured, getCurrentUser } from "@/lib/auth";
 import { getStore } from "@/lib/db/store";
 import type { BirthProfile, User } from "@/lib/db/schema";
-import type { BirthInput, PointKey } from "@/lib/astrology/types";
-import { POINT_GLYPH, POINT_NAME, POINT_ORDER } from "@/lib/astrology/glyphs";
-import { SIGN_GLYPH, formatLongitude } from "@/lib/astrology/zodiac";
+import type { KpBirthInput } from "@/lib/kp/chart";
+import { toKpView } from "@/lib/kp/view";
 import { computeReading, type Reading } from "@/lib/cipher/compute-reading";
-import { encodeBirthInput } from "@/lib/cipher/share-code";
+import { encodeBirthInput, type ShareableBirth } from "@/lib/cipher/share-code";
 import { CENTER_MAP, VARIABLE_POSITIONS, type CenterKey } from "@/lib/human-design";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,7 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader, PageShell } from "@/components/chrome/page-shell";
 import { Section } from "@/components/chrome/section";
-import { ChartWheel } from "@/components/cipher/chart-wheel";
+import { KpChartPanel } from "@/components/cipher/kp-chart";
 import { Bodygraph, BodygraphTextSummary } from "@/components/cipher/bodygraph";
 import { AuraAvatarCard } from "@/components/cipher/aura-avatar-card";
 import { ReadingActions } from "../_components/dashboard-shell";
@@ -60,7 +59,12 @@ async function currentMember(): Promise<User | null> {
  * @param profile - The member's birth profile.
  * @returns A birth input, or `null` when the date or time cannot be parsed.
  */
-function birthInputFromProfile(profile: BirthProfile): BirthInput | null {
+function birthInputFromProfile(profile: BirthProfile): ShareableBirth | null {
+  // The verified DST choice and node type travel with the stored KP snapshot.
+  const stored = (profile.kpChart as {
+    birth?: { input?: Partial<KpBirthInput> };
+    system?: { nodeType?: "mean" | "true" };
+  } | null) ?? null;
   const dateMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(profile.birthDate);
   const timeMatch = /^(\d{2}):(\d{2})(?::(\d{2}))?/.exec(profile.birthTime);
   if (!dateMatch || !timeMatch) return null;
@@ -75,15 +79,17 @@ function birthInputFromProfile(profile: BirthProfile): BirthInput | null {
     latitude: profile.birthLatitude,
     longitude: profile.birthLongitude,
     placeName: profile.birthPlaceName ?? undefined,
+    fold: stored?.birth?.input?.fold,
+    nodeType: stored?.system?.nodeType,
   };
 }
 
 /** Collect the distinct warnings from the stored chart and the fresh read. */
 function collectWarnings(profile: BirthProfile, reading: Reading | null): string[] {
-  const stored = profile.natalChart?.warnings ?? [];
-  const fresh = reading
-    ? [...reading.timeWarnings, ...reading.chart.warnings, ...reading.bodygraph.warnings]
-    : [];
+  const stored = ((profile.kpChart as { warnings?: string[] } | null)?.warnings ?? []).filter(
+    (warning) => typeof warning === "string",
+  );
+  const fresh = reading ? reading.warnings : [];
   const seen = new Set<string>();
   const out: string[] = [];
   for (const warning of [...stored, ...fresh]) {
@@ -134,7 +140,7 @@ export default async function ChartPage() {
         <EmptyState
           icon={<Sparkles className="h-5 w-5" />}
           title="Nothing to read"
-          description="Onboarding asks for three things and computes the Western chart, the Human Design bodygraph and your aura avatar in one pass."
+          description="Onboarding asks for three things and computes your KP chart, Human Design bodygraph and aura avatar in one pass."
           action={
             <Button asChild variant="primary" size="md">
               <Link href="/onboarding">Enter your coordinates</Link>
@@ -184,7 +190,7 @@ export default async function ChartPage() {
         <Section
           eyebrow="Accuracy"
           title="How much to trust this reading"
-          description="Gate, line and profile survive a birth time accurate to the minute. Tone and base do not. Anything sitting on a slice boundary is listed below."
+          description="KP cuspal sub lords can change within seconds of clock time, so each cusp shows how many seconds it can absorb. In Human Design, gate, line and profile survive a birth time accurate to the minute; tone and base do not."
         >
           <div className="grid gap-4 lg:grid-cols-2">
             <Card>
@@ -246,8 +252,8 @@ export default async function ChartPage() {
                   <p className="text-sm text-danger">{computeError}</p>
                 ) : warnings.length === 0 ? (
                   <p className="text-sm text-muted">
-                    Time resolution, house system and the Design instant all
-                    resolved without a caveat.
+                    The birth moment, the KP cusps and sub lords, and the Design
+                    instant all resolved without a caveat.
                   </p>
                 ) : (
                   <ul className="flex list-disc flex-col gap-2 pl-4 text-sm text-muted">
@@ -290,89 +296,14 @@ export default async function ChartPage() {
           </Section>
         ) : null}
 
-        {/* Wheel + positions ------------------------------------------------- */}
+        {/* KP chart --------------------------------------------------------- */}
         {reading ? (
           <Section
-            eyebrow="Astrology"
-            title="The wheel"
-            description="Tropical zodiac, houses from the resolved system, aspects drawn between the major bodies."
+            eyebrow="Astrology · KP"
+            title="Krishnamurti Paddhati"
+            description="Sidereal zodiac, KP ayanamsa, Placidus cusps. Select any graha or cusp for its full lordship chain."
           >
-            <div className="surface rounded-lg p-4">
-              <ChartWheel chart={reading.chart} />
-            </div>
-
-            <div className="surface overflow-x-auto rounded-lg">
-              <table className="w-full min-w-[40rem] border-collapse text-sm">
-                <caption className="sr-only">
-                  Planet and point positions, with sign, house and motion.
-                </caption>
-                <thead>
-                  <tr className="border-b border-hairline text-left">
-                    {["Point", "Position", "Sign", "House", "Motion", "Precision"].map(
-                      (heading) => (
-                        <th
-                          key={heading}
-                          scope="col"
-                          className="px-4 py-3 font-mono text-[10px] uppercase tracking-[0.2em] text-faint"
-                        >
-                          {heading}
-                        </th>
-                      ),
-                    )}
-                  </tr>
-                </thead>
-                <tbody>
-                  {[...reading.chart.positions]
-                    .sort(
-                      (a, b) =>
-                        POINT_ORDER.indexOf(a.key as PointKey) -
-                        POINT_ORDER.indexOf(b.key as PointKey),
-                    )
-                    .map((position) => (
-                      <tr key={position.key} className="border-b border-hairline/60">
-                        <th scope="row" className="px-4 py-3 text-left font-normal text-bone">
-                          <span aria-hidden="true" className="mr-2 text-gold">
-                            {POINT_GLYPH[position.key]}
-                          </span>
-                          {POINT_NAME[position.key]}
-                        </th>
-                        <td className="px-4 py-3 font-mono text-xs text-muted">
-                          {formatLongitude(position.longitude, false)}
-                        </td>
-                        <td className="px-4 py-3 text-muted">
-                          <span aria-hidden="true" className="mr-2">
-                            {SIGN_GLYPH[position.sign]}
-                          </span>
-                          {position.sign}
-                        </td>
-                        <td className="px-4 py-3 text-muted">
-                          {position.house ?? "—"}
-                        </td>
-                        <td className="px-4 py-3 text-muted">
-                          {position.retrograde ? "Retrograde" : "Direct"}
-                          <span className="ml-2 font-mono text-[10px] text-faint">
-                            {position.speed.toFixed(3)}°/d
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <Badge
-                            tone={
-                              position.precision === "high"
-                                ? "ok"
-                                : position.precision === "approximate"
-                                  ? "warn"
-                                  : "neutral"
-                            }
-                            size="sm"
-                          >
-                            {position.precision}
-                          </Badge>
-                        </td>
-                      </tr>
-                    ))}
-                </tbody>
-              </table>
-            </div>
+            <KpChartPanel chart={toKpView(reading.kp)} />
           </Section>
         ) : null}
 

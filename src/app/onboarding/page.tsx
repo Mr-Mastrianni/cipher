@@ -22,6 +22,11 @@ import {
 
 import { Cosmogram } from "@/components/cipher/cosmogram";
 import { AuraAvatarCard } from "@/components/cipher/aura-avatar-card";
+import {
+  BirthVerification,
+  type BirthMomentDraft,
+  type VerifiedBirth,
+} from "@/components/cipher/birth-verification";
 import { useSound } from "@/components/providers/sound-provider";
 import {
   Badge,
@@ -160,6 +165,7 @@ const TIMEZONE_SUGGESTIONS = [
 
 type StepId =
   | "birth"
+  | "verify"
   | "make"
   | "work"
   | "hd"
@@ -181,7 +187,14 @@ const STEP_META: Record<StepId, StepMeta> = {
     eyebrow: "Coordinates",
     title: "Where and when did you arrive?",
     blurb:
-      "The chart is cast for the exact moment and place. Minutes matter for the Moon, the Ascendant and the profile line.",
+      "Your KP chart is cast for the exact second and place. A cusp crosses a sub lord in as little as a minute of clock time.",
+  },
+  verify: {
+    id: "verify",
+    eyebrow: "Verification",
+    title: "Confirm the exact moment",
+    blurb:
+      "Check the time zone, UTC offset and daylight saving. KP is cast only from a moment you have confirmed.",
   },
   make: {
     id: "make",
@@ -344,6 +357,8 @@ export default function OnboardingPage() {
 
   const [hasBirthProfile, setHasBirthProfile] = useState(false);
   const [birth, setBirth] = useState<BirthFields>(() => defaultBirth("UTC"));
+  // Set only once the person confirms the resolved moment in the verify step.
+  const [verifiedBirth, setVerifiedBirth] = useState<VerifiedBirth | null>(null);
   const [answers, setAnswers] = useState<Answers>(() => defaultAnswers("UTC"));
 
   const [stepIndex, setStepIndex] = useState(0);
@@ -400,7 +415,7 @@ export default function OnboardingPage() {
   const steps = useMemo<StepMeta[]>(() => {
     const order: StepId[] = hasBirthProfile
       ? ["make", "work", "hd", "stop", "collective", "schedule"]
-      : ["birth", "make", "work", "hd", "stop", "collective", "schedule"];
+      : ["birth", "verify", "make", "work", "hd", "stop", "collective", "schedule"];
     return order.map((id) => STEP_META[id]);
   }, [hasBirthProfile]);
 
@@ -434,7 +449,8 @@ export default function OnboardingPage() {
       switch (id) {
         case "birth":
           if (!birth.birthDate) return "Enter your date of birth.";
-          if (!birth.birthTime) return "Enter your time of birth (00:00 if unknown).";
+          if (!/^\d{2}:\d{2}:\d{2}$/.test(birth.birthTime))
+            return "Enter your time of birth to the second (HH:MM:SS). KP charts are not cast without it.";
           if (!birth.birthTimeZone.trim()) return "Enter the time zone of your birthplace.";
           if (!birth.birthPlaceName?.trim())
             return "Add the nearest city, so the coordinates are checkable.";
@@ -443,6 +459,8 @@ export default function OnboardingPage() {
           if (!Number.isFinite(birth.birthLongitude) || Math.abs(birth.birthLongitude) > 180)
             return "Longitude must be between -180 and 180.";
           return null;
+        case "verify":
+          return verifiedBirth ? null : "Confirm the birth moment to continue.";
         case "make":
           return answers.hereToMake.trim().length >= 3
             ? null
@@ -464,7 +482,7 @@ export default function OnboardingPage() {
           return null;
       }
     },
-    [answers, birth],
+    [answers, birth, verifiedBirth],
   );
 
   const focusFirstField = useCallback(() => {
@@ -520,7 +538,9 @@ export default function OnboardingPage() {
         body: JSON.stringify({
           // Only send birth data when there is no stored profile; otherwise the
           // server recomputes from what it already holds.
-          birth: hasBirthProfile ? undefined : birth,
+          birth: hasBirthProfile
+            ? undefined
+            : { ...birth, fold: verifiedBirth?.fold, nodeType: verifiedBirth?.nodeType },
           answers,
         }),
       });
@@ -546,7 +566,7 @@ export default function OnboardingPage() {
       setStatusMessage("The connection dropped.");
       play("error");
     }
-  }, [answers, birth, hasBirthProfile, play, steps.length, validate]);
+  }, [answers, birth, hasBirthProfile, play, steps.length, validate, verifiedBirth]);
 
   /* ── Render ────────────────────────────────────────────────────────────── */
 
@@ -711,6 +731,14 @@ export default function OnboardingPage() {
                         firstFieldRef={firstFieldRef}
                       />
                     )}
+
+                    {step.id === "verify" && birthDraft(birth) ? (
+                      <BirthVerification
+                        key={JSON.stringify(birthDraft(birth))}
+                        draft={birthDraft(birth) as BirthMomentDraft}
+                        onChange={setVerifiedBirth}
+                      />
+                    ) : null}
 
                     {step.id === "make" && (
                       <Field
@@ -940,6 +968,25 @@ export default function OnboardingPage() {
  * Birth step
  * ──────────────────────────────────────────────────────────────────────────── */
 
+/** The entered birth moment for verification, or `null` while incomplete. */
+function birthDraft(birth: BirthFields): BirthMomentDraft | null {
+  const date = /^(\d{4})-(\d{2})-(\d{2})$/.exec(birth.birthDate);
+  const time = /^(\d{2}):(\d{2}):(\d{2})$/.exec(birth.birthTime);
+  if (!date || !time || !birth.birthTimeZone.trim()) return null;
+  return {
+    year: Number(date[1]),
+    month: Number(date[2]),
+    day: Number(date[3]),
+    hour: Number(time[1]),
+    minute: Number(time[2]),
+    second: Number(time[3]),
+    timeZone: birth.birthTimeZone.trim(),
+    latitude: birth.birthLatitude,
+    longitude: birth.birthLongitude,
+    placeName: birth.birthPlaceName ?? undefined,
+  };
+}
+
 function BirthStep({
   birth,
   onChange,
@@ -962,12 +1009,13 @@ function BirthStep({
       </Field>
 
       <Field
-        label="Time of birth"
-        description="On the birth record or certificate. Use 00:00 if unknown."
+        label="Time of birth, to the second"
+        description="From the birth record. If it gives only minutes, use :00 seconds."
         required
       >
         <Input
           type="time"
+          step={1}
           value={birth.birthTime}
           onChange={(event) => onChange({ ...birth, birthTime: event.target.value })}
         />

@@ -34,7 +34,7 @@ import {
   TONE_ARC,
   WHEEL_START_DEGREES,
 } from "./constants";
-import { normalize } from "../astrology/zodiac";
+import { normalize } from "../astronomy/angles";
 
 /** The 13 bodies Human Design activates, in canonical display order. */
 export type BodyKey =

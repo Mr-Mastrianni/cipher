@@ -1,5 +1,9 @@
 import * as Astronomy from "astronomy-engine";
-import { normalize } from "./zodiac";
+import { deltaTFromUt, installDeltaT } from "./delta-t";
+import { normalize } from "./angles";
+
+// One time scale for every ephemeris call; see `delta-t.ts`.
+installDeltaT();
 import type { BodyKey, Precision } from "./types";
 
 /**
@@ -24,8 +28,6 @@ import type { BodyKey, Precision } from "./types";
  *
  * KNOWN LIMITS
  * ------------
- * - Chiron is not available from `astronomy-engine`. It is resolved to `null`
- *   and surfaces as an explicit warning rather than a silently wrong number.
  * - The lunar node is the TRUE (osculating) node, computed from the Moon's
  *   instantaneous orbital plane, which is what the Human Design system uses.
  * - Lunar distance is in AU.
@@ -124,7 +126,6 @@ export function bodyPosition(key: BodyKey, date: Date): RawPosition | null {
       precision: "high",
     };
   }
-  if (key === "lilith") return meanLilith(date);
 
   const body = ENGINE_BODIES[key];
   if (!body) return null;
@@ -209,60 +210,6 @@ function moonVector(date: Date, offsetDays: number) {
   };
 }
 
-/**
- * Mean Black Moon Lilith — the mean lunar apogee.
- *
- * This is the "mean" Lilith, which is the version most chart services print
- * under the name Lilith. It is a smooth averaged point, not the true osculating
- * apogee, and is labelled `approximate` so the UI can say so.
- */
-export function meanLilith(date: Date): RawPosition {
-  const jd = julianDayUT(date);
-  const T = (jd - 2451545.0) / 36525;
-  // Meeus, Astronomical Algorithms, ch. 47 — mean lunar elements.
-  const Lp = normalize(
-    218.3164477 +
-      481267.88123421 * T -
-      0.0015786 * T * T +
-      (T * T * T) / 538841 -
-      (T * T * T * T) / 65194000,
-  );
-  const Mp = normalize(
-    134.9633964 +
-      477198.8675055 * T +
-      0.0087414 * T * T +
-      (T * T * T) / 69699 -
-      (T * T * T * T) / 14712000,
-  );
-  const perigee = Lp - Mp;
-  const apogee = normalize(perigee + 180);
-
-  const next = new Date(date.getTime() + 86_400_000);
-  const jdNext = julianDayUT(next);
-  const Tn = (jdNext - 2451545.0) / 36525;
-  const Lpn =
-    218.3164477 +
-    481267.88123421 * Tn -
-    0.0015786 * Tn * Tn +
-    (Tn * Tn * Tn) / 538841;
-  const Mpn =
-    134.9633964 +
-    477198.8675055 * Tn +
-    0.0087414 * Tn * Tn +
-    (Tn * Tn * Tn) / 69699;
-  let speed = normalize(Lpn - Mpn + 180) - apogee;
-  if (speed > 180) speed -= 360;
-  if (speed < -180) speed += 360;
-
-  return {
-    longitude: apogee,
-    latitude: 0,
-    speed,
-    retrograde: speed < 0,
-    precision: "approximate",
-  };
-}
-
 /** Julian Day from a JS Date (UTC). */
 export function julianDayUT(date: Date): number {
   return date.getTime() / 86_400_000 + 2440587.5;
@@ -276,18 +223,16 @@ export function daysSinceJ2000(date: Date): number {
 /**
  * ΔT — the difference TT − UT in seconds.
  *
- * We deliberately call the same Espenak–Meeus polynomial that
+ * We deliberately call the same ΔT model (`delta-t.ts`) that
  * `astronomy-engine` uses internally, so the house cusps we compute at TT and
  * the planetary positions the engine computes at TT share one time scale and
  * cannot disagree with each other.
  *
- * The polynomial's absolute error reaches a few seconds in the 2020s because
- * Earth's rotation has sped up relative to the extrapolation. A 5-second ΔT
- * error moves the Moon by ~2.5″ and the planets far less — four orders of
- * magnitude below the width of a Human Design line — so it is not corrected.
+ * It follows the measured IERS series rather than the Espenak–Meeus
+ * polynomial, which runs ~5 s high in the 2020s (~2.7″ of Moon).
  */
 export function deltaTSeconds(date: Date): number {
-  return Astronomy.DeltaT_EspenakMeeus(daysSinceJ2000(date));
+  return deltaTFromUt(daysSinceJ2000(date));
 }
 
 /** Julian Day in Terrestrial Time. */

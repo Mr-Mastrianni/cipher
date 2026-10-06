@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, BadgeCheck, CircleDot, Ruler, Sigma } from "lucide-react";
+import { ArrowRight, BadgeCheck, CircleDot, Clock, Orbit, Ruler, Sigma } from "lucide-react";
 import { PageHeader, PageShell, Section } from "@/components/chrome";
 import { SiteHeader } from "@/components/chrome/site-header";
 import { SiteFooter } from "@/components/chrome/site-footer";
@@ -9,21 +9,44 @@ import { Button } from "@/components/ui";
 export const metadata: Metadata = {
   title: "The Method",
   description:
-    "How The Cipher computes a chart: the ephemeris, the 88° solar arc, the true node, the wheel offset, and the accuracy limits we will not hide.",
+    "How The Cipher casts a KP chart — KP ayanamsa, Placidus cusps, sub lords, birth time to the second — and a Human Design bodygraph, with the accuracy limits we will not hide.",
   openGraph: {
     type: "article",
     siteName: "The Cipher",
     title: "The Method — how The Cipher computes a chart",
     description:
-      "The ephemeris, the 88° solar arc, the true node, the wheel offset, and the accuracy limits — stated plainly.",
+      "KP only, sidereal, verified against the Swiss Ephemeris — and the Human Design arithmetic beside it, stated plainly.",
   },
 };
+
+const KP_PIPELINE = [
+  {
+    icon: Orbit,
+    title: "KP only, sidereal",
+    body: "The astrology on this platform is Krishnamurti Paddhati and nothing else. Positions are sidereal, measured with the KP (Krishnamurti) ayanamsa — 22°21′50″ at 1900, carried forward by precession, about 23°45′ in 2000. There is no Western or tropical chart, and no code path that falls back to one.",
+  },
+  {
+    icon: Ruler,
+    title: "Placidus cusps and sub lords",
+    body: "KP houses are Placidus, computed from apparent sidereal time and the true obliquity. Each of the 27 nakshatras is divided into nine subs in Vimshottari proportion, and each sub again into sub-subs — the 249-row KP table, generated here from first principles. Where Placidus does not exist (inside the polar circles) the chart is refused, not substituted.",
+  },
+  {
+    icon: Sigma,
+    title: "A precision ephemeris",
+    body: "The grahas come from the full VSOP87 planetary theory and the Moon from ELP/MPP02, with light-time and aberration applied and ΔT from the IERS record. Across sixteen reference charts from 1900 to 2049 they agree with the Swiss Ephemeris to within 0.5″ for the grahas and 0.04″ for the cusps — two hundred times finer than the narrowest sub-sub.",
+  },
+  {
+    icon: Clock,
+    title: "Birth time to the second, verified",
+    body: "A KP cusp moves about fifteen arcseconds per second of clock time. So every chart asks for hours, minutes and seconds, then shows the resolved time zone, UTC offset, daylight saving and UTC instant for you to confirm. A local time that happened twice must be chosen explicitly; one that never existed is refused. Rahu and Ketu default to the mean node, the KP convention, with the true node as a labelled option.",
+  },
+] as const;
 
 const PIPELINE = [
   {
     icon: Sigma,
-    title: "The ephemeris",
-    body: "Positions are computed, not looked up. The engine evaluates the Sun, Moon, planets, the true lunar node and the obliquity of the ecliptic for the exact instant, using an astronomy-engine ephemeris validated against JPL data and checked against published equinox instants and solar eclipse maxima. Nothing here is reduced to a sun sign, and no value is interpolated from a printed table.",
+    title: "Human Design is its own system",
+    body: "The bodygraph is not astrology and is never shown as a chart. It is defined on the tropical ecliptic longitudes of the Sun, Moon, nodes and planets at two instants, so it is computed from those positions directly, for the same verified birth instant the KP chart uses.",
   },
   {
     icon: CircleDot,
@@ -45,38 +68,37 @@ const PIPELINE = [
 const LIMITS = [
   {
     title: "The clock is the dominant error",
-    body: "The Ascendant moves about 15 arcminutes per minute of clock error, and the Moon about 33 arcseconds per minute. Gate, line and colour survive a birth time accurate to the minute; tone and base do not, because they are only 93.75″ and 18.75″ wide. We surface every activation sitting within a small tolerance of a slice boundary rather than implying a precision the recorded time cannot support.",
+    body: "A cusp moves about 15″ of arc per second of clock time, the Moon about 0.5″. Every KP cusp and graha is labelled with how many seconds of birth-time error it can absorb before its sub lord changes, and anything under a minute is flagged. In Human Design, tone and base are only 93.75″ and 18.75″ wide, and activations near a boundary are listed.",
   },
   {
-    title: "Chiron is omitted, never approximated",
-    body: "The ephemeris does not supply Chiron, so it is left out and a warning says so. Inventing a plausible position would be worse than an honest gap.",
+    title: "The ephemeris is verified, not assumed",
+    body: "KP positions are tested against the Swiss Ephemeris on every build: grahas within 1″, cusps within 0.1″, mean and true node within 0.5″. Beyond 2026, ΔT (Earth's rotation) is a forecast, so charts for future moments carry a few arcseconds of Moon uncertainty.",
   },
   {
-    title: "Houses have real edge cases",
-    body: "The cusps are computed here from the mean obliquity of the ecliptic, omitting the ~9″ nutation-in-obliquity term. Placidus is undefined inside the polar circles, so it falls back — and the fallback is named on the reading, with both the requested and the used system.",
+    title: "Placidus has real edge cases",
+    body: "Inside the polar circles part of the ecliptic never rises or sets, and Placidus cusps do not exist. KP has no substitute house system, so such charts are refused with an explanation instead of being computed with another system.",
   },
   {
     title: "Historical timezones are best-effort",
-    body: "Wall-clock times resolve through the host's IANA timezone database. Before 1970 that record is good but not perfect: wartime DST, double summer time and local mean time are encoded for many places, not all. A local time that never existed (a spring-forward gap) or that occurred twice (a fall-back fold) is detected and reported, never silently chosen.",
+    body: "Wall-clock times resolve through the IANA timezone database. Before 1970 that record is good but not perfect: wartime DST, double summer time and local mean time are encoded for many places, not all. That is why you confirm the resolved UTC offset before anything is cast.",
   },
   {
     title: "Conventions are declared, not hidden",
-    body: "The element and modality balance counts the ten planets plus the Ascendant and Midheaven, once each, unweighted. The literature disagrees on both the body set and the weights, so we report raw counts and say which convention produced them.",
+    body: "The KP ayanamsa (Krishnamurti, as defined by the Swiss Ephemeris), the node type (mean by default), the dasha year (365.25 days) and the house system (Placidus) are printed on every chart.",
   },
   {
     title: "We do not rectify charts",
-    body: "If you do not know your birth time, we compute for noon local time and label the Moon, the Ascendant, the houses and the profile as unreliable. We will not move your birth time until the chart looks better.",
+    body: "There is no 'time unknown' option and no noon placeholder. If the birth record gives only minutes, enter 00 seconds and read the flagged cusps with care. We will not move your birth time until the chart looks better.",
   },
 ] as const;
 
 const DIFFERENT = [
-  "The Design chart is solved as 88° of solar arc on the Sun's longitude, not as a fixed 88-day subtraction.",
-  "The true node is used, and its effect on gate boundaries is treated as a first-class accuracy question.",
-  "The Western chart and the bodygraph are computed from the same resolved instant with the same ephemeris, so the two views can never disagree about when you were born.",
-  "Type is resolved by a breadth-first search over the defined-channel graph — motor to Throat — rather than by matching against a hardcoded list of channel combinations. A Sacral→G→Throat path is correctly read as a Manifesting Generator.",
-  "Every uncertainty is rendered: boundary signals, timezone folds and gaps, omitted bodies, and house-system fallbacks all reach the reader as notices.",
-  "The reading is shareable without an account and permanent without a database. Birth data is packed into a checksummed URL, so a mistyped link fails loudly instead of quietly computing the wrong chart.",
-  "There is no quiz and no rectification. The mechanical layer is separable from the interpretation, and we keep them visibly separate.",
+  "KP is the only astrology on the platform: sidereal, KP ayanamsa, Placidus, nine grahas, sign/star/sub/sub-sub lords, four-level significators, ruling planets and Vimshottari dashas — with no Western fallback.",
+  "The birth moment is verified before it is used: time to the second, the resolved zone, offset and daylight saving shown back to you, and repeated local times chosen explicitly.",
+  "The KP engine is tested against the Swiss Ephemeris and the 249-row sub table is generated, not transcribed, so a typo in a printed table cannot reach your chart.",
+  "The Human Design Design chart is solved as 88° of solar arc on the Sun's longitude, not as a fixed 88-day subtraction, from the same verified instant as the KP chart.",
+  "Type is resolved by a breadth-first search over the defined-channel graph — motor to Throat — rather than by matching a hardcoded list of channel combinations.",
+  "The reading is shareable without an account and permanent without a database. Birth data — including your daylight-saving choice and node type — is packed into a checksummed URL.",
 ] as const;
 
 const VERIFIED = [
@@ -122,11 +144,11 @@ export default function MethodPage() {
           <PageHeader
             eyebrow="The Method"
             title="How the calculation actually works."
-            description="Most calculators describe a system. This page describes the arithmetic underneath it — the ephemeris, the arc, the node, the offset — and then states, without hedging, where the arithmetic is uncertain."
+            description="Most sites describe a system. This page describes the arithmetic underneath it — the ayanamsa, the cusps, the sub lords, the ephemeris — and then states, without hedging, where the arithmetic is uncertain."
             actions={
               <Button asChild variant="primary">
                 <Link href="/enter">
-                  Compute a chart
+                  Cast a KP chart
                   <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.5} />
                 </Link>
               </Button>
@@ -134,8 +156,24 @@ export default function MethodPage() {
           />
 
           <Section
-            eyebrow="The pipeline"
-            title="Four decisions determine everything downstream."
+            eyebrow="Krishnamurti Paddhati"
+            title="KP, computed to the arcsecond."
+            description="The astrology here is KP and only KP. These four decisions determine every sub lord in your chart."
+          >
+            <div className="grid gap-px overflow-hidden rounded-xl border border-hairline bg-hairline sm:grid-cols-2">
+              {KP_PIPELINE.map((item) => (
+                <article key={item.title} className="flex flex-col gap-4 bg-void p-7">
+                  <item.icon aria-hidden="true" strokeWidth={1.5} className="h-5 w-5 text-gold" />
+                  <h3 className="font-display text-lg tracking-wide text-bone">{item.title}</h3>
+                  <p className="text-sm leading-relaxed text-muted">{item.body}</p>
+                </article>
+              ))}
+            </div>
+          </Section>
+
+          <Section
+            eyebrow="Human Design"
+            title="Four decisions determine the bodygraph."
             description="Change any one of them and the bodygraph moves. These are the four that calculators most often get wrong."
           >
             <div className="grid gap-px overflow-hidden rounded-xl border border-hairline bg-hairline sm:grid-cols-2">

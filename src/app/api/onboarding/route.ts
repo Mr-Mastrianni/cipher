@@ -1,12 +1,7 @@
 import type { NextRequest } from "next/server";
 import { z } from "zod";
 
-import {
-  computeNatalChart,
-  resolveBirthInstantDetailed,
-  type BirthInput,
-  type NatalChart,
-} from "@/lib/astrology";
+import { AmbiguousBirthTimeError, computeKpChart, type KpBirthInput, type KpChart } from "@/lib/kp/chart";
 import {
   CHANNEL_BY_GATES,
   computeHumanDesign,
@@ -34,7 +29,7 @@ import { getStore } from "@/lib/db/store";
  * Onboarding: the server half.
  *
  * The client sends birth data and answers; **nothing computed on the client is
- * trusted**. The whole reading — natal chart, bodygraph, Aura Avatar, cohort
+ * trusted**. The whole reading — KP chart, bodygraph, Aura Avatar, cohort
  * placement and the strengths/edges derived from the defined and open centres —
  * is recomputed here from the raw birth fields.
  *
@@ -57,13 +52,15 @@ const WANTS = [
 
 const birthSchema = z.object({
   birthDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Expected YYYY-MM-DD"),
-  birthTime: z
-    .string()
-    .regex(/^\d{2}:\d{2}(?::\d{2})?$/, "Expected HH:MM or HH:MM:SS"),
+  // KP needs the birth time to the second.
+  birthTime: z.string().regex(/^\d{2}:\d{2}:\d{2}$/, "Expected HH:MM:SS — the birth time to the second"),
   birthTimeZone: z.string().min(1).max(64),
   birthLatitude: z.number().min(-90).max(90),
   birthLongitude: z.number().min(-180).max(180),
   birthPlaceName: z.string().max(200).optional(),
+  /** Which occurrence of a repeated local time, confirmed in the verification step. */
+  fold: z.enum(["earlier", "later"]).optional(),
+  nodeType: z.enum(["mean", "true"]).optional(),
 });
 
 const answersSchema = z.object({
@@ -86,7 +83,7 @@ type BirthFields = z.infer<typeof birthSchema>;
 
 /** Everything a completed reading produces, in one serialisable object. */
 interface ComputedReading {
-  natalChart: NatalChart;
+  kpChart: KpChart;
   bodygraph: PersistedBodygraph;
   avatar: AuraAvatar | null;
   category: MemberCategory;
@@ -106,7 +103,7 @@ function splitTime(value: string): [number, number, number] {
   return [parts[0] ?? 0, parts[1] ?? 0, parts[2] ?? 0];
 }
 
-function toBirthInput(birth: BirthFields): BirthInput {
+function toBirthInput(birth: BirthFields): KpBirthInput & { nodeType?: "mean" | "true" } {
   const [year, month, day] = splitDate(birth.birthDate);
   const [hour, minute, second] = splitTime(birth.birthTime);
   return {
@@ -119,10 +116,14 @@ function toBirthInput(birth: BirthFields): BirthInput {
     timeZone: birth.birthTimeZone,
     latitude: birth.birthLatitude,
     longitude: birth.birthLongitude,
+    fold: birth.fold,
+    nodeType: birth.nodeType,
   };
 }
 
-function fromStoredProfile(profile: BirthProfile): BirthInput {
+function fromStoredProfile(profile: BirthProfile): KpBirthInput & { nodeType?: "mean" | "true" } {
+  // The verified DST choice and node type travel with the stored KP snapshot.
+  const stored = (profile.kpChart as { birth?: { input?: Partial<KpBirthInput> }; system?: { nodeType?: "mean" | "true" } } | null) ?? null;
   const [year, month, day] = splitDate(profile.birthDate);
   const [hour, minute, second] = splitTime(profile.birthTime);
   return {
@@ -135,6 +136,8 @@ function fromStoredProfile(profile: BirthProfile): BirthInput {
     timeZone: profile.birthTimeZone,
     latitude: profile.birthLatitude,
     longitude: profile.birthLongitude,
+    fold: stored?.birth?.input?.fold,
+    nodeType: stored?.system?.nodeType,
   };
 }
 
@@ -145,10 +148,9 @@ function fromStoredProfile(profile: BirthProfile): BirthInput {
  * is absent: it wires the astrology engine, the Human Design engine, the Aura
  * Avatar and the categoriser together and nothing more.
  */
-function computeReading(input: BirthInput): ComputedReading {
-  const { date } = resolveBirthInstantDetailed(input);
-  const natalChart = computeNatalChart(input);
-  const hd = computeHumanDesign(date);
+function computeReading(input: KpBirthInput & { nodeType?: "mean" | "true" }): ComputedReading {
+  const kpChart = computeKpChart(input, { nodeType: input.nodeType });
+  const hd = computeHumanDesign(new Date(kpChart.birth.utc));
 
   const centerKeys = Object.keys(hd.centers) as CenterKey[];
   const definedCenters = centerKeys.filter((key) => hd.centers[key].defined);
@@ -222,7 +224,7 @@ function computeReading(input: BirthInput): ComputedReading {
   ];
 
   return {
-    natalChart,
+    kpChart,
     bodygraph,
     avatar,
     category,
@@ -232,8 +234,7 @@ function computeReading(input: BirthInput): ComputedReading {
       authority: hd.authority,
       profile: hd.profile,
     }),
-    // `natalChart.warnings` already includes the time-resolution warnings.
-    warnings: [...natalChart.warnings, ...hd.warnings],
+    warnings: [...kpChart.warnings, ...hd.warnings],
   };
 }
 
@@ -346,6 +347,9 @@ export async function POST(request: NextRequest): Promise<Response> {
   try {
     reading = computeReading(birthInput);
   } catch (error) {
+    if (error instanceof AmbiguousBirthTimeError) {
+      return Response.json({ ok: false, needsFold: true, error: error.message }, { status: 409 });
+    }
     // Bad birth data fails loudly here rather than producing a plausible chart.
     return Response.json(
       {
@@ -377,7 +381,8 @@ export async function POST(request: NextRequest): Promise<Response> {
       parsed.data.birth?.birthPlaceName ??
       existingProfile?.birthPlaceName ??
       null,
-    natalChart: reading.natalChart,
+    // JSON round-trip: the snapshot is stored as plain data (dates as ISO strings).
+    kpChart: JSON.parse(JSON.stringify(reading.kpChart)) as Record<string, unknown>,
     bodygraph: reading.bodygraph,
     auraSeat: reading.avatar?.seat ?? "",
     auraFormat: reading.avatar?.format ?? "",

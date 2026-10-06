@@ -1,4 +1,5 @@
-import type { BirthInput } from "@/lib/astrology/types";
+import type { KpBirthInput } from "@/lib/kp/chart";
+import type { NodeType } from "@/lib/kp/positions";
 
 /**
  * Shareable chart codes.
@@ -21,7 +22,9 @@ import type { BirthInput } from "@/lib/astrology/types";
  *   byte 7        second 0–59
  *   bytes 8–11    latitude  × 100000, int32
  *   bytes 12–15   longitude × 100000, int32
- *   bytes 16–19   NOT used for the timezone — see below
+ *   byte 16       KP flags: bits 0–1 DST fold (0 none, 1 earlier, 2 later),
+ *                 bit 2 node type (0 mean, 1 true). Always 0 in version 1.
+ *   bytes 17–19   reserved, 0
  *   byte 20       timezone name length (UTF-8 bytes)
  *   bytes 21..    timezone name (IANA), UTF-8
  *   last byte     FNV-1a checksum of everything before it, truncated to 8 bits
@@ -64,7 +67,12 @@ function checksum(bytes: Uint8Array): number {
   return hash & 0xff;
 }
 
-export function encodeBirthInput(input: BirthInput): string {
+/** Everything a shared link must reproduce: the verified birth moment and the node choice. */
+export interface ShareableBirth extends KpBirthInput {
+  nodeType?: NodeType;
+}
+
+export function encodeBirthInput(input: ShareableBirth): string {
   const tzBytes = new TextEncoder().encode(input.timeZone);
   if (tzBytes.length > 64) {
     throw new Error("Timezone name is unreasonably long");
@@ -89,8 +97,8 @@ export function encodeBirthInput(input: BirthInput): string {
   offset += 4;
   view.setInt32(offset, Math.round(input.longitude * 100000), true);
   offset += 4;
-  // Reserved: longitude/latitude precision at higher scale if ever needed.
-  view.setUint32(offset, 0, true);
+  const foldBits = input.fold === "earlier" ? 1 : input.fold === "later" ? 2 : 0;
+  view.setUint32(offset, foldBits | (input.nodeType === "true" ? 4 : 0), true);
   offset += 4;
   buffer[offset++] = tzBytes.length;
   buffer.set(tzBytes, offset);
@@ -101,7 +109,7 @@ export function encodeBirthInput(input: BirthInput): string {
 }
 
 export interface DecodedBirth {
-  input: BirthInput;
+  input: ShareableBirth;
   /** The place name is not carried in the code; callers may re-geocode. */
   ok: true;
 }
@@ -128,7 +136,10 @@ export function decodeBirthInput(code: string): DecodedBirth | null {
   offset += 4;
   const longitude = view.getInt32(offset, true) / 100000;
   offset += 4;
-  offset += 4; // reserved
+  const flags = bytes[offset];
+  offset += 4;
+  const fold: KpBirthInput["fold"] = (flags & 3) === 1 ? "earlier" : (flags & 3) === 2 ? "later" : undefined;
+  const nodeType: NodeType = flags & 4 ? "true" : "mean";
 
   const tzLength = bytes[offset++];
   if (offset + tzLength > bytes.length - 1) return null;
@@ -162,24 +173,17 @@ export function decodeBirthInput(code: string): DecodedBirth | null {
 
   return {
     ok: true,
-    input: { year, month, day, hour, minute, second, timeZone, latitude, longitude },
+    input: { year, month, day, hour, minute, second, timeZone, latitude, longitude, fold, nodeType },
   };
 }
 
 /** Human-readable label for a chart code, used in headings and share text. */
-export function describeBirth(input: BirthInput): string {
-  const date = new Date(
-    Date.UTC(input.year, input.month - 1, input.day, input.hour, input.minute),
-  );
-  const formatted = date.toLocaleString("en-GB", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZone: "UTC",
-  });
+export function describeBirth(input: ShareableBirth): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  const date = `${input.day} ${months[input.month - 1]} ${input.year}`;
+  const time = `${pad(input.hour)}:${pad(input.minute)}:${pad(input.second ?? 0)}`;
   const lat = `${Math.abs(input.latitude).toFixed(2)}°${input.latitude >= 0 ? "N" : "S"}`;
   const lon = `${Math.abs(input.longitude).toFixed(2)}°${input.longitude >= 0 ? "E" : "W"}`;
-  return `${formatted} · ${lat} ${lon}`;
+  return `${date} · ${time} ${input.timeZone} · ${lat} ${lon}`;
 }

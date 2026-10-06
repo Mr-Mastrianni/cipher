@@ -16,13 +16,11 @@ import {
   Bodygraph,
   BodygraphTextSummary,
 } from "@/components/cipher/bodygraph";
-import { ChartWheel } from "@/components/cipher/chart-wheel";
+import { KpChartPanel } from "@/components/cipher/kp-chart";
+import { toKpView } from "@/lib/kp/view";
 import { Badge, Button, EmptyState } from "@/components/ui";
 import { SiteFooter } from "@/components/chrome/site-footer";
 import { SiteHeader } from "@/components/chrome/site-header";
-import { POINT_GLYPH, POINT_NAME, POINT_ORDER } from "@/lib/astrology/glyphs";
-import { formatLongitude } from "@/lib/astrology/zodiac";
-import type { Position } from "@/lib/astrology/types";
 import { CENTER_MAP } from "@/lib/human-design/constants";
 import {
   AUTHORITY_CONTENT_BY_AUTHORITY,
@@ -177,69 +175,6 @@ function SummaryItem({
   );
 }
 
-const PRECISION_LABEL: Record<Position["precision"], string> = {
-  high: "High",
-  approximate: "Approx.",
-  derived: "Derived",
-};
-
-function PositionsTable({ reading }: { reading: Reading }) {
-  const byKey = new Map(reading.chart.positions.map((p) => [p.key, p]));
-  const rows = POINT_ORDER.map((key) => byKey.get(key)).filter(
-    (position): position is Position => position !== undefined,
-  );
-
-  return (
-    <div className="surface overflow-x-auto rounded-lg">
-      <table className="w-full min-w-[34rem] border-collapse text-left">
-        <caption className="sr-only">
-          Planetary positions, houses, motion and precision for this chart.
-        </caption>
-        <thead>
-          <tr className="border-b border-hairline">
-            {["Body", "Position", "House", "Motion", "Precision"].map((label) => (
-              <th
-                key={label}
-                scope="col"
-                className="px-4 py-3 font-mono text-[10px] font-medium uppercase tracking-[0.18em] text-faint"
-              >
-                {label}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((position) => (
-            <tr key={position.key} className="border-b border-hairline/70 last:border-b-0">
-              <th
-                scope="row"
-                className="whitespace-nowrap px-4 py-3 text-left font-sans text-sm font-normal text-bone"
-              >
-                <span aria-hidden="true" className="mr-2 text-gold">
-                  {POINT_GLYPH[position.key]}
-                </span>
-                {POINT_NAME[position.key]}
-              </th>
-              <td className="whitespace-nowrap px-4 py-3 font-mono text-xs tabular-nums text-code">
-                {formatLongitude(position.longitude)}
-              </td>
-              <td className="px-4 py-3 font-mono text-xs tabular-nums text-muted">
-                {position.house ?? "—"}
-              </td>
-              <td className="px-4 py-3 font-mono text-xs text-muted">
-                {position.retrograde ? "℞ retrograde" : "direct"}
-              </td>
-              <td className="px-4 py-3 text-xs text-faint">
-                {PRECISION_LABEL[position.precision]}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
 /* ---------------------------------------------------------------------------
    Page
    ------------------------------------------------------------------------- */
@@ -248,19 +183,13 @@ function PositionsTable({ reading }: { reading: Reading }) {
  * Decode, compute and render a reading, or a proper not-found state.
  *
  * @param props.params - The share code from the URL.
- * @param props.searchParams - `?time=unknown` when the visitor skipped the hour
- *   in the intake, which the UI must state rather than infer from noon.
  */
 export default async function ReadingPage({
   params,
-  searchParams,
 }: {
   params: Promise<{ code: string }>;
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { code } = await params;
-  const query = await searchParams;
-  const timeFlag = query.time;
   const result = lookupReading(code);
 
   if (result.status !== "ok") {
@@ -295,10 +224,8 @@ export default async function ReadingPage({
   }
 
   const reading = result.reading;
-  const { chart, bodygraph, avatar, category } = reading;
-  const timeUnknown = Array.isArray(timeFlag)
-    ? timeFlag.includes("unknown")
-    : timeFlag === "unknown";
+  const { bodygraph, avatar, category } = reading;
+  const kpView = toKpView(reading.kp);
 
   const typeContent = TYPE_CONTENT_BY_TYPE[bodygraph.type];
   const profileContent = PROFILE_CONTENT_BY_KEY[bodygraph.profile] ?? null;
@@ -373,21 +300,6 @@ export default async function ReadingPage({
               What this reading can and cannot claim
             </h2>
 
-            {timeUnknown ? (
-              <Notice tone="warn" title="Birth time unknown — read with care">
-                <p>
-                  You marked the birth time as unknown, so this chart was
-                  computed for <strong className="text-bone">noon, local time</strong>{" "}
-                  at the place of birth. The Sun, the outer planets and your Aura
-                  Avatar seat are stable across the whole day. The Moon moves
-                  roughly 13° a day, and the Ascendant crosses the zodiac in 24
-                  hours, so the Moon&apos;s gate and line, the profile, the
-                  Ascendant and Midheaven, and every house placement are
-                  placeholders, not facts.
-                </p>
-              </Notice>
-            ) : null}
-
             {signals.length > 0 ? (
               <Notice
                 tone="warn"
@@ -411,20 +323,6 @@ export default async function ReadingPage({
               </Notice>
             ) : null}
 
-            {reading.houseFallback ? (
-              <Notice tone="warn" title="House system fell back">
-                <p>
-                  {chart.houses.fallbackReason ??
-                    "The requested house system could not be computed."}{" "}
-                  The cusps shown use{" "}
-                  <span className="text-bone">{chart.houses.system}</span> instead
-                  of the requested{" "}
-                  <span className="text-bone">{chart.houses.requestedSystem}</span>.
-                  Planet signs and the bodygraph are unaffected.
-                </p>
-              </Notice>
-            ) : null}
-
             {reading.warnings.length > 0 ? (
               <Notice tone="info" title="Computation notes">
                 <ul className="list-disc space-y-1.5 pl-5">
@@ -437,11 +335,12 @@ export default async function ReadingPage({
 
             <Notice tone="info" title="Sources and limits">
               <p>
-                Positions come from the astronomy-engine ephemeris, good to
-                roughly an arcminute against the Swiss Ephemeris. The angles are
-                exact functions of the birth instant, so their real error is the
-                error in the recorded time: about 15′ of Ascendant per minute of
-                clock error. Chiron is omitted rather than approximated.
+                The KP chart uses full VSOP87 and ELP/MPP02 series, verified to
+                within half an arcsecond of the Swiss Ephemeris for the grahas
+                and 0.1″ for the cusps. Its real error is the error in the
+                recorded birth time: a cusp moves about 15″ per second of clock
+                time, which is why KP asks for the time to the second. The
+                Human Design bodygraph is computed from the same instant.
               </p>
             </Notice>
           </section>
@@ -579,28 +478,23 @@ export default async function ReadingPage({
             </div>
           </section>
 
-          {/* ── The natal chart ──────────────────────────────────────── */}
+          {/* ── The KP chart ───────────────────────────────────────── */}
           <section aria-labelledby="chart-title" className="flex flex-col gap-6">
             <div className="flex flex-col gap-2">
               <h2
                 id="chart-title"
                 className="font-display text-2xl leading-tight text-bone"
               >
-                The natal chart
+                The KP chart
               </h2>
               <p className="max-w-2xl text-sm leading-relaxed text-muted">
-                A tropical chart with the Ascendant anchored at nine o&apos;clock
-                and longitude increasing counter-clockwise. The table below
-                carries the same data for screen readers, printing and copying.
+                Krishnamurti Paddhati, sidereal, with Placidus cusps and the full
+                sign, star, sub and sub-sub lordship of every graha and cusp.
+                Birth moment {kpView.birth.local.replace("T", " ")} ({kpView.birth.utcOffset}
+                {kpView.birth.isDst ? ", daylight saving" : ""}) = {kpView.birth.utc.replace("T", " ").replace(".000Z", " UTC")}.
               </p>
             </div>
-
-            <div className="grid gap-10 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:items-start">
-              <div className="surface rounded-lg p-4">
-                <ChartWheel chart={chart} />
-              </div>
-              <PositionsTable reading={reading} />
-            </div>
+            <KpChartPanel chart={kpView} />
           </section>
 
           {/* ── The nine centres ─────────────────────────────────────── */}

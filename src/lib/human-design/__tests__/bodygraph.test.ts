@@ -46,7 +46,7 @@ import {
   computeActivations,
 } from "../bodygraph";
 import { computeHumanDesign } from "../index";
-import { normalize } from "../../astrology/zodiac";
+import { normalize } from "../../astronomy/angles";
 
 // ── Fixtures ────────────────────────────────────────────────────────────────
 

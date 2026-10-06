@@ -47,7 +47,6 @@ import type {
   CenterKey,
   HumanDesignType,
 } from "@/lib/human-design/constants";
-import type { NatalChart } from "@/lib/astrology/types";
 
 /* ────────────────────────────────────────────────────────────────────────────
  * Enums
@@ -344,8 +343,10 @@ export const birthProfiles = pgTable(
     birthLongitude: doublePrecision("birth_longitude").notNull(),
     birthPlaceName: text("birth_place_name"),
 
-    // Computed chart + bodygraph. Null until the engine has run.
-    natalChart: jsonb("natal_chart").$type<NatalChart>(),
+    // Computed KP chart snapshot (JSON-serialised `KpChart`) + bodygraph.
+    // Null until the engine has run. Pages recompute the KP chart from the
+    // birth data, so the snapshot is a record of what was shown, not a cache.
+    kpChart: jsonb("kp_chart").$type<Record<string, unknown>>(),
     bodygraph: jsonb("bodygraph").$type<Bodygraph>(),
 
     // Derived aura avatar.

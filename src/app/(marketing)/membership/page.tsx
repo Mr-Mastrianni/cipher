@@ -36,7 +36,7 @@ const TIERS = [
     description:
       "The whole chart and the whole bodygraph, computed and kept. No account required to see it, and no time limit on it.",
     features: [
-      "Your full natal chart and bodygraph",
+      "Your full KP chart and bodygraph",
       "Your Aura Avatar",
       "The nine centres, read in full",
       "One foundation course",
@@ -78,8 +78,7 @@ const TIERS = [
       "Everything in Initiate",
       "Call recordings and archives",
       "The extended readings library",
-      "Chart comparison and synastry",
-      "Transit and progression tracking",
+      "KP horary and ruling-planet timing (in development)",
       "Priority in the live call queue",
     ],
     cta: "Apply for membership",
@@ -118,7 +117,7 @@ interface ComparisonRow {
 }
 
 const COMPARISON: readonly ComparisonRow[] = [
-  { label: "Full natal chart and bodygraph", threshold: true, initiate: true, adept: true, oracle: true },
+  { label: "Full KP chart and bodygraph", threshold: true, initiate: true, adept: true, oracle: true },
   { label: "Aura Avatar", threshold: true, initiate: true, adept: true, oracle: true },
   { label: "Nine-centre reading", threshold: true, initiate: true, adept: true, oracle: true },
   { label: "Foundation course", threshold: true, initiate: true, adept: true, oracle: true },
@@ -130,8 +129,7 @@ const COMPARISON: readonly ComparisonRow[] = [
   { label: "Call recordings and archives", threshold: false, initiate: false, adept: true, oracle: true },
   { label: "Every course track", threshold: false, initiate: true, adept: true, oracle: true },
   { label: "Extended readings library", threshold: false, initiate: false, adept: true, oracle: true },
-  { label: "Chart comparison and synastry", threshold: false, initiate: false, adept: true, oracle: true },
-  { label: "Transit and progression tracking", threshold: false, initiate: false, adept: true, oracle: true },
+  { label: "KP horary and ruling-planet timing (in development)", threshold: false, initiate: false, adept: true, oracle: true },
   { label: "Monthly reading circle", threshold: false, initiate: false, adept: false, oracle: true },
   { label: "Direct line to the studio", threshold: false, initiate: false, adept: false, oracle: true },
   { label: "Early access to new engines", threshold: false, initiate: false, adept: false, oracle: true },

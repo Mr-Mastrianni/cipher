@@ -12,9 +12,7 @@
  * lets a visitor receive a full reading with nothing configured.
  */
 
-import { computeNatalChart } from "@/lib/astrology/chart";
-import { resolveBirthInstantDetailed } from "@/lib/astrology/time";
-import type { BirthInput, NatalChart } from "@/lib/astrology/types";
+import { computeKpChart, type KpChart } from "@/lib/kp/chart";
 import { CHANNEL_BY_GATES, type CenterKey } from "@/lib/human-design/constants";
 import { computeHumanDesign } from "@/lib/human-design";
 import type { Bodygraph } from "@/lib/human-design";
@@ -26,15 +24,16 @@ import {
   type CategorizationInput,
   type MemberCategory,
 } from "@/lib/cipher/categorization";
-import { encodeBirthInput } from "@/lib/cipher/share-code";
+import { encodeBirthInput, type ShareableBirth } from "@/lib/cipher/share-code";
 import type { BodygraphVisualization } from "@/components/cipher/bodygraph";
 
 /** Everything the reveal screen and the chart API both need, computed once. */
 export interface Reading {
-  input: BirthInput;
+  input: ShareableBirth;
   /** The share code for exactly this input. */
   code: string;
-  chart: NatalChart;
+  /** The KP chart — the platform's only astrology system. */
+  kp: KpChart;
   bodygraph: Bodygraph;
   /** `null` only if the ephemeris produced no usable Personality Sun. */
   avatar: AuraAvatar | null;
@@ -47,10 +46,6 @@ export interface Reading {
   visualization: BodygraphVisualization;
   /** Time resolution + chart + bodygraph warnings, in that order. */
   warnings: string[];
-  /** Warnings produced while resolving the wall clock to a UTC instant. */
-  timeWarnings: string[];
-  /** True when the requested house system had to be swapped for a fallback. */
-  houseFallback: boolean;
 }
 
 /**
@@ -105,9 +100,9 @@ function categorizationInput(bodygraph: Bodygraph): CategorizationInput {
 /**
  * Compute the complete reading for a birth input.
  *
- * Pipeline, in order: resolve the wall clock to a UTC instant (reporting DST
- * gaps and folds rather than hiding them), compute the Western tropical chart,
- * compute the Human Design bodygraph from that instant, derive the Aura Avatar,
+ * Pipeline, in order: resolve and verify the birth moment (seconds required,
+ * DST folds explicit, gaps refused), cast the KP chart, compute the Human
+ * Design bodygraph from the same instant, derive the Aura Avatar,
  * then place the member into a cohort, archetype and lane.
  *
  * @param input - Birth date, time, timezone and coordinates.
@@ -116,11 +111,11 @@ function categorizationInput(bodygraph: Bodygraph): CategorizationInput {
  *   whatever the ephemeris throws if a body cannot be resolved. Callers must
  *   treat a throw as an invalid input rather than papering over it.
  */
-export function computeReading(input: BirthInput): Reading {
-  const { date, warnings: timeWarnings } = resolveBirthInstantDetailed(input);
-
-  const chart = computeNatalChart(input);
-  const bodygraph = computeHumanDesign(date);
+export function computeReading(input: ShareableBirth): Reading {
+  // KP resolves and verifies the birth moment (seconds required, DST folds
+  // explicit) and throws rather than guessing; Human Design uses the same instant.
+  const kp = computeKpChart(input, { nodeType: input.nodeType });
+  const bodygraph = computeHumanDesign(new Date(kp.birth.utc));
 
   const openCentres = (Object.keys(bodygraph.centers) as CenterKey[]).filter(
     (key) => !bodygraph.centers[key].defined,
@@ -144,7 +139,7 @@ export function computeReading(input: BirthInput): Reading {
   return {
     input,
     code: encodeBirthInput(input),
-    chart,
+    kp,
     bodygraph,
     avatar,
     category,
@@ -155,10 +150,7 @@ export function computeReading(input: BirthInput): Reading {
     }),
     chips: categoryChips(structural),
     visualization: toVisualization(bodygraph),
-    // `chart.warnings` already begins with the time-resolution warnings.
-    warnings: [...chart.warnings, ...bodygraph.warnings],
-    timeWarnings,
-    houseFallback: chart.houses.fallback,
+    warnings: [...kp.warnings, ...bodygraph.warnings],
   };
 }
 
@@ -172,7 +164,7 @@ export function computeReading(input: BirthInput): Reading {
 export interface ReadingPayload {
   ok: true;
   code: string;
-  chart: NatalChart;
+  kp: KpChart;
   bodygraph: Bodygraph;
   avatar: AuraAvatar | null;
   category: MemberCategory;
@@ -189,7 +181,7 @@ export function readingPayload(reading: Reading): ReadingPayload {
   return {
     ok: true,
     code: reading.code,
-    chart: reading.chart,
+    kp: reading.kp,
     bodygraph: reading.bodygraph,
     avatar: reading.avatar,
     category: reading.category,

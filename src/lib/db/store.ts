@@ -34,7 +34,6 @@ import {
   type SQL,
 } from "drizzle-orm";
 
-import type { NatalChart } from "@/lib/astrology/types";
 
 import { db, isDatabaseConfigured, type Database } from "./client";
 import {
@@ -185,7 +184,7 @@ export interface UpsertBirthProfileInput {
   birthLatitude: number;
   birthLongitude: number;
   birthPlaceName?: string | null;
-  natalChart?: NatalChart | null;
+  kpChart?: Record<string, unknown> | null;
   bodygraph?: Bodygraph | null;
   auraSeat?: string;
   auraFormat?: string;
@@ -889,7 +888,7 @@ export class MemoryStore implements Store {
       birthLatitude: input.birthLatitude,
       birthLongitude: input.birthLongitude,
       birthPlaceName: input.birthPlaceName ?? null,
-      natalChart: input.natalChart ?? null,
+      kpChart: input.kpChart ?? null,
       bodygraph: input.bodygraph ?? null,
       auraSeat: input.auraSeat ?? "",
       auraFormat: input.auraFormat ?? "",
@@ -2344,7 +2343,7 @@ export class PostgresStore implements Store {
     if (input.birthPlaceName !== undefined) {
       values.birthPlaceName = input.birthPlaceName;
     }
-    if (input.natalChart !== undefined) values.natalChart = input.natalChart;
+    if (input.kpChart !== undefined) values.kpChart = input.kpChart;
     if (input.bodygraph !== undefined) values.bodygraph = input.bodygraph;
     if (input.auraSeat !== undefined) values.auraSeat = input.auraSeat;
     if (input.auraFormat !== undefined) values.auraFormat = input.auraFormat;

@@ -16,7 +16,7 @@
  * orbital speed.
  */
 
-import { sunPosition } from "../astrology/ephemeris";
+import { sunPosition } from "../astronomy/ephemeris";
 
 /** Solar arc, in degrees, between the Design Sun and the natal Sun. */
 export const DESIGN_SOLAR_ARC_DEGREES = 88;

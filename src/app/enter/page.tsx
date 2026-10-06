@@ -39,7 +39,11 @@ import { SiteHeader } from "@/components/chrome/site-header";
 import { useSound } from "@/components/providers/sound-provider";
 import { cn } from "@/lib/utils";
 import { useBrowserValue } from "@/lib/hooks/use-browser-value";
-import type { BirthInput } from "@/lib/astrology/types";
+import {
+  BirthVerification,
+  type BirthMomentDraft,
+  type VerifiedBirth,
+} from "@/components/cipher/birth-verification";
 
 /* ---------------------------------------------------------------------------
    Constants and small helpers
@@ -69,10 +73,10 @@ const STEPS = [
   },
   {
     id: "time",
-    label: "The hour",
-    title: "At what hour?",
+    label: "The second",
+    title: "At what exact second?",
     blurb:
-      "The hour sets the Moon, the Ascendant, and everything built on them.",
+      "KP needs the birth time to the second: a cusp moves about 15″ of arc per second of clock time.",
   },
   {
     id: "place",
@@ -80,11 +84,18 @@ const STEPS = [
     title: "Where on the planet?",
     blurb: "Coordinates and an IANA timezone fix the chart to a single instant.",
   },
+  {
+    id: "verify",
+    label: "Verify",
+    title: "Confirm the exact moment",
+    blurb: "Check the time zone, UTC offset and daylight saving before the chart is cast. Nothing is guessed.",
+  },
 ] as const;
 
 const LOADING_LINES = [
-  "Resolving your birth instant…",
-  "Placing the Sun, Moon and angles…",
+  "Resolving your birth instant to the second…",
+  "Placing the nine grahas against the KP ayanamsa…",
+  "Raising the Placidus cusps and their sub lords…",
   "Casting the Design chart at 88° of solar arc…",
   "Tracing the 36 channels and 9 centres…",
   "Drawing your Aura Avatar…",
@@ -145,7 +156,7 @@ function readLastChartCode(): string | null {
   }
 }
 
-type FieldName = "date" | "time" | "place" | "manual";
+type FieldName = "date" | "time" | "place" | "verify" | "manual";
 type Errors = Partial<Record<FieldName, string>>;
 
 function digitsOnly(value: string, maxLength: number): string {
@@ -190,6 +201,7 @@ const datePartsSchema = z
 const timePartsSchema = z.object({
   hour: z.number().int().min(0, "Hours run from 0 to 23.").max(23, "Hours run from 0 to 23."),
   minute: z.number().int().min(0, "Minutes run from 0 to 59.").max(59, "Minutes run from 0 to 59."),
+  second: z.number().int().min(0, "Seconds run from 0 to 59.").max(59, "Seconds run from 0 to 59."),
 });
 
 const manualSchema = z.object({
@@ -234,7 +246,10 @@ export default function EnterPage() {
   // Step 2 — the hour.
   const [hour, setHour] = useState("");
   const [minute, setMinute] = useState("");
-  const [timeUnknown, setTimeUnknown] = useState(false);
+  const [second, setSecond] = useState("");
+
+  // Step 4 — verification. `verified` is set only once the person confirms.
+  const [verified, setVerified] = useState<VerifiedBirth | null>(null);
 
   // Step 3 — the place.
   const [query, setQuery] = useState("");
@@ -365,15 +380,15 @@ export default function EnterPage() {
   }
 
   function validateTime(): Errors {
-    if (timeUnknown) return {};
-    if (hour === "" || minute === "") {
+    if (hour === "" || minute === "" || second === "") {
       return {
-        time: "Enter the hour and minute, or mark the time as unknown below.",
+        time: "Enter the hour, minute and second. KP charts are not cast without the exact second.",
       };
     }
     const parsed = timePartsSchema.safeParse({
       hour: Number(hour),
       minute: Number(minute),
+      second: Number(second),
     });
     if (!parsed.success) {
       return { time: parsed.error.issues[0]?.message ?? "That time is not valid." };
@@ -404,8 +419,26 @@ export default function EnterPage() {
   function validateStep(index: number): Errors {
     if (index === 0) return validateDate();
     if (index === 1) return validateTime();
-    return validatePlace();
+    if (index === 2) return validatePlace();
+    return verified ? {} : { verify: "Confirm the birth moment above to cast the chart." };
   }
+
+  /** The moment as entered, for the verification step. */
+  const draft: BirthMomentDraft | null =
+    place?.timeZone && hour !== "" && minute !== "" && second !== ""
+      ? {
+          year: Number(year),
+          month: Number(month),
+          day: Number(day),
+          hour: Number(hour),
+          minute: Number(minute),
+          second: Number(second),
+          timeZone: place.timeZone,
+          latitude: place.latitude,
+          longitude: place.longitude,
+          placeName: place.name,
+        }
+      : null;
 
   function goNext() {
     const found = validateStep(step);
@@ -416,6 +449,7 @@ export default function EnterPage() {
     }
     setErrors({});
     play("advance");
+    if (step === 2) setVerified(null);
     setStep((current) => Math.min(current + 1, STEPS.length - 1));
   }
 
@@ -477,28 +511,12 @@ export default function EnterPage() {
   }
 
   async function submit() {
-    const found = validatePlace();
-    if (Object.keys(found).length > 0) {
-      setErrors(found);
+    if (!verified) {
+      setErrors({ verify: "Confirm the birth moment above to cast the chart." });
       play("error");
       return;
     }
-    if (!place?.timeZone) return;
-
-    const input: BirthInput = {
-      year: Number(year),
-      month: Number(month),
-      day: Number(day),
-      // Noon is the conventional placeholder for an unknown time, and the code
-      // carries no flag to lie about: the reveal screen is told separately.
-      hour: timeUnknown ? 12 : Number(hour),
-      minute: timeUnknown ? 0 : Number(minute),
-      second: 0,
-      timeZone: place.timeZone,
-      latitude: place.latitude,
-      longitude: place.longitude,
-      placeName: place.name,
-    };
+    const input = verified;
 
     setSubmitting(true);
     setErrors({});
@@ -513,7 +531,7 @@ export default function EnterPage() {
       const data = (await response.json()) as ChartApiResponse;
       if (!response.ok || !data.ok || !data.code) {
         setErrors({
-          place: data.error ?? "The chart could not be computed from that data.",
+          verify: data.error ?? "The chart could not be computed from that data.",
         });
         setSubmitting(false);
         play("error");
@@ -524,14 +542,10 @@ export default function EnterPage() {
       } catch {
         // Private mode can refuse storage; the reading is still reachable by URL.
       }
-      router.push(
-        timeUnknown
-          ? `/reading/${data.code}?time=unknown`
-          : `/reading/${data.code}`,
-      );
+      router.push(`/reading/${data.code}`);
     } catch {
       setErrors({
-        place:
+        verify:
           "We could not reach the server. Check your connection and try again.",
       });
       setSubmitting(false);
@@ -753,111 +767,56 @@ export default function EnterPage() {
                   </fieldset>
                 ) : null}
 
-                {/* ── Step 2: the hour ───────────────────────────────── */}
+                {/* ── Step 2: the exact second ───────────────────────── */}
                 {step === 1 ? (
                   <fieldset className="flex flex-col gap-6">
-                    <legend className="sr-only">Time of birth</legend>
-                    <div className="grid gap-5 sm:grid-cols-2">
-                      <Field
-                        label="Hour (24-hour)"
-                        description="0–23, local clock time at the place of birth."
-                        required={!timeUnknown}
-                      >
+                    <legend className="sr-only">Time of birth, to the second</legend>
+                    <div className="grid gap-5 sm:grid-cols-3">
+                      <Field label="Hour (24-hour)" description="0–23, local clock time at the place of birth." required>
                         <Input
                           type="text"
                           inputMode="numeric"
                           placeholder="07"
-                          value={timeUnknown ? "" : hour}
-                          disabled={timeUnknown}
+                          value={hour}
                           invalid={Boolean(errors.time)}
-                          onChange={(event) =>
-                            setHour(digitsOnly(event.target.value, 2))
-                          }
+                          onChange={(event) => setHour(digitsOnly(event.target.value, 2))}
                           aria-label="Hour of birth"
                         />
                       </Field>
-                      <Field
-                        label="Minute"
-                        description="If the record says 7:24, the minute is 24."
-                        required={!timeUnknown}
-                      >
+                      <Field label="Minute" description="0–59." required>
                         <Input
                           type="text"
                           inputMode="numeric"
-                          placeholder="30"
-                          value={timeUnknown ? "" : minute}
-                          disabled={timeUnknown}
+                          placeholder="24"
+                          value={minute}
                           invalid={Boolean(errors.time)}
-                          onChange={(event) =>
-                            setMinute(digitsOnly(event.target.value, 2))
-                          }
+                          onChange={(event) => setMinute(digitsOnly(event.target.value, 2))}
                           aria-label="Minute of birth"
                         />
                       </Field>
-                    </div>
-
-                    <div
-                      className={cn(
-                        "rounded-lg border p-5 transition-colors",
-                        timeUnknown
-                          ? "border-gold/40 bg-gold/5"
-                          : "border-hairline bg-ink/50",
-                      )}
-                    >
-                      <label className="flex cursor-pointer items-start gap-3">
-                        <input
-                          type="checkbox"
-                          checked={timeUnknown}
-                          onChange={(event) => {
-                            setTimeUnknown(event.target.checked);
-                            setErrors({});
-                            play(event.target.checked ? "confirm" : "select");
-                          }}
-                          className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer appearance-none rounded-sm border border-line bg-transparent transition-colors checked:border-gold checked:bg-gold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 focus-visible:ring-offset-void"
+                      <Field label="Second" description="0–59. Required for KP." required>
+                        <Input
+                          type="text"
+                          inputMode="numeric"
+                          placeholder="09"
+                          value={second}
+                          invalid={Boolean(errors.time)}
+                          onChange={(event) => setSecond(digitsOnly(event.target.value, 2))}
+                          aria-label="Second of birth"
                         />
-                        <span className="flex flex-col gap-1">
-                          <span className="text-sm text-bone">
-                            I don&apos;t know my birth time
-                          </span>
-                          <span className="text-xs leading-relaxed text-faint">
-                            We will compute for noon, local time, and label the
-                            result honestly.
-                          </span>
+                      </Field>
+                    </div>
+                    <div className="rounded-lg border border-hairline bg-ink/50 p-5 text-sm leading-relaxed text-muted">
+                      <p className="flex items-start gap-2">
+                        <Clock aria-hidden="true" strokeWidth={1.5} className="mt-0.5 h-4 w-4 shrink-0 text-gold" />
+                        <span>
+                          <span className="text-bone">Why the second matters.</span> In Krishnamurti
+                          Paddhati the sub lord of each cusp decides the matter, and a cusp crosses a sub in
+                          as little as a minute of clock time. Take the time from the birth record. If the
+                          record gives only minutes, enter 00 seconds and treat any cusp flagged as
+                          sensitive with care.
                         </span>
-                      </label>
-
-                      {timeUnknown ? (
-                        <div className="mt-5 space-y-3 border-t border-hairline pt-5 text-sm leading-relaxed text-muted">
-                          <p className="flex items-start gap-2">
-                            <Clock
-                              aria-hidden="true"
-                              strokeWidth={1.5}
-                              className="mt-0.5 h-4 w-4 shrink-0 text-teal"
-                            />
-                            <span>
-                              <span className="text-bone">Still accurate:</span>{" "}
-                              the Sun, Mercury, Venus, Mars and the outer planets
-                              barely move in a day, so their signs, gates and the
-                              Aura Avatar seat survive.
-                            </span>
-                          </p>
-                          <p className="flex items-start gap-2">
-                            <TriangleAlert
-                              aria-hidden="true"
-                              strokeWidth={1.5}
-                              className="mt-0.5 h-4 w-4 shrink-0 text-warn"
-                            />
-                            <span>
-                              <span className="text-bone">Not accurate:</span>{" "}
-                              the Moon travels about 13° a day, and the Ascendant
-                              crosses the entire zodiac in 24 hours. The Moon&apos;s
-                              gate, the profile, the Ascendant and Midheaven, and
-                              all twelve houses are unreliable, and we will say so
-                              on the reading rather than dress them up.
-                            </span>
-                          </p>
-                        </div>
-                      ) : null}
+                      </p>
                     </div>
                   </fieldset>
                 ) : null}
@@ -1053,6 +1012,11 @@ export default function EnterPage() {
                     </div>
                   </fieldset>
                 ) : null}
+
+                {/* ── Step 4: verification ──────────────────────────── */}
+                {step === 3 && draft ? (
+                  <BirthVerification key={JSON.stringify(draft)} draft={draft} onChange={setVerified} />
+                ) : null}
               </div>
 
               {/* ── Errors ─────────────────────────────────────────── */}
@@ -1104,7 +1068,7 @@ export default function EnterPage() {
                       )
                     }
                   >
-                    Compute my reading
+                    Cast my KP chart
                   </Button>
                 )}
               </div>

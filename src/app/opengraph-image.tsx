@@ -91,7 +91,7 @@ export default function OpengraphImage() {
             letterSpacing: 1,
           }}
         >
-          Human Design bodygraph · natal chart · aura avatar
+          KP chart · Human Design bodygraph · aura avatar
         </div>
       </div>
     ),
