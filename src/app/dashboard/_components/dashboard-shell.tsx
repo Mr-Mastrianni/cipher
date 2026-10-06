@@ -26,6 +26,7 @@ import { Switch } from "@/components/ui/switch";
 import { Spinner } from "@/components/ui/spinner";
 import { THEME_LABEL, THEMES, useTheme, type Theme } from "@/components/providers/theme-provider";
 import { useSound } from "@/components/providers/sound-provider";
+import { useBrowserValue } from "@/lib/hooks/use-browser-value";
 import { cn } from "@/lib/utils";
 import type { AuraAvatar } from "@/lib/cipher/aura-avatar";
 import { AuraAvatarChip } from "@/components/cipher/aura-avatar-card";
@@ -420,9 +421,14 @@ export function Countdown({ to, label }: { to: string; label: string }) {
   const [remaining, setRemaining] = useState(() => target - Date.now());
 
   useEffect(() => {
-    setRemaining(target - Date.now());
-    const id = window.setInterval(() => setRemaining(target - Date.now()), 1000);
-    return () => window.clearInterval(id);
+    const tick = () => setRemaining(target - Date.now());
+    // Resync at once (the target may have changed), then once a second.
+    const first = window.setTimeout(tick, 0);
+    const id = window.setInterval(tick, 1000);
+    return () => {
+      window.clearTimeout(first);
+      window.clearInterval(id);
+    };
   }, [target]);
 
   return (
@@ -566,6 +572,24 @@ export function ReadingActions({ shareUrl }: { shareUrl: string }) {
 
 const PREFS_KEY = "cipher:notification-prefs";
 
+/** The stored preference JSON, or "" when there is none or storage is unavailable. */
+function readStoredPrefs(): string {
+  try {
+    return window.localStorage.getItem(PREFS_KEY) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function parseStoredPrefs(raw: string | null): Partial<NotificationPrefs> {
+  if (!raw) return {};
+  try {
+    return JSON.parse(raw) as Partial<NotificationPrefs>;
+  } catch {
+    return {};
+  }
+}
+
 interface NotificationPrefs {
   calls: boolean;
   community: boolean;
@@ -598,23 +622,20 @@ export function MemberPreferences({
 }) {
   const { theme, setTheme } = useTheme();
   const { enabled, setEnabled, play } = useSound();
-  const [prefs, setPrefs] = useState<NotificationPrefs>(DEFAULT_PREFS);
-  const [loaded, setLoaded] = useState(false);
+  // `null` during SSR and hydration; the stored JSON (or "") on the client.
+  const storedPrefs = useBrowserValue(readStoredPrefs, null);
+  const loaded = storedPrefs !== null;
+  const [edits, setEdits] = useState<Partial<NotificationPrefs>>({});
+  const prefs = useMemo(
+    () => ({ ...DEFAULT_PREFS, ...parseStoredPrefs(storedPrefs), ...edits }),
+    [storedPrefs, edits],
+  );
   const [portal, setPortal] = useState<"idle" | "loading" | "missing" | "error">("idle");
 
-  useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem(PREFS_KEY);
-      if (raw) setPrefs({ ...DEFAULT_PREFS, ...(JSON.parse(raw) as Partial<NotificationPrefs>) });
-    } catch {
-      /* storage unavailable — defaults are fine */
-    }
-    setLoaded(true);
-  }, []);
 
   const updatePref = (key: keyof NotificationPrefs, value: boolean) => {
     const next = { ...prefs, [key]: value };
-    setPrefs(next);
+    setEdits((current) => ({ ...current, [key]: value }));
     play("tick");
     try {
       window.localStorage.setItem(PREFS_KEY, JSON.stringify(next));

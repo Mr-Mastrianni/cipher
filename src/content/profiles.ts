@@ -107,8 +107,8 @@ export const PROFILE_CONTENT: readonly ProfileContent[] = [
   {
     key: "4/6",
     name: "Opportunist / Role Model",
-    angle: "left",
-    theme: "Transpersonal influence — the network that carries a message outward.",
+    angle: "right",
+    theme: "Personal destiny — the network that carries a message outward.",
     body: "Your life is carried by other people, and it takes time to become clear what it is carrying. Early on there is the turbulence of the third line, then a long stretch of watching from a little distance. What emerges is a message that travels through friendship, generation to generation, rather than through position or platform. You are a relay, and a durable one.",
     relating:
       "You tend to be the connective tissue in a group, the person who knows someone who knows someone. Intimacy and distance alternate, and both are necessary. People you met decades ago may still be part of how your life moves.",

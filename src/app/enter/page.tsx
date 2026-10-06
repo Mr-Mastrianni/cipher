@@ -38,6 +38,7 @@ import { Cosmogram } from "@/components/cipher/cosmogram";
 import { SiteHeader } from "@/components/chrome/site-header";
 import { useSound } from "@/components/providers/sound-provider";
 import { cn } from "@/lib/utils";
+import { useBrowserValue } from "@/lib/hooks/use-browser-value";
 import type { BirthInput } from "@/lib/astrology/types";
 
 /* ---------------------------------------------------------------------------
@@ -106,6 +107,42 @@ interface ChartApiResponse {
   ok?: boolean;
   code?: string;
   error?: string;
+}
+
+/** The outcome of one settled place lookup, tagged with the query it answers. */
+interface SearchOutcome {
+  query: string;
+  results: PlaceResult[];
+  state: "ready" | "empty" | "error";
+  error: string | null;
+}
+
+const NO_RESULTS: PlaceResult[] = [];
+const NO_SEARCH: SearchOutcome = { query: "", results: NO_RESULTS, state: "empty", error: null };
+const NO_ZONES: string[] = [];
+
+let cachedZones: string[] | null = null;
+
+/** The IANA zone list for the manual datalist; `Intl.supportedValuesOf` is not in every runtime. */
+function readTimeZones(): string[] {
+  if (cachedZones) return cachedZones;
+  try {
+    cachedZones =
+      typeof Intl.supportedValuesOf === "function"
+        ? [...Intl.supportedValuesOf("timeZone")]
+        : NO_ZONES;
+  } catch {
+    cachedZones = NO_ZONES;
+  }
+  return cachedZones;
+}
+
+function readLastChartCode(): string | null {
+  try {
+    return window.localStorage.getItem("cipher:last-chart");
+  } catch {
+    return null;
+  }
 }
 
 type FieldName = "date" | "time" | "place" | "manual";
@@ -202,45 +239,37 @@ export default function EnterPage() {
   // Step 3 — the place.
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
-  const [results, setResults] = useState<PlaceResult[]>([]);
-  const [searchState, setSearchState] = useState<
-    "idle" | "loading" | "ready" | "empty" | "error"
-  >("idle");
-  const [searchError, setSearchError] = useState<string | null>(null);
+  // The last settled lookup, tagged with the query it answers. Loading and idle
+  // are derived from it rather than set from inside the effect.
+  const [search, setSearch] = useState<SearchOutcome>(NO_SEARCH);
+  // A query whose results the visitor dismissed (Escape, or picking a place).
+  const [dismissedQuery, setDismissedQuery] = useState<string | null>(null);
   const [activeIndex, setActiveIndex] = useState(-1);
   const [place, setPlace] = useState<PlaceResult | null>(null);
   const [manualOpen, setManualOpen] = useState(false);
   const [manualLat, setManualLat] = useState("");
   const [manualLon, setManualLon] = useState("");
   const [manualZone, setManualZone] = useState("");
-  const [zones, setZones] = useState<string[]>([]);
+  const zones = useBrowserValue(readTimeZones, NO_ZONES);
 
-  const [lastCode, setLastCode] = useState<string | null>(null);
+  /* A returning visitor should not have to re-enter their birth data. */
+  const storedLastCode = useBrowserValue(readLastChartCode, null);
+  const [lastCodeDismissed, setLastCodeDismissed] = useState(false);
+  const lastCode = lastCodeDismissed ? null : storedLastCode;
+
+  const searching = debouncedQuery.length >= 2 && dismissedQuery !== debouncedQuery;
+  const settled = search.query === debouncedQuery;
+  const results = searching && settled ? search.results : NO_RESULTS;
+  const searchState: "idle" | "loading" | "ready" | "empty" | "error" = !searching
+    ? "idle"
+    : settled
+      ? search.state
+      : "loading";
+  const searchError = searching && settled ? search.error : null;
 
   const headingRef = useRef<HTMLHeadingElement>(null);
   /* Focus should follow a step change, but not steal focus on first paint. */
   const mountedRef = useRef(false);
-
-  /* The IANA zone list is only used to power the manual datalist, so it is read
-     after mount — `Intl.supportedValuesOf` is not present in every runtime. */
-  useEffect(() => {
-    try {
-      if (typeof Intl.supportedValuesOf === "function") {
-        setZones([...Intl.supportedValuesOf("timeZone")]);
-      }
-    } catch {
-      setZones([]);
-    }
-  }, []);
-
-  /* A returning visitor should not have to re-enter their birth data. */
-  useEffect(() => {
-    try {
-      setLastCode(window.localStorage.getItem("cipher:last-chart"));
-    } catch {
-      setLastCode(null);
-    }
-  }, []);
 
   /* Debounce the type-ahead so a fast typist makes one request, not ten. */
   useEffect(() => {
@@ -252,14 +281,8 @@ export default function EnterPage() {
   }, [query]);
 
   useEffect(() => {
-    if (debouncedQuery.length < 2) {
-      setResults([]);
-      setSearchState("idle");
-      setSearchError(null);
-      return;
-    }
+    if (debouncedQuery.length < 2) return;
     const controller = new AbortController();
-    setSearchState("loading");
     void (async () => {
       try {
         const response = await fetch(
@@ -271,26 +294,32 @@ export default function EnterPage() {
           error?: string;
         };
         if (!response.ok) {
-          setResults([]);
-          setSearchState("error");
-          setSearchError(
-            data.error ??
+          setSearch({
+            query: debouncedQuery,
+            results: NO_RESULTS,
+            state: "error",
+            error:
+              data.error ??
               "The place lookup is unavailable. Enter your coordinates by hand below.",
-          );
+          });
           return;
         }
         const found = data.results ?? [];
-        setResults(found);
+        setSearch({
+          query: debouncedQuery,
+          results: found,
+          state: found.length > 0 ? "ready" : "empty",
+          error: null,
+        });
         setActiveIndex(found.length > 0 ? 0 : -1);
-        setSearchState(found.length > 0 ? "ready" : "empty");
-        setSearchError(null);
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") return;
-        setResults([]);
-        setSearchState("error");
-        setSearchError(
-          "We could not reach the place lookup. Enter your coordinates by hand below.",
-        );
+        setSearch({
+          query: debouncedQuery,
+          results: NO_RESULTS,
+          state: "error",
+          error: "We could not reach the place lookup. Enter your coordinates by hand below.",
+        });
       }
     })();
     return () => controller.abort();
@@ -400,8 +429,7 @@ export default function EnterPage() {
     setPlace(result);
     setErrors({});
     setQuery(result.displayName);
-    setResults([]);
-    setSearchState("idle");
+    setDismissedQuery(debouncedQuery);
     setActiveIndex(-1);
     play("confirm");
     if (!result.timeZone) {
@@ -523,8 +551,7 @@ export default function EnterPage() {
 
   function handleSearchKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
     if (event.key === "Escape") {
-      setResults([]);
-      setSearchState("idle");
+      setDismissedQuery(debouncedQuery);
       return;
     }
     if (searchState !== "ready" || results.length === 0) return;
@@ -571,7 +598,7 @@ export default function EnterPage() {
                     } catch {
                       // Ignore storage failures; the banner is cosmetic.
                     }
-                    setLastCode(null);
+                    setLastCodeDismissed(true);
                   }}
                   className="rounded-sm px-2 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-faint transition-colors hover:text-bone focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 focus-visible:ring-offset-void"
                 >

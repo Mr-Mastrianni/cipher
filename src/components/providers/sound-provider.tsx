@@ -7,6 +7,7 @@ import {
   useEffect,
   useMemo,
   useState,
+  useSyncExternalStore,
 } from "react";
 import { cue, sound, type Cue } from "@/lib/audio/sound-engine";
 
@@ -20,18 +21,25 @@ interface SoundContextValue {
 
 const SoundContext = createContext<SoundContextValue | null>(null);
 
-export function SoundProvider({ children }: { children: React.ReactNode }) {
-  const [enabled, setEnabledState] = useState(false);
-  const [unlocked, setUnlocked] = useState(false);
+/** Subscribe React to the engine's preference; `init` is idempotent. */
+function subscribeToSound(onChange: () => void): () => void {
+  sound.init();
+  const unsubscribe = sound.subscribe(onChange);
+  return () => {
+    unsubscribe();
+  };
+}
 
-  useEffect(() => {
-    sound.init();
-    setEnabledState(sound.isEnabled());
-    const unsubscribe = sound.subscribe(setEnabledState);
-    return () => {
-      unsubscribe();
-    };
-  }, []);
+function readSoundEnabled(): boolean {
+  sound.init();
+  return sound.isEnabled();
+}
+
+export function SoundProvider({ children }: { children: React.ReactNode }) {
+  // The preference lives in the engine (and localStorage), so read it as an
+  // external store instead of mirroring it into state from an effect.
+  const enabled = useSyncExternalStore(subscribeToSound, readSoundEnabled, () => false);
+  const [unlocked, setUnlocked] = useState(false);
 
   // The first gesture anywhere unlocks audio for the rest of the session.
   useEffect(() => {
@@ -54,7 +62,6 @@ export function SoundProvider({ children }: { children: React.ReactNode }) {
 
   const toggle = useCallback(() => {
     const next = sound.toggle();
-    setEnabledState(next);
     setUnlocked(sound.isUnlocked());
     if (next) cue("select");
   }, []);
@@ -62,7 +69,6 @@ export function SoundProvider({ children }: { children: React.ReactNode }) {
   const setEnabled = useCallback(
     (value: boolean) => {
       sound.setEnabled(value);
-      setEnabledState(value);
     },
     [],
   );

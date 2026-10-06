@@ -161,10 +161,9 @@ export function trueNode(date: Date): {
   const a = moonVector(date, -dt);
   const b = moonVector(date, +dt);
 
-  // Orbital plane normal h = a × b
+  // Orbital plane normal h = a × b (only its x and y components are needed)
   const hx = a.y * b.z - a.z * b.y;
   const hy = a.z * b.x - a.x * b.z;
-  const hz = a.x * b.y - a.y * b.x;
 
   // Ascending node direction n = ẑ × h  →  (-hy, hx, 0)
   let lon = normalize((Math.atan2(hx, -hy) * 180) / Math.PI);

@@ -122,11 +122,21 @@ async function applySubscription(
     subscription.status === "active" || subscription.status === "trialing";
   const derived = tierFromPriceId(priceId);
 
-  const nextTier: TierKey = options.deleted
-    ? "free"
-    : isActive && derived
-      ? derived
-      : user.tier;
+  // `past_due` and `incomplete` keep the current tier while Stripe retries the
+  // payment. Every terminal or suspended state ends paid access: otherwise a
+  // subscription left `unpaid` would keep its tier indefinitely.
+  const lapsed =
+    subscription.status === "unpaid" ||
+    subscription.status === "canceled" ||
+    subscription.status === "incomplete_expired" ||
+    subscription.status === "paused";
+
+  const nextTier: TierKey =
+    options.deleted || lapsed
+      ? "free"
+      : isActive && derived
+        ? derived
+        : user.tier;
 
   await store.updateUser(user.id, {
     stripeCustomerId: customerId,

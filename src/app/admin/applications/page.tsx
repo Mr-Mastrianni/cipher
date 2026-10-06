@@ -131,8 +131,13 @@ export default function AdminApplicationsPage() {
   const [rows, setRows] = useState<ApplicationRow[]>([]);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  // `loading` is derived: the queue is loading until a response for the
+  // current (status, page, retry) has settled.
+  const [reloadToken, setReloadToken] = useState(0);
+  const queryKey = `${status}|${page}|${reloadToken}`;
+  const [settledKey, setSettledKey] = useState<string | null>(null);
+  const loading = settledKey !== queryKey;
 
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [notes, setNotes] = useState<Record<string, string>>({});
@@ -144,11 +149,9 @@ export default function AdminApplicationsPage() {
 
   /* ── Load the queue ────────────────────────────────────────────────────── */
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (key: string) => {
     const requestId = requestRef.current + 1;
     requestRef.current = requestId;
-    setLoading(true);
-    setLoadError(null);
     try {
       const params = new URLSearchParams({
         status,
@@ -165,7 +168,14 @@ export default function AdminApplicationsPage() {
         setRows([]);
         return;
       }
-      setRows(data.items ?? []);
+      const items = data.items ?? [];
+      // An emptied pending page (the last rows were decided) steps back one.
+      if (status === "pending" && items.length === 0 && page > 1) {
+        setPage((current) => current - 1);
+        return;
+      }
+      setLoadError(null);
+      setRows(items);
       setTotal(data.total ?? 0);
       setTotalPages(data.totalPages ?? 1);
     } catch {
@@ -173,22 +183,15 @@ export default function AdminApplicationsPage() {
       setLoadError("The queue could not be loaded.");
       setRows([]);
     } finally {
-      if (requestRef.current === requestId) setLoading(false);
+      if (requestRef.current === requestId) setSettledKey(key);
     }
   }, [page, status]);
 
   useEffect(() => {
-    void load();
-  }, [load]);
-
-  useEffect(() => {
-    setPage(1);
-  }, [status]);
-
-  useEffect(() => {
-    if (status !== "pending") return;
-    if (rows.length === 0 && page > 1 && !loading) setPage((current) => current - 1);
-  }, [loading, page, rows.length, status]);
+    // False positive: `load` only sets state after its first `await`.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void load(queryKey);
+  }, [load, queryKey]);
 
   /* ── Optimistic decision ───────────────────────────────────────────────── */
 
@@ -249,6 +252,9 @@ export default function AdminApplicationsPage() {
         if (status === "pending") {
           setRows((current) => current.filter((item) => item.id !== row.id));
           setTotal((current) => Math.max(0, current - 1));
+          if (previous.every((item) => item.id === row.id) && page > 1) {
+            setPage((current) => current - 1);
+          }
         }
         setExpandedId(null);
         play("success");
@@ -261,7 +267,7 @@ export default function AdminApplicationsPage() {
         setBusyId(null);
       }
     },
-    [notes, play, rows, status],
+    [notes, page, play, rows, status],
   );
 
   const pendingCount = useMemo(
@@ -290,7 +296,10 @@ export default function AdminApplicationsPage() {
           <Field label="Filter by status" className="w-48">
             <Select
               value={status}
-              onChange={(event) => setStatus(event.target.value as Status | "all")}
+              onChange={(event) => {
+                setStatus(event.target.value as Status | "all");
+                setPage(1);
+              }}
             >
               <option value="pending">Pending</option>
               <option value="approved">Approved</option>
@@ -336,7 +345,7 @@ export default function AdminApplicationsPage() {
           icon={<CircleAlert aria-hidden="true" className="h-5 w-5" strokeWidth={1.5} />}
           title="The queue could not be loaded"
           description={loadError}
-          action={<Button onClick={() => void load()}>Try again</Button>}
+          action={<Button onClick={() => setReloadToken((token) => token + 1)}>Try again</Button>}
         />
       ) : rows.length === 0 ? (
         <EmptyState

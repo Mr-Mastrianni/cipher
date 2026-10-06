@@ -146,7 +146,7 @@ function fromStoredProfile(profile: BirthProfile): BirthInput {
  * Avatar and the categoriser together and nothing more.
  */
 function computeReading(input: BirthInput): ComputedReading {
-  const { date, warnings: timeWarnings } = resolveBirthInstantDetailed(input);
+  const { date } = resolveBirthInstantDetailed(input);
   const natalChart = computeNatalChart(input);
   const hd = computeHumanDesign(date);
 
@@ -232,7 +232,8 @@ function computeReading(input: BirthInput): ComputedReading {
       authority: hd.authority,
       profile: hd.profile,
     }),
-    warnings: [...timeWarnings, ...hd.warnings, ...natalChart.warnings],
+    // `natalChart.warnings` already includes the time-resolution warnings.
+    warnings: [...natalChart.warnings, ...hd.warnings],
   };
 }
 

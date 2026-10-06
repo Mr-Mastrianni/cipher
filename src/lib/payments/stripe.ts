@@ -63,7 +63,7 @@ function envValue(name: string): string | null {
 export const TIERS: readonly TierDefinition[] = [
   {
     slug: "free",
-    name: "Seeker",
+    name: "Threshold",
     description: "Public essays and the community front door.",
     priceCents: 0,
     interval: null,
@@ -92,7 +92,7 @@ export const TIERS: readonly TierDefinition[] = [
     slug: "adept",
     name: "Adept",
     description: "Everything in Initiate plus deeper practitioner material.",
-    priceCents: 3900,
+    priceCents: 2900,
     interval: "month",
     features: [
       "community.post",
@@ -110,7 +110,7 @@ export const TIERS: readonly TierDefinition[] = [
     slug: "oracle",
     name: "Oracle",
     description: "The top tier: coaching, early access, and member readings.",
-    priceCents: 7900,
+    priceCents: 5900,
     interval: "month",
     features: [
       "community.post",

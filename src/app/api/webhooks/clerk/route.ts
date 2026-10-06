@@ -19,7 +19,11 @@ interface ClerkUserPayload {
   last_name: string | null;
   image_url: string;
   primary_email_address_id: string | null;
-  email_addresses: Array<{ id: string; email_address: string }>;
+  email_addresses: Array<{
+    id: string;
+    email_address: string;
+    verification?: { status?: string | null } | null;
+  }>;
   updated_at: number;
 }
 
@@ -102,6 +106,19 @@ function primaryEmail(data: ClerkUserPayload): string {
   ).toLowerCase();
 }
 
+/**
+ * The primary email only when Clerk has verified it. Admin bootstrap keys off
+ * this, so an unverified address can never claim an `ADMIN_EMAILS` entry.
+ */
+function verifiedPrimaryEmail(data: ClerkUserPayload): string | null {
+  const primary = (data.email_addresses ?? []).find(
+    (address) => address.id === data.primary_email_address_id,
+  );
+  return primary?.verification?.status === "verified"
+    ? primary.email_address.toLowerCase()
+    : null;
+}
+
 /** Project one Clerk user payload onto the local `users` row. */
 async function syncUser(
   data: ClerkUserPayload,
@@ -118,7 +135,11 @@ async function syncUser(
     // Bootstrap admins from the allowlist on first sight only. After that the
     // role is managed in the admin console and a webhook must not reset it.
     ...(isCreate
-      ? { role: isAdminEmail(email) ? ("admin" as const) : ("member" as const) }
+      ? {
+          role: isAdminEmail(verifiedPrimaryEmail(data))
+            ? ("admin" as const)
+            : ("member" as const),
+        }
       : {}),
     clerkUpdatedAt: new Date(data.updated_at),
   });

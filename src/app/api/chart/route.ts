@@ -12,6 +12,7 @@
 
 import { z } from "zod";
 import { computeReading, readingPayload } from "@/lib/cipher/compute-reading";
+import { clientIp } from "@/lib/http/client-ip";
 
 const RATE_LIMIT_MS = 1000;
 const MAX_RATE_ENTRIES = 5000;
@@ -56,15 +57,6 @@ const birthInputSchema = z
     message: "That calendar date does not exist.",
     path: ["day"],
   });
-
-function clientIp(request: Request): string {
-  const forwarded = request.headers.get("x-forwarded-for");
-  if (forwarded) {
-    const first = forwarded.split(",")[0]?.trim();
-    if (first) return first;
-  }
-  return request.headers.get("x-real-ip") ?? "unknown";
-}
 
 /** Per-IP courtesy limit; see the geocode route for why it is in-memory only. */
 function allowRequest(ip: string): boolean {

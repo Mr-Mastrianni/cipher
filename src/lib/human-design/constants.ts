@@ -260,25 +260,25 @@ export const CHANNELS: readonly ChannelMeta[] = [
   { gates: [10, 34], name: "Exploration", from: "g", to: "sacral", circuit: "individual", subcircuit: "Centering", theme: "Following an inner conviction into action that needs no permission." },
   { gates: [10, 57], name: "Perfected Form", from: "g", to: "spleen", circuit: "individual", subcircuit: "Integration", theme: "Survival instinct made beautiful — the body knowing before the mind does." },
   { gates: [20, 34], name: "Charisma", from: "throat", to: "sacral", circuit: "individual", subcircuit: "Integration", theme: "Busyness that is genuinely productive, and undeniably magnetic." },
-  { gates: [20, 57], name: "The Brain Wave", from: "throat", to: "spleen", circuit: "individual", subcircuit: "Knowing", theme: "Splenic awareness that speaks the truth the instant it sees it." },
+  { gates: [20, 57], name: "The Brain Wave", from: "throat", to: "spleen", circuit: "individual", subcircuit: "Integration", theme: "Splenic awareness that speaks the truth the instant it sees it." },
   { gates: [23, 43], name: "Structuring", from: "throat", to: "ajna", circuit: "individual", subcircuit: "Knowing", theme: "Individual insight turned into language other people can actually use." },
   { gates: [24, 61], name: "Awareness", from: "ajna", to: "head", circuit: "individual", subcircuit: "Knowing", theme: "Inspiration that arrives without warning and demands to be thought about." },
   { gates: [25, 51], name: "Initiation", from: "g", to: "heart", circuit: "individual", subcircuit: "Centering", theme: "The shock that pushes you into your own authority in order to be tested." },
   { gates: [28, 38], name: "Struggle", from: "spleen", to: "root", circuit: "individual", subcircuit: "Knowing", theme: "Fighting for meaning when the fight is genuinely worth having." },
   { gates: [34, 57], name: "Power", from: "sacral", to: "spleen", circuit: "individual", subcircuit: "Integration", theme: "Raw vital force that is only wise when the body says yes." },
   { gates: [39, 55], name: "Emoting", from: "root", to: "solar", circuit: "individual", subcircuit: "Knowing", theme: "Melancholy that becomes creative spirit when the mood is honoured." },
+  { gates: [12, 22], name: "Openness", from: "throat", to: "solar", circuit: "individual", subcircuit: "Knowing", theme: "Social grace that only works when the mood is genuinely right." },
 
   // ── Tribal ──────────────────────────────────────────────────────────────
   { gates: [21, 45], name: "Money", from: "heart", to: "throat", circuit: "tribal", subcircuit: "Ego", theme: "Material stewardship — resources held for the good of the whole." },
   { gates: [26, 44], name: "Surrender", from: "heart", to: "spleen", circuit: "tribal", subcircuit: "Ego", theme: "Instinct for the deal — remembering who can help, and who to help." },
   { gates: [27, 50], name: "Preservation", from: "sacral", to: "spleen", circuit: "tribal", subcircuit: "Defense", theme: "Custodianship: care for the tribe that also cares for you." },
-  { gates: [32, 54], name: "Transformation", from: "spleen", to: "root", circuit: "tribal", subcircuit: "Defense", theme: "Ambition that raises the tribe, or is consumed by it." },
+  { gates: [32, 54], name: "Transformation", from: "spleen", to: "root", circuit: "tribal", subcircuit: "Ego", theme: "Ambition that raises the tribe, or is consumed by it." },
   { gates: [37, 40], name: "Community", from: "solar", to: "heart", circuit: "tribal", subcircuit: "Ego", theme: "Belonging held together by agreements that are actually kept." },
-  { gates: [49, 19], name: "Synthesis", from: "solar", to: "root", circuit: "tribal", subcircuit: "Defense", theme: "Principles about who is taken in and who is turned away." },
+  { gates: [19, 49], name: "Synthesis", from: "root", to: "solar", circuit: "tribal", subcircuit: "Ego", theme: "Principles about who is taken in and who is turned away." },
 
   // ── Collective ──────────────────────────────────────────────────────────
   { gates: [11, 56], name: "Curiosity", from: "ajna", to: "throat", circuit: "collective", subcircuit: "Abstract", theme: "Storytelling that turns ideas into something people can feel." },
-  { gates: [12, 22], name: "Openness", from: "throat", to: "solar", circuit: "individual", subcircuit: "Knowing", theme: "Social grace that only works when the mood is genuinely right." },
   { gates: [13, 33], name: "The Prodigal", from: "g", to: "throat", circuit: "collective", subcircuit: "Abstract", theme: "Keeping the memory of what the tribe has already survived." },
   { gates: [16, 48], name: "The Wavelength", from: "throat", to: "spleen", circuit: "collective", subcircuit: "Logic", theme: "Depth of skill that needs repetition, and the talent to demonstrate it." },
   { gates: [17, 62], name: "Acceptance", from: "ajna", to: "throat", circuit: "collective", subcircuit: "Logic", theme: "Precision with detail that makes an argument impossible to dismiss." },
@@ -343,7 +343,7 @@ export const PROFILES: readonly {
   { key: "3/5", name: "Martyr / Heretic", angle: "right", theme: "Trial and error turned into practical, universal solutions." },
   { key: "3/6", name: "Martyr / Role Model", angle: "right", theme: "A first life of hard-won experience that becomes wisdom for others." },
   { key: "4/1", name: "Opportunist / Investigator", angle: "juxtaposition", theme: "Fixed fate — influence that must rest on its own solid foundation." },
-  { key: "4/6", name: "Opportunist / Role Model", angle: "left", theme: "Transpersonal influence — the network that carries a message outward." },
+  { key: "4/6", name: "Opportunist / Role Model", angle: "right", theme: "Personal destiny — the network that carries a message outward." },
   { key: "5/1", name: "Heretic / Investigator", angle: "left", theme: "Transpersonal leadership grounded in a foundation that can be trusted." },
   { key: "5/2", name: "Heretic / Hermit", angle: "left", theme: "A called-out natural gift carrying the weight of others' projections." },
   { key: "6/2", name: "Role Model / Hermit", angle: "left", theme: "Natural talent observed from a distance, then lived as an example." },
@@ -355,15 +355,16 @@ export const PROFILE_BY_KEY: ReadonlyMap<string, (typeof PROFILES)[number]> =
   new Map(PROFILES.map((p) => [p.key, p]));
 
 /**
- * Right-angled crosses belong to personality lines 1–3, juxtaposition to 4/1,
- * and left-angled crosses to personality lines 4–6 with that one exception.
+ * The cross angle follows the profile, not the personality line alone. The
+ * seven profiles 1/3, 1/4, 2/4, 2/5, 3/5, 3/6 and 4/6 are Right Angle; 4/1 is
+ * the single Juxtaposition; 5/1, 5/2, 6/2 and 6/3 are Left Angle.
  */
 export function crossAngleForProfile(
   personalityLine: number,
   designLine: number,
 ): "right" | "juxtaposition" | "left" {
   if (personalityLine === 4 && designLine === 1) return "juxtaposition";
-  if (personalityLine >= 4) return "left";
+  if (personalityLine >= 5) return "left";
   return "right";
 }
 
@@ -376,14 +377,27 @@ export const VARIABLE_POSITIONS = [
 ] as const;
 export type VariablePosition = (typeof VARIABLE_POSITIONS)[number];
 
-/** Determination reads from the Design Sun colour. */
+/**
+ * Determination reads from the Design Sun colour. The tone then picks the
+ * Left (tones 1–3) or Right (tones 4–6) sub-type, listed here as `[left, right]`.
+ */
 export const DETERMINATION_BY_COLOR: readonly string[] = [
-  "Consecutive Appetite",
-  "Alternating Appetite",
-  "Open Taste",
-  "Closed Taste",
-  "Consecutive Appetite (High Sound)",
-  "Alternating Appetite (Low Sound)",
+  "Appetite",
+  "Taste",
+  "Thirst",
+  "Touch",
+  "Sound",
+  "Light",
+] as const;
+
+/** Determination sub-type by colour, as `[left, right]`. */
+export const DETERMINATION_SUBTYPES: readonly (readonly [string, string])[] = [
+  ["Consecutive", "Alternating"],
+  ["Open", "Closed"],
+  ["Hot", "Cold"],
+  ["Calm", "Nervous"],
+  ["High", "Low"],
+  ["Direct", "Indirect"],
 ] as const;
 
 /** Environment reads from the Design Nodes colour. */

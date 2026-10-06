@@ -10,7 +10,7 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "next typegen && tsc --noEmit",
-    "test:engine": "node --import tsx --test src/lib/human-design/__tests__/*.test.ts",
+    "test:engine": "node --import tsx --test \"src/lib/**/__tests__/*.test.ts\"",
     "test": "pnpm run test:engine",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",

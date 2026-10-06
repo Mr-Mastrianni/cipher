@@ -155,7 +155,8 @@ export function computeReading(input: BirthInput): Reading {
     }),
     chips: categoryChips(structural),
     visualization: toVisualization(bodygraph),
-    warnings: [...timeWarnings, ...chart.warnings, ...bodygraph.warnings],
+    // `chart.warnings` already begins with the time-resolution warnings.
+    warnings: [...chart.warnings, ...bodygraph.warnings],
     timeWarnings,
     houseFallback: chart.houses.fallback,
   };

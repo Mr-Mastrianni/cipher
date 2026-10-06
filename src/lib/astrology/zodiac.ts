@@ -92,10 +92,14 @@ export function normalize(deg: number): number {
 
 /** Format as `12°34' Aries`. */
 export function formatLongitude(longitude: number, withSign = true): string {
-  const lon = normalize(longitude);
-  const deg = Math.floor(lon % 30);
-  const min = Math.floor(((lon % 30) - deg) * 60);
-  const sec = Math.round(((((lon % 30) - deg) * 60) - min) * 60);
+  // Round once, in whole arcseconds, so a value such as 12°34'59.7" carries to
+  // 12°35'00" instead of printing an impossible 60".
+  const totalSeconds = Math.round(normalize(longitude) * 3600) % (360 * 3600);
+  const lon = totalSeconds / 3600;
+  const withinSign = totalSeconds % (30 * 3600);
+  const deg = Math.floor(withinSign / 3600);
+  const min = Math.floor((withinSign % 3600) / 60);
+  const sec = withinSign % 60;
   const sign = signOf(lon);
   const base = `${deg}°${String(min).padStart(2, "0")}'`;
   const withSec = sec > 0 ? `${base}${String(sec).padStart(2, "0")}"` : base;

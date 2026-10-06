@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { CalendarDays, Clock, Download, Repeat, Timer, Users, Video } from "lucide-react";
-import { clerkConfigured, getCurrentUser } from "@/lib/auth";
+import { clerkConfigured, getCurrentUser, userHasTier } from "@/lib/auth";
 import { getStore } from "@/lib/db/store";
 import type { LiveCall, User } from "@/lib/db/schema";
 import { Badge } from "@/components/ui/badge";
@@ -97,6 +97,8 @@ export default async function CallsPage() {
         ([host?.firstName, host?.lastName].filter(Boolean).join(" ") || "The Cipher"),
       going: rsvps.filter((rsvp) => rsvp.status === "going").length,
       mine: rsvps.find((rsvp) => rsvp.userId === user.id)?.status ?? null,
+      // Live calls are a paid feature; a call can raise the floor further.
+      canJoin: isApproved && userHasTier(user, call.tierRequired ?? "initiate"),
     };
   };
 
@@ -187,7 +189,7 @@ export default async function CallsPage() {
             />
           ) : (
             <ul className="flex flex-col gap-4">
-              {upcomingDetails.map(({ call, hostName, going, mine }) => (
+              {upcomingDetails.map(({ call, hostName, going, mine, canJoin }) => (
                 <li key={call.id}>
                   <Card>
                     <CardHeader>
@@ -239,7 +241,7 @@ export default async function CallsPage() {
                             Add to calendar
                           </a>
                         </Button>
-                        {isApproved && call.roomUrl ? (
+                        {canJoin && call.roomUrl ? (
                           <Button asChild variant="primary" size="sm">
                             <a href={call.roomUrl} target="_blank" rel="noreferrer noopener">
                               <Video aria-hidden="true" className="h-4 w-4" />
@@ -248,9 +250,11 @@ export default async function CallsPage() {
                           </Button>
                         ) : (
                           <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-faint">
-                            {isApproved
+                            {canJoin
                               ? "The room opens 10 minutes before"
-                              : "Join link unlocks on approval"}
+                              : isApproved
+                                ? `Join link unlocks at ${call.tierRequired ?? "initiate"}`
+                                : "Join link unlocks on approval"}
                           </span>
                         )}
                       </div>
@@ -275,7 +279,7 @@ export default async function CallsPage() {
             />
           ) : (
             <ul className="grid gap-4 sm:grid-cols-2">
-              {pastDetails.map(({ call, hostName, mine }) => (
+              {pastDetails.map(({ call, hostName, mine, canJoin }) => (
                 <li key={call.id}>
                   <Card className="h-full">
                     <CardHeader>
@@ -295,7 +299,7 @@ export default async function CallsPage() {
                       <Badge tone={mine === "going" ? "ok" : "neutral"} size="sm">
                         {mine === "going" ? "You attended" : "You did not RSVP"}
                       </Badge>
-                      {call.recordingUrl ? (
+                      {canJoin && call.recordingUrl ? (
                         <Button asChild variant="secondary" size="sm">
                           <a href={call.recordingUrl} target="_blank" rel="noreferrer noopener">
                             Watch the recording

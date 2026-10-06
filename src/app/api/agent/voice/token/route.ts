@@ -15,7 +15,6 @@
  * downgrade, and `AGENT_VOICE_DISABLED=true` disables voice entirely.
  */
 
-import type { NextRequest } from "next/server";
 
 import { handleAuthError, requireAdmin } from "@/lib/auth";
 
@@ -158,7 +157,7 @@ async function openAiRealtimeResponse(apiKey: string): Promise<Response> {
 }
 
 /** POST handler. See the file header for the contract. */
-export async function POST(_request: NextRequest): Promise<Response> {
+export async function POST(): Promise<Response> {
   try {
     await requireAdmin();
 

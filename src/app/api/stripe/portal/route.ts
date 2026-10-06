@@ -6,7 +6,6 @@
  * been through Checkout there is no customer to open, which is a 409.
  */
 
-import type { NextRequest } from "next/server";
 
 import { handleAuthError, requireUser } from "@/lib/auth";
 import { getStripe } from "@/lib/payments/stripe";
@@ -24,7 +23,7 @@ function appOrigin(): string {
 }
 
 /** POST handler. See the file header for the contract. */
-export async function POST(_request: NextRequest): Promise<Response> {
+export async function POST(): Promise<Response> {
   try {
     const user = await requireUser();
 

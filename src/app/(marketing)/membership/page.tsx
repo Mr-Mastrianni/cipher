@@ -21,16 +21,10 @@ export const metadata: Metadata = {
 };
 
 /**
- * TIER DISCREPANCY, RECORDED HERE ON PURPOSE
- * ------------------------------------------
- * `TIER_SEED` in `@/lib/db/schema` is the billing source of truth and currently
- * reads: free tier named "Seeker" ($0), Initiate $15, **Adept $39**,
- * **Oracle $79**. The launched pricing — and the prices already published on the
- * landing page — are Threshold ($0), Initiate $15, Adept $29 and Oracle $59.
- * The two do not match, so the page renders the launched prices locally rather
- * than importing a billing seed that would contradict the rest of the site.
- * When the seed is reconciled, this table is the single place to update the
- * marketing surface.
+ * Marketing projection of the tiers. Prices must match `TIER_SEED` in
+ * `@/lib/db/schema` and `TIERS` in `@/lib/payments/stripe` (Threshold free,
+ * Initiate $15, Adept $29, Oracle $59); what Stripe actually charges is set by
+ * the `STRIPE_PRICE_*` Price ids, which must be created at these amounts.
  */
 const TIERS = [
   {

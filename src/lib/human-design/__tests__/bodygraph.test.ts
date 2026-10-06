@@ -20,13 +20,17 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  CHANNEL_BY_GATES,
+  COLOR_ARC,
   DEFINITION_META,
   GATE_ARC,
   GATE_WHEEL,
   LINE_ARC,
   PROFILES,
+  TONE_ARC,
   TYPE_META,
   WHEEL_START_DEGREES,
+  crossAngleForProfile,
 } from "../constants";
 import {
   BOUNDARY_WARNING_DEGREES,
@@ -588,6 +592,62 @@ test("buildBodygraph: definition components split correctly", () => {
 });
 
 // ── Fixture builders ────────────────────────────────────────────────────────
+
+
+// ── Regressions ─────────────────────────────────────────────────────────────
+
+test("authority: a Projector defined only Head–Ajna is Mental, not Lunar", () => {
+  // 47-64 defines Head and Ajna; the Throat stays open. Lunar is Reflector-only.
+  const chart = buildSynthetic([[47, 64]]);
+  assert.equal(chart.type, "Projector");
+  assert.equal(chart.centers.throat.defined, false);
+  assert.equal(chart.authority, "Mental");
+});
+
+test("cross angle: 4/6 is Right Angle and every profile agrees with PROFILES", () => {
+  assert.equal(crossAngleForProfile(4, 6), "right");
+  assert.equal(crossAngleForProfile(4, 1), "juxtaposition");
+  assert.equal(crossAngleForProfile(5, 1), "left");
+  for (const profile of PROFILES) {
+    const [p, d] = profile.key.split("/").map(Number);
+    assert.equal(crossAngleForProfile(p, d), profile.angle, profile.key);
+  }
+});
+
+test("variables: direction follows tone and Determination names colour + sub-type", () => {
+  const activations = syntheticActivations([[47, 64]]);
+  // Colour 1, tone 5 inside Gate 41 → Appetite, Right (Alternating).
+  const longitude = WHEEL_START_DEGREES + 4 * TONE_ARC + TONE_ARC / 2;
+  const position = gateLineFromLongitude(longitude);
+  assert.equal(position.color, 1);
+  assert.equal(position.tone, 5);
+  const index = activations.findIndex((a) => a.source === "design" && a.body === "sun");
+  activations[index] = { ...activations[index], longitude, ...position, boundary: boundaryDistance(longitude) };
+  const chart = buildBodygraph(activations, {
+    birthInstant: new Date("2000-01-01T12:00:00Z"),
+    designInstant: new Date("1999-10-01T12:00:00Z"),
+  });
+  assert.equal(chart.variables.determination.name, "Appetite (Alternating)");
+  assert.equal(chart.variables.determination.direction, "Right");
+
+  // Colour 4, tone 2 → Touch, Left (Calm).
+  const left = WHEEL_START_DEGREES + 3 * COLOR_ARC + TONE_ARC + TONE_ARC / 2;
+  const leftPosition = gateLineFromLongitude(left);
+  activations[index] = { ...activations[index], longitude: left, ...leftPosition, boundary: boundaryDistance(left) };
+  const leftChart = buildBodygraph(activations, {
+    birthInstant: new Date("2000-01-01T12:00:00Z"),
+    designInstant: new Date("1999-10-01T12:00:00Z"),
+  });
+  assert.equal(leftChart.variables.determination.name, "Touch (Calm)");
+  assert.equal(leftChart.variables.determination.direction, "Left");
+});
+
+test("circuitry: Integration and Tribal Ego channels are labelled correctly", () => {
+  assert.equal(CHANNEL_BY_GATES.get("20-57")?.subcircuit, "Integration");
+  assert.equal(CHANNEL_BY_GATES.get("19-49")?.subcircuit, "Ego");
+  assert.equal(CHANNEL_BY_GATES.get("32-54")?.subcircuit, "Ego");
+  assert.equal(CHANNEL_BY_GATES.get("12-22")?.circuit, "individual");
+});
 
 /**
  * Build a synthetic 26-activation set in which exactly the gates needed to

@@ -11,8 +11,9 @@ import type { BirthInput } from "@/lib/astrology/types";
  *
  * Format (little-endian, then base64url):
  *
- *   byte 0        version (1)
- *   bytes 1–2     year − 1900, uint16
+ *   byte 0        version (2; version 1 is still decoded)
+ *   bytes 1–2     year, uint16 (version 1 stored year − 1900, which could
+ *                 not represent births before 1900 and clamped them to 1900)
  *   byte 3        month 1–12
  *   byte 4        day 1–31
  *   byte 5        hour 0–23
@@ -29,8 +30,9 @@ import type { BirthInput } from "@/lib/astrology/types";
  * silently computing a chart for the wrong moment.
  */
 
-const VERSION = 1;
-const YEAR_OFFSET = 1900;
+const VERSION = 2;
+/** Year offset by format version. Version 1 links remain decodable. */
+const YEAR_OFFSET_BY_VERSION: Readonly<Record<number, number>> = { 1: 1900, 2: 0 };
 
 function toBase64Url(bytes: Uint8Array): string {
   let binary = "";
@@ -73,7 +75,10 @@ export function encodeBirthInput(input: BirthInput): string {
   let offset = 0;
 
   buffer[offset++] = VERSION;
-  view.setUint16(offset, Math.max(0, input.year - YEAR_OFFSET), true);
+  if (!Number.isInteger(input.year) || input.year < 1 || input.year > 0xffff) {
+    throw new RangeError(`Birth year ${input.year} cannot be encoded.`);
+  }
+  view.setUint16(offset, input.year, true);
   offset += 2;
   buffer[offset++] = input.month;
   buffer[offset++] = input.day;
@@ -107,11 +112,12 @@ export function decodeBirthInput(code: string): DecodedBirth | null {
 
   const expected = bytes[bytes.length - 1];
   if (checksum(bytes.subarray(0, bytes.length - 1)) !== expected) return null;
-  if (bytes[0] !== VERSION) return null;
+  const yearOffset = YEAR_OFFSET_BY_VERSION[bytes[0]];
+  if (yearOffset === undefined) return null;
 
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   let offset = 1;
-  const year = view.getUint16(offset, true) + YEAR_OFFSET;
+  const year = view.getUint16(offset, true) + yearOffset;
   offset += 2;
   const month = bytes[offset++];
   const day = bytes[offset++];
@@ -132,6 +138,8 @@ export function decodeBirthInput(code: string): DecodedBirth | null {
   offset += tzLength;
 
   const valid =
+    year >= 1 &&
+    year <= 9999 &&
     month >= 1 &&
     month <= 12 &&
     day >= 1 &&

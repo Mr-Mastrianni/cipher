@@ -113,6 +113,22 @@ function toMemoryState(review: StoredReview | null) {
  *
  * @returns The deck list, or the active study session and its summary.
  */
+/** Fetch the deck list; resolves to the decks or an error message, never throws. */
+async function fetchOverview(): Promise<{ decks: DeckSummary[] } | { error: string }> {
+  try {
+    const response = await fetch("/api/flashcards/all/review?limit=100", {
+      cache: "no-store",
+    });
+    const payload = (await response.json()) as QueuePayload;
+    if (!response.ok || !payload.ok) {
+      return { error: payload.error ?? "Decks could not be loaded." };
+    }
+    return { decks: payload.decks ?? [] };
+  } catch {
+    return { error: "Decks could not be loaded." };
+  }
+}
+
 export default function FlashcardsPage() {
   const { play } = useSound();
   const reduced = useReducedMotion();
@@ -133,28 +149,30 @@ export default function FlashcardsPage() {
 
   /* ── Load the deck list and the "all due" queue ────────────────────────── */
 
-  const loadOverview = useCallback(async () => {
-    setLoading(true);
-    try {
-      const response = await fetch("/api/flashcards/all/review?limit=100", {
-        cache: "no-store",
-      });
-      const payload = (await response.json()) as QueuePayload;
-      if (!response.ok || !payload.ok) {
-        setError(payload.error ?? "Decks could not be loaded.");
-        return;
-      }
-      setDecks(payload.decks ?? []);
-    } catch {
-      setError("Decks could not be loaded.");
-    } finally {
+  const applyOverview = useCallback(
+    (result: Awaited<ReturnType<typeof fetchOverview>>) => {
+      if ("error" in result) setError(result.error);
+      else setDecks(result.decks);
       setLoading(false);
-    }
-  }, []);
+    },
+    [],
+  );
+
+  // `loading` starts true; callers that reload set it themselves.
+  const loadOverview = useCallback(
+    () => fetchOverview().then(applyOverview),
+    [applyOverview],
+  );
 
   useEffect(() => {
-    void loadOverview();
-  }, [loadOverview]);
+    let cancelled = false;
+    void fetchOverview().then((result) => {
+      if (!cancelled) applyOverview(result);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [applyOverview]);
 
   /* ── Start a session on a specific deck ────────────────────────────────── */
 
@@ -200,6 +218,7 @@ export default function FlashcardsPage() {
     setError(null);
     setAnnouncement("Session closed.");
     play("tick");
+    setLoading(true);
     void loadOverview();
   }, [loadOverview, play]);
 

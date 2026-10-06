@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 import { z } from "zod";
-import { handleAuthError, requireMember } from "@/lib/auth";
+import { handleAuthError, requireMember, requireTier } from "@/lib/auth";
 import { getStore } from "@/lib/db/store";
 import type { RsvpStatus } from "@/lib/db/schema";
 
@@ -39,6 +39,8 @@ export async function POST(
     if (!call) {
       return Response.json({ ok: false, error: "Call not found." }, { status: 404 });
     }
+    // Live calls are a paid feature; a call can raise the floor further.
+    requireTier(user, call.tierRequired ?? "initiate", "This call");
 
     let requested: RsvpStatus | undefined;
     // A toggle button sends no body; an explicit picker sends one. Both are

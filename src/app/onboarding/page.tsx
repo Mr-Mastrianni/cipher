@@ -338,7 +338,6 @@ type Phase = "loading" | "unauthorised" | "error" | "ready" | "submitting";
 export default function OnboardingPage() {
   const reduced = useReducedMotion() ?? false;
   const { play } = useSound();
-  const router = useRouter();
 
   const [phase, setPhase] = useState<Phase>("loading");
   const [bootError, setBootError] = useState<string | null>(null);
@@ -419,10 +418,14 @@ export default function OnboardingPage() {
     return () => window.cancelAnimationFrame(frame);
   }, [stepIndex, phase]);
 
-  useEffect(() => {
-    if (phase !== "ready") return;
-    setStatusMessage(`${step.eyebrow}: ${step.title}`);
-  }, [phase, step.eyebrow, step.title]);
+  // Announce each new step. Adjusting state during render when an input
+  // changes is React's recommended alternative to a setState-in-effect.
+  const stepLabel = phase === "ready" ? `${step.eyebrow}: ${step.title}` : null;
+  const [announcedStep, setAnnouncedStep] = useState(stepLabel);
+  if (stepLabel !== announcedStep) {
+    setAnnouncedStep(stepLabel);
+    if (stepLabel) setStatusMessage(stepLabel);
+  }
 
   /* ── Validation ────────────────────────────────────────────────────────── */
 

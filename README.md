@@ -109,8 +109,8 @@ with an explicit warning rather than faked.
 | `bodygraph.ts` | 26 activations, type, authority, profile, definition, incarnation cross, variables |
 | `bodygraph-layout.ts` | The standard bodygraph geometry |
 
-Tests live in `src/lib/human-design/__tests__/` and run on `node:test` with no
-extra dependencies:
+Tests live in `__tests__/` folders under `src/lib/` (Human Design engine,
+house angles, billing tiers) and run on `node:test` with no extra dependencies:
 
 ```bash
 pnpm run test:engine
@@ -163,7 +163,7 @@ pnpm dev              # development server
 pnpm build            # production build
 pnpm start            # serve the production build
 pnpm lint             # ESLint
-pnpm test:engine      # Human Design engine tests (node:test)
+pnpm test:engine      # Engine and library tests (node:test)
 pnpm typecheck        # tsc --noEmit
 pnpm db:generate      # Drizzle: generate migrations
 pnpm db:push          # Drizzle: push the schema to DATABASE_URL

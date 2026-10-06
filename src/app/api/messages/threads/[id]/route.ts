@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 import { z } from "zod";
-import { handleAuthError, requireMember } from "@/lib/auth";
+import { handleAuthError, requireMember, requireTier } from "@/lib/auth";
 import { getStore } from "@/lib/db/store";
 import type { DirectMessage, User } from "@/lib/db/schema";
 
@@ -170,6 +170,8 @@ export async function POST(
 ) {
   try {
     const user = await requireMember();
+    // Direct messages are an Initiate feature; reading old threads is not gated.
+    requireTier(user, "initiate", "Direct messages");
     const { id } = await context.params;
     const store = getStore();
 

@@ -1,6 +1,7 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { getStore } from "@/lib/db/store";
-import type { User } from "@/lib/db/schema";
+import type { TierKey, User } from "@/lib/db/schema";
+import { hasTierAccess } from "@/lib/payments/stripe";
 
 /**
  * Server-side auth helpers.
@@ -45,12 +46,17 @@ export async function getCurrentUser(): Promise<User | null> {
   let firstName: string | null = null;
   let lastName: string | null = null;
   let imageUrl: string | null = null;
+  let emailVerified = false;
   try {
     const user = await currentUser();
     email =
       user?.primaryEmailAddress?.emailAddress ??
       user?.emailAddresses?.[0]?.emailAddress ??
       "";
+    // Admin bootstrap only trusts the primary address, and only once verified.
+    emailVerified =
+      user?.primaryEmailAddress?.verification?.status === "verified" &&
+      user.primaryEmailAddress.emailAddress.toLowerCase() === email.toLowerCase();
     firstName = user?.firstName ?? null;
     lastName = user?.lastName ?? null;
     imageUrl = user?.imageUrl ?? null;
@@ -64,7 +70,7 @@ export async function getCurrentUser(): Promise<User | null> {
     firstName,
     lastName,
     imageUrl,
-    role: ADMIN_EMAILS.has(email.toLowerCase()) ? "admin" : "member",
+    role: emailVerified && ADMIN_EMAILS.has(email.toLowerCase()) ? "admin" : "member",
   });
 }
 
@@ -156,6 +162,27 @@ export async function requireMember(): Promise<User> {
 }
 
 /** Turn a thrown AuthorizationError into a JSON Response, or rethrow. */
+/**
+ * Whether a user's paid tier covers `required`. Admins always pass.
+ *
+ * `requireMember` only proves the membership was approved; an approved member
+ * can still be on the free tier, so paid features must check this as well.
+ */
+export function userHasTier(user: User, required: TierKey | null | undefined): boolean {
+  if (user.role === "admin") return true;
+  return hasTierAccess(user.tier, required);
+}
+
+/** Throw a 403 unless the user's tier covers `required`. */
+export function requireTier(user: User, required: TierKey | null | undefined, feature: string): void {
+  if (!userHasTier(user, required)) {
+    throw new AuthorizationError(
+      `${feature} needs the ${required} tier or above.`,
+      403,
+    );
+  }
+}
+
 export function handleAuthError(error: unknown): Response | null {
   if (error instanceof AuthorizationError) {
     return Response.json(

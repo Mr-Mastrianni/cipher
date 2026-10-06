@@ -107,10 +107,22 @@ export default function MessagesPage() {
   const seen = useRef<Set<string>>(new Set());
   const hydrated = useRef(false);
   const meIdRef = useRef<string | null>(null);
+  // The thread whose messages are on screen; responses for any other thread
+  // (a slow fetch or poll from before a switch) are dropped.
+  const activeIdRef = useRef<string | null>(null);
   const endRef = useRef<HTMLDivElement | null>(null);
   const atBottom = useRef(true);
 
   const activeThread = threads.find((thread) => thread.id === activeId) ?? null;
+
+  /** Switch conversations, clearing the previous one's messages first. */
+  const selectThread = useCallback((threadId: string) => {
+    if (activeIdRef.current === threadId) return;
+    activeIdRef.current = threadId;
+    setMessages([]);
+    setLoadingConversation(true);
+    setActiveId(threadId);
+  }, []);
 
   /* ── Thread list ───────────────────────────────────────────────────────── */
 
@@ -134,17 +146,21 @@ export default function MessagesPage() {
         }
         const rows = data.threads ?? [];
         setThreads(rows);
-        if (selectFirst && rows.length > 0) setActiveId((current) => current ?? rows[0].id);
+        if (selectFirst && rows.length > 0 && activeIdRef.current === null) {
+          selectThread(rows[0].id);
+        }
       } catch {
         setError("Conversations could not be loaded.");
       } finally {
         setLoadingThreads(false);
       }
     },
-    [],
+    [selectThread],
   );
 
   useEffect(() => {
+    // False positive: `loadThreads` only sets state after its first `await`.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadThreads(true);
   }, [loadThreads]);
 
@@ -182,6 +198,7 @@ export default function MessagesPage() {
           messages?: WireMessage[];
           error?: string;
         };
+        if (threadId !== activeIdRef.current) return;
         if (!response.ok || !data.ok) {
           setError(data.error ?? "That conversation could not be opened.");
           return;
@@ -206,14 +223,12 @@ export default function MessagesPage() {
   );
 
   useEffect(() => {
-    if (!activeId) {
-      setMessages([]);
-      return;
-    }
+    if (!activeId) return;
     let cancelled = false;
-    setLoadingConversation(true);
     seen.current = new Set();
     hydrated.current = false;
+    // False positive: `loadConversation` only sets state after its first `await`.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadConversation(activeId).finally(() => {
       if (!cancelled) {
         hydrated.current = true;
@@ -246,10 +261,8 @@ export default function MessagesPage() {
 
   useEffect(() => {
     const term = query.trim();
-    if (term.length === 0) {
-      setMembers([]);
-      return;
-    }
+    // An empty query renders the search prompt, not the member list.
+    if (term.length === 0) return;
     const id = window.setTimeout(async () => {
       try {
         const response = await fetch(
@@ -297,7 +310,7 @@ export default function MessagesPage() {
           ...previous,
         ];
       });
-      setActiveId(threadId);
+      selectThread(threadId);
       setPickerOpen(false);
       setQuery("");
       setMembers([]);
@@ -537,7 +550,7 @@ export default function MessagesPage() {
                     <button
                       type="button"
                       onClick={() => {
-                        setActiveId(thread.id);
+                        selectThread(thread.id);
                         play("select");
                       }}
                       aria-current={active ? "true" : undefined}
@@ -616,7 +629,7 @@ export default function MessagesPage() {
                   >
                     <ul className="flex flex-col gap-4">
                       {messages.map((message) => {
-                        const mine = meIdRef.current !== null && message.authorId === meIdRef.current;
+                        const mine = me !== null && message.authorId === me.id;
                         const pending = message.id.startsWith("pending-");
                         const removed = message.deletedAt !== null;
                         return (

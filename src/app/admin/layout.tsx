@@ -1,4 +1,4 @@
-/* eslint-disable @next/next/no-html-link-for-pages -- the admin sidebar uses
+/* The admin sidebar uses
    document navigations on purpose: a shared layout is not re-rendered on
    client-side navigation, so the only way the server can keep the active-route
    highlight correct is for each click to be a fresh document request. */

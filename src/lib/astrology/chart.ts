@@ -244,7 +244,12 @@ export function computeNatalChart(
     else hemispheres.west += 1;
   }
 
-  const aspects = computeAspects(positions);
+  // The South Node, Descendant and IC are exact mirrors of the North Node,
+  // Ascendant and MC. Aspecting them would only add a guaranteed opposition per
+  // pair plus a duplicate of every aspect their partner already makes.
+  const aspects = computeAspects(positions, {
+    exclude: ["southNode", "descendant", "imumCoeli"],
+  });
 
   for (const position of positions) {
     const distanceToBoundary = Math.min(position.signDegree, 30 - position.signDegree);

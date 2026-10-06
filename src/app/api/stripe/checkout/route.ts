@@ -63,6 +63,24 @@ export async function POST(request: NextRequest): Promise<Response> {
       );
     }
 
+    // A second Checkout session would start a second, concurrent subscription
+    // and bill the member twice. Plan changes go through the Customer Portal.
+    if (
+      user.stripeSubscriptionId &&
+      (user.subscriptionStatus === "active" ||
+        user.subscriptionStatus === "trialing" ||
+        user.subscriptionStatus === "past_due")
+    ) {
+      return Response.json(
+        {
+          ok: false,
+          error:
+            "You already have an active subscription. Change or cancel your plan from Manage billing.",
+        },
+        { status: 409 },
+      );
+    }
+
     const stripe = getStripe();
     if (!stripe) {
       return Response.json(

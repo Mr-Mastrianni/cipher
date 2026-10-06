@@ -8,10 +8,11 @@
  * component and never ships the reading logic to the client.
  */
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Check, Link2, Share2 } from "lucide-react";
 import { Button } from "@/components/ui";
 import { useSound } from "@/components/providers/sound-provider";
+import { useBrowserValue } from "@/lib/hooks/use-browser-value";
 
 interface ShareReadingProps {
   /** Absolute path to the reading, e.g. `/reading/AbC123`. */
@@ -29,17 +30,15 @@ interface ShareReadingProps {
  * revealed in a readonly field and selected, so the control still works with a
  * manual copy rather than failing silently.
  */
+function readCanShare(): boolean {
+  return typeof navigator !== "undefined" && typeof navigator.share === "function";
+}
+
 export function ShareReading({ path, title, text }: ShareReadingProps) {
   const { play } = useSound();
   const [copied, setCopied] = useState(false);
   const [manualUrl, setManualUrl] = useState<string | null>(null);
-  const [canShare, setCanShare] = useState(false);
-
-  useEffect(() => {
-    setCanShare(
-      typeof navigator !== "undefined" && typeof navigator.share === "function",
-    );
-  }, []);
+  const canShare = useBrowserValue(readCanShare, false);
 
   function absoluteUrl(): string {
     if (typeof window === "undefined") return path;

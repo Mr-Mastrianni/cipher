@@ -22,7 +22,7 @@
  *   graph (motor → Throat), not by a hardcoded channel list. The Throat is only
  *   a valid starting point when a complete channel actually defines it.
  * - Authority precedence is Solar Plexus → Sacral → Spleen → Heart → G+Throat →
- *   Throat-only (**Mental**) → **Lunar** (Reflector). Mental and Lunar are the
+ *   Head/Ajna/Throat only (**Mental**) → **Lunar** (Reflector). Mental and Lunar are the
  *   two documented **no-inner-authority** cases: a Mental Projector has clarity
  *   only through environment and sounding boards, and a Reflector must sample a
  *   full lunar cycle.
@@ -35,6 +35,7 @@ import {
   CHANNELS,
   DEFINITION_META,
   DETERMINATION_BY_COLOR,
+  DETERMINATION_SUBTYPES,
   ENVIRONMENT_BY_COLOR,
   GATE_CONNECTIONS,
   GATE_TO_CENTER,
@@ -169,11 +170,14 @@ export interface VariableValue {
   color: number;
   /** 1–6. */
   tone: number;
-  /** The named transformation for this colour, from the constants table. */
+  /**
+   * The named variable for this colour, from the constants table. For
+   * Determination the tone's sub-type is appended, e.g. `"Appetite (Consecutive)"`.
+   */
   name: string;
   /**
-   * Colour 1–3 reads Left, 4–6 reads Right. The arrow direction is *contested*
-   * in the literature (colour vs tone); this reports the colour convention.
+   * Tone 1–3 reads Left, tone 4–6 reads Right — the convention used by the
+   * Jovian Archive and the mainstream calculators.
    */
   direction: "Left" | "Right";
   /** Which side of the chart supplies it. */
@@ -446,8 +450,11 @@ function computeVariables(
     position,
     color,
     tone,
-    name: names[color - 1] ?? names[0],
-    direction: color <= 3 ? "Left" : "Right",
+    name:
+      position === "determination"
+        ? `${names[color - 1] ?? names[0]} (${DETERMINATION_SUBTYPES[color - 1]?.[tone <= 3 ? 0 : 1] ?? ""})`
+        : (names[color - 1] ?? names[0]),
+    direction: tone <= 3 ? "Left" : "Right",
     side,
   });
 
@@ -677,8 +684,10 @@ export function buildBodygraph(
     authority = "Ego";
   } else if (definedCenterSet.has("g") && definedCenterSet.has(throat)) {
     authority = "Self-Projected";
-  } else if (definedCenterSet.has(throat)) {
-    // Mental: definition sits at or above the Throat. No inner authority.
+  } else if (definedCenters.length > 0) {
+    // Mental: definition sits only at or above the Throat (Head, Ajna and/or
+    // Throat). This includes a Projector defined only by a Head–Ajna channel,
+    // whose Throat is open. No inner authority.
     authority = "Mental";
   } else {
     // Lunar: a Reflector. No consistent inner authority at all.

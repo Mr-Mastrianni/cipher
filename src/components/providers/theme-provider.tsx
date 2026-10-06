@@ -4,9 +4,8 @@ import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
-  useState,
+  useSyncExternalStore,
 } from "react";
 import { readStoredTheme, writeStoredTheme } from "@/lib/audio/sound-engine";
 
@@ -32,6 +31,24 @@ function isTheme(value: unknown): value is Theme {
   return typeof value === "string" && (THEMES as readonly string[]).includes(value);
 }
 
+/** Re-render when anything changes the root element's `data-theme`. */
+function subscribeToTheme(onChange: () => void): () => void {
+  const observer = new MutationObserver(onChange);
+  observer.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ["data-theme"],
+  });
+  return () => observer.disconnect();
+}
+
+/** The applied theme: the stored choice, else the attribute, else the default. */
+function readDocumentTheme(): Theme {
+  const attr = document.documentElement.getAttribute("data-theme");
+  if (isTheme(attr)) return attr;
+  const stored = readStoredTheme();
+  return isTheme(stored) ? stored : "dark";
+}
+
 export function ThemeProvider({
   children,
   initialTheme = "dark",
@@ -39,22 +56,16 @@ export function ThemeProvider({
   children: React.ReactNode;
   initialTheme?: Theme;
 }) {
-  const [theme, setThemeState] = useState<Theme>(initialTheme);
-
-  // Adopt whatever the inline head script already applied, so there is no
-  // flash and no mismatch between SSR markup and the live document.
-  useEffect(() => {
-    const stored = readStoredTheme();
-    if (isTheme(stored)) {
-      setThemeState(stored);
-      return;
-    }
-    const attr = document.documentElement.getAttribute("data-theme");
-    if (isTheme(attr)) setThemeState(attr);
-  }, []);
+  // The document's `data-theme` attribute is the source of truth: the inline
+  // head script sets it before paint, and `setTheme` updates it. Reading it as
+  // an external store avoids a flash and needs no state mirrored by an effect.
+  const theme = useSyncExternalStore(
+    subscribeToTheme,
+    readDocumentTheme,
+    () => initialTheme,
+  );
 
   const setTheme = useCallback((next: Theme) => {
-    setThemeState(next);
     writeStoredTheme(next);
     document.documentElement.setAttribute("data-theme", next);
     const meta = document.querySelector('meta[name="theme-color"]');

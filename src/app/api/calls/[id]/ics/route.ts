@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { handleAuthError, requireMember } from "@/lib/auth";
+import { handleAuthError, requireMember, requireTier } from "@/lib/auth";
 import { getStore } from "@/lib/db/store";
 import type { LiveCall } from "@/lib/db/schema";
 
@@ -105,7 +105,7 @@ export async function GET(
   context: RouteContext<"/api/calls/[id]/ics">,
 ) {
   try {
-    await requireMember();
+    const user = await requireMember();
     const { id } = await context.params;
     const store = getStore();
 
@@ -113,6 +113,8 @@ export async function GET(
     if (!call) {
       return Response.json({ ok: false, error: "Call not found." }, { status: 404 });
     }
+    // The calendar file carries the room link, so it is gated like the call.
+    requireTier(user, call.tierRequired ?? "initiate", "This call");
 
     const filename = `the-cipher-${call.slug.replace(/[^a-z0-9-]+/gi, "-")}.ics`;
     return new Response(buildIcs(call, new Date()), {

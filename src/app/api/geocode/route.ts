@@ -19,6 +19,7 @@
  */
 
 import type { NextRequest } from "next/server";
+import { clientIp } from "@/lib/http/client-ip";
 
 /** One place suggestion, shaped for the intake's type-ahead. */
 export interface GeocodeResult {
@@ -60,17 +61,6 @@ const MAX_RATE_ENTRIES = 5000;
 const responseCache = new Map<string, CachedResponse>();
 const timeZoneCache = new Map<string, string | null>();
 const lastRequestAt = new Map<string, number>();
-
-/** Identify the caller. Trusting forwarded headers is acceptable for an
- * unauthenticated courtesy limit; a spoofed value only evades a soft cap. */
-function clientIp(request: NextRequest): string {
-  const forwarded = request.headers.get("x-forwarded-for");
-  if (forwarded) {
-    const first = forwarded.split(",")[0]?.trim();
-    if (first) return first;
-  }
-  return request.headers.get("x-real-ip") ?? "unknown";
-}
 
 /**
  * Apply the per-IP rate limit.

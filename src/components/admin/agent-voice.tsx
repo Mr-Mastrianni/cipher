@@ -45,6 +45,7 @@ import {
 import { Badge, Button, Select, Switch } from "@/components/ui";
 import { useSound } from "@/components/providers/sound-provider";
 import { cn } from "@/lib/utils";
+import { useBrowserValue } from "@/lib/hooks/use-browser-value";
 
 /* ────────────────────────────────────────────────────────────────────────────
  * Web Speech API types
@@ -184,6 +185,38 @@ const PERMISSION_HELP =
  * waveform, and text-to-speech settings. Renders nothing that opens the
  * microphone until the operator acts.
  */
+interface VoiceCapabilities {
+  recognition: boolean;
+  synthesis: boolean;
+  recorder: boolean;
+}
+
+/* Capability detection is client-only, so SSR output stays stable. */
+const NO_VOICE_CAPABILITIES: VoiceCapabilities = {
+  recognition: false,
+  synthesis: false,
+  recorder: false,
+};
+
+let cachedCapabilities: VoiceCapabilities | null = null;
+
+function readVoiceCapabilities(): VoiceCapabilities {
+  if (cachedCapabilities) return cachedCapabilities;
+  const speechWindow = window as unknown as SpeechCapableWindow;
+  cachedCapabilities = {
+    recognition: Boolean(
+      speechWindow.SpeechRecognition ?? speechWindow.webkitSpeechRecognition,
+    ),
+    synthesis: typeof window.speechSynthesis !== "undefined",
+    recorder: typeof window.MediaRecorder !== "undefined",
+  };
+  return cachedCapabilities;
+}
+
+function readBrowserLanguage(): string | null {
+  return typeof navigator !== "undefined" && navigator.language ? navigator.language : null;
+}
+
 export function AgentVoice({
   mode,
   onModeChange,
@@ -200,17 +233,13 @@ export function AgentVoice({
   const [error, setError] = useState<string | null>(null);
   const [announcement, setAnnouncement] = useState("Voice is idle.");
   const [permissionDenied, setPermissionDenied] = useState(false);
-  const [language, setLanguage] = useState("en-US");
+  // `null` until the admin picks a language; then it overrides the browser default.
+  const [languageOverride, setLanguage] = useState<string | null>(null);
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [voiceUri, setVoiceUri] = useState("");
   const [rate, setRate] = useState(1);
   const [muted, setMuted] = useState(false);
   const [speaking, setSpeaking] = useState(false);
-  const [capabilities, setCapabilities] = useState({
-    recognition: false,
-    synthesis: false,
-    recorder: false,
-  });
 
   const recognitionRef = useRef<SpeechRecogniserLike | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -226,22 +255,9 @@ export function AgentVoice({
 
   /* ── Capability detection (client only, so SSR output stays stable) ── */
 
-  useEffect(() => {
-    const speechWindow = window as unknown as SpeechCapableWindow;
-    setCapabilities({
-      recognition: Boolean(
-        speechWindow.SpeechRecognition ?? speechWindow.webkitSpeechRecognition,
-      ),
-      synthesis: typeof window.speechSynthesis !== "undefined",
-      recorder: typeof window.MediaRecorder !== "undefined",
-    });
-  }, []);
-
-  useEffect(() => {
-    if (typeof navigator !== "undefined" && navigator.language) {
-      setLanguage(navigator.language);
-    }
-  }, []);
+  const capabilities = useBrowserValue(readVoiceCapabilities, NO_VOICE_CAPABILITIES);
+  const browserLanguage = useBrowserValue(readBrowserLanguage, null);
+  const language = languageOverride ?? browserLanguage ?? "en-US";
 
   /* ── TTS voice catalogue ── */
 

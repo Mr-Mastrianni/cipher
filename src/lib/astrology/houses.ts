@@ -100,17 +100,31 @@ export function ascendant(ramc: number, obliquity: number, latitude: number): nu
  * Ecliptic longitude of the Vertex — the ecliptic point where the ecliptic
  * meets the prime vertical on the western side.
  *
- * Standard recipe: the Ascendant formula evaluated for the co-latitude
- * (`90° − φ`) and the anti-meridian (`RAMC + 180°`).
+ * Solved directly as a plane intersection rather than through the Ascendant
+ * formula at the co-latitude: that shortcut needs a latitude above 90° for
+ * every southern birth (which the Ascendant's clamp silently destroys) and
+ * returns the Anti-Vertex for part of the low-latitude band.
  *
- * Accuracy caveat: the Vertex is ill-conditioned near the equator (the
- * co-latitude approaches 90° and `tan` blows up) and its sign convention in the
- * southern hemisphere is disputed between sources, so it is reported with
- * `precision: "derived"`. The opposite point is the Anti-Vertex.
+ * In equatorial coordinates the prime vertical is the great circle whose pole
+ * is the north point of the horizon, `N = (−sinφ·cos RAMC, −sinφ·sin RAMC, cosφ)`.
+ * An ecliptic point `P(λ) = (cosλ, sinλ·cosε, sinλ·sinε)` lies on it when
+ * `P·N = 0`, giving two antipodal solutions; the Vertex is the one west of the
+ * meridian, i.e. on the side of the west point `W = (sin RAMC, −cos RAMC, 0)`.
+ *
+ * Accuracy caveat: on the equator the prime vertical coincides with the
+ * celestial equator and the Vertex degenerates to an equinox point. It is
+ * reported with `precision: "derived"`. The opposite point is the Anti-Vertex.
  */
 export function vertex(ramc: number, obliquity: number, latitude: number): number {
-  const coLatitude = 90 - clamp(latitude, -MAX_LATITUDE, MAX_LATITUDE);
-  return ascendant(ramc + 180, obliquity, coLatitude);
+  const phi = clamp(latitude, -MAX_LATITUDE, MAX_LATITUDE);
+  const lambda = atan2Deg(
+    sinDeg(phi) * cosDeg(ramc),
+    cosDeg(phi) * sinDeg(obliquity) - sinDeg(phi) * cosDeg(obliquity) * sinDeg(ramc),
+  );
+  // Dot product of P(λ) with the west point: positive means west of the meridian.
+  const west =
+    cosDeg(lambda) * sinDeg(ramc) - sinDeg(lambda) * cosDeg(obliquity) * cosDeg(ramc);
+  return normalize(west >= 0 ? lambda : lambda + 180);
 }
 
 /** Hour angle a semi-arc cusp must satisfy, given its own semi-arcs. */
