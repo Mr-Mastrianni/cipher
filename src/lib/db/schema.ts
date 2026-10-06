@@ -1076,6 +1076,30 @@ export const notifications = pgTable(
   (t) => [index("notifications_user_created_idx").on(t.userId, t.createdAt)],
 );
 
+/**
+ * Places a member has saved from the astrocartography map, with their own
+ * notes and a snapshot of the relocated KP angles at the time of saving.
+ */
+export const savedLocations = pgTable(
+  "saved_locations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    latitude: doublePrecision("latitude").notNull(),
+    longitude: doublePrecision("longitude").notNull(),
+    /** The member's own insight about this place. */
+    note: text("note"),
+    /** Relocated KP angles and nearby lines when the place was saved. */
+    snapshot: jsonb("snapshot").$type<Record<string, unknown>>(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("saved_locations_user_created_idx").on(t.userId, t.createdAt)],
+);
+
 /** Every privileged action, including every agent tool call. */
 export const auditLog = pgTable(
   "audit_log",
@@ -1183,6 +1207,7 @@ export type AgentMessage = typeof agentMessages.$inferSelect;
 export type NewAgentMessage = typeof agentMessages.$inferInsert;
 
 export type Notification = typeof notifications.$inferSelect;
+export type SavedLocation = typeof savedLocations.$inferSelect;
 export type NewNotification = typeof notifications.$inferInsert;
 
 export type AuditLogEntry = typeof auditLog.$inferSelect;

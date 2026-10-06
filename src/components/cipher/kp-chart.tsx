@@ -45,18 +45,33 @@ function arcPath(start: number, end: number, ascendant: number, rOuter: number, 
   return `M${a.x},${a.y} A${rOuter},${rOuter} 0 ${large} 0 ${b.x},${b.y} L${c.x},${c.y} A${rInner},${rInner} 0 ${large} 1 ${d.x},${d.y} Z`;
 }
 
-/** Spread grahas that sit within `minGap` degrees of each other so labels do not collide. */
-function spread(planets: KpChartView["planets"], minGap = 7) {
+/**
+ * Place graha badges without collisions: crowded grahas (within `crowd`
+ * degrees of a neighbour) alternate between two radial tiers and are nudged
+ * apart angularly just enough to stay legible. The tick on the rasi ring
+ * always marks the true longitude.
+ */
+function spread(planets: KpChartView["planets"], crowd = 9, minGap = 5) {
   const sorted = [...planets].sort((a, b) => a.longitude - b.longitude);
-  const placed = sorted.map((p) => ({ graha: p.graha, longitude: p.longitude, display: p.longitude }));
+  const placed = sorted.map((p) => ({ graha: p.graha, longitude: p.longitude, display: p.longitude, tier: 0 }));
+  // Tiers: alternate inside each run of crowded neighbours.
+  for (let i = 1; i < placed.length; i += 1) {
+    const gap = placed[i].longitude - placed[i - 1].longitude;
+    placed[i].tier = gap < crowd ? 1 - placed[i - 1].tier : 0;
+  }
+  // Angular nudge between badges that share a tier.
   for (let pass = 0; pass < 6; pass += 1) {
     for (let i = 0; i < placed.length; i += 1) {
-      const next = placed[(i + 1) % placed.length];
-      const gap = (((next.display - placed[i].display) % 360) + 360) % 360;
-      if (placed.length > 1 && gap < minGap) {
-        const push = (minGap - gap) / 2;
-        placed[i].display -= push;
-        next.display += push;
+      for (let j = i + 1; j < placed.length; j += 1) {
+        if (placed[i].tier !== placed[j].tier) continue;
+        const gap = (((placed[j].display - placed[i].display) % 360) + 360) % 360;
+        const distance = Math.min(gap, 360 - gap);
+        if (distance < minGap * 1.6) {
+          const push = (minGap * 1.6 - distance) / 2;
+          const forward = gap <= 180;
+          placed[i].display -= forward ? push : -push;
+          placed[j].display += forward ? push : -push;
+        }
       }
     }
   }
@@ -207,8 +222,9 @@ function KpWheel({
         if (!p) return null;
         const tick = point(p.longitude, asc, R_RASI);
         const tickIn = point(p.longitude, asc, R_RASI - 10);
-        const at = point(entry.display, asc, R_PLANET);
-        const degree = point(entry.display, asc, R_PLANET - 26);
+        const radius = entry.tier === 0 ? R_PLANET : R_PLANET - 36;
+        const at = point(entry.display, asc, radius);
+        const degree = point(entry.display, asc, entry.tier === 0 ? radius + 23 : radius - 24);
         const active = isGraha(p.graha);
         return (
           <motion.g
@@ -240,7 +256,9 @@ function KpWheel({
             />
             <text x={at.x} y={at.y} dy="0.35em" textAnchor="middle" className={cn("font-mono text-[11px]", active ? "fill-gold" : "fill-bone")}>
               {short(p.graha)}
-              {p.retrograde && p.graha !== "rahu" && p.graha !== "ketu" ? "ʀ" : ""}
+              {p.retrograde && p.graha !== "rahu" && p.graha !== "ketu" ? (
+                <tspan className="fill-warn text-[8px]" dx="1" dy="-4">R</tspan>
+              ) : null}
             </text>
             <text x={degree.x} y={degree.y} dy="0.35em" textAnchor="middle" className="fill-faint font-mono text-[9px] tabular-nums">
               {Math.floor(p.rasiDegree)}°

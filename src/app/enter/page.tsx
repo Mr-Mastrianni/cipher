@@ -69,7 +69,7 @@ const STEPS = [
     id: "date",
     label: "The date",
     title: "When did you arrive?",
-    blurb: "The date sets the slow bodies — the outer planets and the nodes.",
+    blurb: "The date fixes the slow grahas — Saturn, Jupiter, Rahu and Ketu. The rest needs the exact second.",
   },
   {
     id: "time",

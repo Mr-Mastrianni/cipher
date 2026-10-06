@@ -17,6 +17,8 @@ import {
   BodygraphTextSummary,
 } from "@/components/cipher/bodygraph";
 import { KpChartPanel } from "@/components/cipher/kp-chart";
+import { AstroMap } from "@/components/cipher/astro-map";
+import { astrocartography } from "@/lib/astrocartography/lines";
 import { toKpView } from "@/lib/kp/view";
 import { Badge, Button, EmptyState } from "@/components/ui";
 import { SiteFooter } from "@/components/chrome/site-footer";
@@ -226,6 +228,7 @@ export default async function ReadingPage({
   const reading = result.reading;
   const { bodygraph, avatar, category } = reading;
   const kpView = toKpView(reading.kp);
+  const cartoLines = astrocartography(new Date(reading.kp.birth.utc), reading.kp.system.nodeType);
 
   const typeContent = TYPE_CONTENT_BY_TYPE[bodygraph.type];
   const profileContent = PROFILE_CONTENT_BY_KEY[bodygraph.profile] ?? null;
@@ -495,6 +498,29 @@ export default async function ReadingPage({
               </p>
             </div>
             <KpChartPanel chart={kpView} />
+          </section>
+
+          {/* ── Astrocartography ─────────────────────────────────────── */}
+          <section aria-labelledby="map-title" className="flex flex-col gap-6">
+            <div className="flex flex-col gap-2">
+              <h2 id="map-title" className="font-display text-2xl leading-tight text-bone">
+                Astrocartography
+              </h2>
+              <p className="max-w-2xl text-sm leading-relaxed text-muted">
+                Where on Earth each graha was rising (Lagna), setting (7th),
+                culminating (10th) or at the nadir (4th) at your birth instant.
+                Click any line or place to read your KP chart relocated there.
+              </p>
+            </div>
+            <AstroMap
+              lines={cartoLines}
+              code={reading.code}
+              birthPlace={{
+                name: reading.input.placeName ?? "Birthplace",
+                latitude: reading.input.latitude,
+                longitude: reading.input.longitude,
+              }}
+            />
           </section>
 
           {/* ── The nine centres ─────────────────────────────────────── */}

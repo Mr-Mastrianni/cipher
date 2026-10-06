@@ -55,6 +55,7 @@ import {
   membershipApplications,
   messages,
   notifications,
+  savedLocations,
   TIER_SEED,
   tiers,
   users,
@@ -85,6 +86,7 @@ import {
   type Message,
   type MessageAttachment,
   type Notification as NotificationRow,
+  type SavedLocation,
   type NotificationMetadata,
   type NotificationType,
   type OnboardingAnswers,
@@ -317,6 +319,16 @@ export interface AppendAgentMessageInput {
   tokensOut?: number | null;
 }
 
+/** Input for `Store.createSavedLocation`. */
+export interface CreateSavedLocationInput {
+  userId: string;
+  name: string;
+  latitude: number;
+  longitude: number;
+  note?: string | null;
+  snapshot?: Record<string, unknown> | null;
+}
+
 /** Input for `Store.createNotification`. */
 export interface CreateNotificationInput {
   userId: string;
@@ -531,6 +543,14 @@ export interface Store {
   /** A session's messages in order. */
   listAgentMessages(sessionId: string, limit?: number): Promise<AgentMessage[]>;
 
+  // ── Saved locations ──────────────────────────────────────────────────────
+  /** A member's saved places, newest first. */
+  listSavedLocations(userId: string): Promise<SavedLocation[]>;
+  /** Save a place. */
+  createSavedLocation(input: CreateSavedLocationInput): Promise<SavedLocation>;
+  /** Delete a saved place; only the owner's row is touched. Returns false when absent. */
+  deleteSavedLocation(id: string, userId: string): Promise<boolean>;
+
   // ── Notifications ────────────────────────────────────────────────────────
   /** A user's notifications, newest first. */
   listNotifications(userId: string, limit?: number): Promise<NotificationRow[]>;
@@ -678,6 +698,7 @@ export class MemoryStore implements Store {
   private readonly sessions = new Map<string, AgentSession>();
   private readonly agentMsgs = new Map<string, AgentMessage>();
   private readonly notifications = new Map<string, NotificationRow>();
+  private readonly savedLocations = new Map<string, SavedLocation>();
   private readonly auditEntries: AuditLogEntry[] = [];
 
   constructor() {
@@ -1497,6 +1518,40 @@ export class MemoryStore implements Store {
           (a.id < b.id ? -1 : 1),
       )
       .slice(0, limit);
+  }
+
+  /* ── Saved locations ────────────────────────────────────────────────────── */
+
+  /** {@inheritDoc Store.listSavedLocations} */
+  async listSavedLocations(userId: string): Promise<SavedLocation[]> {
+    return [...this.savedLocations.values()]
+      .filter((row) => row.userId === userId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  /** {@inheritDoc Store.createSavedLocation} */
+  async createSavedLocation(input: CreateSavedLocationInput): Promise<SavedLocation> {
+    const now = new Date();
+    const row: SavedLocation = {
+      id: newId(),
+      userId: input.userId,
+      name: input.name,
+      latitude: input.latitude,
+      longitude: input.longitude,
+      note: input.note ?? null,
+      snapshot: input.snapshot ?? null,
+      createdAt: now,
+      updatedAt: now,
+    };
+    this.savedLocations.set(row.id, row);
+    return row;
+  }
+
+  /** {@inheritDoc Store.deleteSavedLocation} */
+  async deleteSavedLocation(id: string, userId: string): Promise<boolean> {
+    const row = this.savedLocations.get(id);
+    if (!row || row.userId !== userId) return false;
+    return this.savedLocations.delete(id);
   }
 
   /* ── Notifications ──────────────────────────────────────────────────────── */
@@ -3024,6 +3079,42 @@ export class PostgresStore implements Store {
   }
 
   /* ── Notifications ──────────────────────────────────────────────────────── */
+
+  /** {@inheritDoc Store.listSavedLocations} */
+  async listSavedLocations(userId: string): Promise<SavedLocation[]> {
+    return this.db
+      .select()
+      .from(savedLocations)
+      .where(eq(savedLocations.userId, userId))
+      .orderBy(desc(savedLocations.createdAt))
+      .limit(200);
+  }
+
+  /** {@inheritDoc Store.createSavedLocation} */
+  async createSavedLocation(input: CreateSavedLocationInput): Promise<SavedLocation> {
+    const [row] = await this.db
+      .insert(savedLocations)
+      .values({
+        userId: input.userId,
+        name: input.name,
+        latitude: input.latitude,
+        longitude: input.longitude,
+        note: input.note ?? null,
+        snapshot: input.snapshot ?? null,
+      })
+      .returning();
+    if (!row) throw new Error("Failed to save location");
+    return row;
+  }
+
+  /** {@inheritDoc Store.deleteSavedLocation} */
+  async deleteSavedLocation(id: string, userId: string): Promise<boolean> {
+    const rows = await this.db
+      .delete(savedLocations)
+      .where(and(eq(savedLocations.id, id), eq(savedLocations.userId, userId)))
+      .returning({ id: savedLocations.id });
+    return rows.length > 0;
+  }
 
   /** {@inheritDoc Store.listNotifications} */
   async listNotifications(

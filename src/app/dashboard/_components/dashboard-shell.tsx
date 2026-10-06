@@ -3,8 +3,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { motion, useReducedMotion } from "motion/react";import {
+import { motion, useReducedMotion } from "motion/react";
+import {
   Bell,
+  Globe2,
   BookOpen,
   Check,
   Copy,
@@ -60,6 +62,7 @@ interface NavItem {
 const NAV_ITEMS: readonly NavItem[] = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
   { href: "/dashboard/chart", label: "My Chart", icon: Sparkles },
+  { href: "/dashboard/map", label: "Cosmic Map", icon: Globe2 },
   { href: "/dashboard/community", label: "Community", icon: MessagesSquare },
   { href: "/dashboard/messages", label: "Messages", icon: MessageCircle },
   { href: "/dashboard/calls", label: "Calls", icon: Layers },
