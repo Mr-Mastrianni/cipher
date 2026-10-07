@@ -44,6 +44,9 @@ export function roleFromClerkMetadata(metadata: unknown): "admin" | "member" | n
   return role === "admin" || role === "member" ? role : null;
 }
 
+const ROLE_RESYNC_MS = 5 * 60_000;
+const lastRoleSync = new Map<string, number>();
+
 /** Public metadata exposed in the session token, when the token is customised to carry it. */
 async function sessionMetadataRole(): Promise<"admin" | "member" | null> {
   try {
@@ -62,9 +65,21 @@ export async function getCurrentUser(): Promise<User | null> {
   const store = getStore();
   const existing = await store.getUserByClerkId(clerkUserId);
   if (existing) {
-    // Keep the local role in step with Clerk's public metadata when the
-    // session token carries it (no extra API call).
-    const metadataRole = await sessionMetadataRole();
+    // Keep the local role in step with Clerk's public metadata: from the
+    // session token when it carries the metadata (free), otherwise from the
+    // Clerk API at most once per ROLE_RESYNC_MS per user and instance.
+    let metadataRole = await sessionMetadataRole();
+    if (!metadataRole) {
+      const last = lastRoleSync.get(clerkUserId) ?? 0;
+      if (Date.now() - last > ROLE_RESYNC_MS) {
+        lastRoleSync.set(clerkUserId, Date.now());
+        try {
+          metadataRole = roleFromClerkMetadata((await currentUser())?.publicMetadata);
+        } catch {
+          // Clerk unreachable: keep the stored role.
+        }
+      }
+    }
     if (metadataRole && metadataRole !== existing.role) {
       return (await store.updateUser(existing.id, { role: metadataRole })) ?? existing;
     }

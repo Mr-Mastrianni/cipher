@@ -20,6 +20,7 @@ import {
   MessagesSquare,
   Printer,
   Settings,
+  ShieldCheck,
   Sparkles,
 } from "lucide-react";
 import { UserButton } from "@clerk/nextjs";
@@ -188,9 +189,15 @@ export function DashboardShell({
     }
   };
 
+  // Admins also get a way into the admin console.
+  const navItems: readonly NavItem[] =
+    user.role === "admin"
+      ? [...NAV_ITEMS, { href: "/admin", label: "Admin", icon: ShieldCheck }]
+      : NAV_ITEMS;
+
   const nav = (
     <nav aria-label="Dashboard" className="flex flex-col gap-1">
-      {NAV_ITEMS.map((item) => {
+      {navItems.map((item) => {
         const active = isActive(pathname, item.href);
         const Icon = item.icon;
         return (
