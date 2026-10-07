@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import type { NextRequest } from "next/server";
 import { verifyWebhook } from "@clerk/nextjs/webhooks";
 
-import { isAdminEmail } from "@/lib/auth";
+import { isAdminEmail, roleFromClerkMetadata } from "@/lib/auth";
 import { db } from "@/lib/db/client";
 import { webhookEvents } from "@/lib/db/schema";
 import { getStore } from "@/lib/db/store";
@@ -25,6 +25,7 @@ interface ClerkUserPayload {
     verification?: { status?: string | null } | null;
   }>;
   updated_at: number;
+  public_metadata?: Record<string, unknown> | null;
 }
 
 /**
@@ -126,21 +127,26 @@ async function syncUser(
 ): Promise<void> {
   const store = getStore();
   const email = primaryEmail(data);
+  const metadataRole = roleFromClerkMetadata(data.public_metadata);
   await store.upsertUser({
     clerkUserId: data.id,
     email,
     firstName: data.first_name ?? null,
     lastName: data.last_name ?? null,
     imageUrl: data.image_url || null,
-    // Bootstrap admins from the allowlist on first sight only. After that the
-    // role is managed in the admin console and a webhook must not reset it.
-    ...(isCreate
-      ? {
-          role: isAdminEmail(verifiedPrimaryEmail(data))
-            ? ("admin" as const)
-            : ("member" as const),
-        }
-      : {}),
+    // A role set in Clerk's public metadata always wins (only the dashboard
+    // or a server can write it). Otherwise admins are bootstrapped from the
+    // verified ADMIN_EMAILS allowlist on first sight only, and later webhooks
+    // leave the role to the admin console.
+    ...(metadataRole
+      ? { role: metadataRole }
+      : isCreate
+        ? {
+            role: isAdminEmail(verifiedPrimaryEmail(data))
+              ? ("admin" as const)
+              : ("member" as const),
+          }
+        : {}),
     clerkUpdatedAt: new Date(data.updated_at),
   });
 }

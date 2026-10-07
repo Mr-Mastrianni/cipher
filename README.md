@@ -135,7 +135,7 @@ pnpm run test:engine
 | Styling | Tailwind v4 with a four-theme CSS-variable token system |
 | Animation | `motion` (Framer Motion successor) |
 | Audio | A Web Audio synthesiser — no audio files, no preloading |
-| Auth | Clerk (`@clerk/nextjs` 7), roles via `publicMetadata` |
+| Auth | Clerk (`@clerk/nextjs` 7); admin role from Clerk `publicMetadata.role` or the verified `ADMIN_EMAILS` allowlist |
 | Database | Neon Postgres + Drizzle ORM, with a seeded in-memory fallback |
 | Payments | Stripe Billing (Checkout + Customer Portal + webhooks) |
 | Scheduling | FSRS-based spaced repetition |

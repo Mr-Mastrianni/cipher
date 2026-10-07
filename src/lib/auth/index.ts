@@ -33,13 +33,43 @@ export async function getClerkUserId(): Promise<string | null> {
  * first sight so that a brand-new sign-up always has a row to attach
  * onboarding data to.
  */
+/**
+ * The role Clerk's public metadata assigns, if any: `{ "role": "admin" }` or
+ * `{ "role": "member" }`. Public metadata can only be written from the Clerk
+ * dashboard or a server, never by the user, so it is trusted.
+ */
+export function roleFromClerkMetadata(metadata: unknown): "admin" | "member" | null {
+  if (!metadata || typeof metadata !== "object") return null;
+  const role = (metadata as { role?: unknown }).role;
+  return role === "admin" || role === "member" ? role : null;
+}
+
+/** Public metadata exposed in the session token, when the token is customised to carry it. */
+async function sessionMetadataRole(): Promise<"admin" | "member" | null> {
+  try {
+    const { sessionClaims } = await auth();
+    const claims = sessionClaims as Record<string, unknown> | null | undefined;
+    return roleFromClerkMetadata(claims?.metadata ?? claims?.publicMetadata ?? claims?.public_metadata);
+  } catch {
+    return null;
+  }
+}
+
 export async function getCurrentUser(): Promise<User | null> {
   const clerkUserId = await getClerkUserId();
   if (!clerkUserId) return null;
 
   const store = getStore();
   const existing = await store.getUserByClerkId(clerkUserId);
-  if (existing) return existing;
+  if (existing) {
+    // Keep the local role in step with Clerk's public metadata when the
+    // session token carries it (no extra API call).
+    const metadataRole = await sessionMetadataRole();
+    if (metadataRole && metadataRole !== existing.role) {
+      return (await store.updateUser(existing.id, { role: metadataRole })) ?? existing;
+    }
+    return existing;
+  }
 
   // First sight: mirror the minimum from Clerk so the row is usable.
   let email = "";
@@ -47,8 +77,10 @@ export async function getCurrentUser(): Promise<User | null> {
   let lastName: string | null = null;
   let imageUrl: string | null = null;
   let emailVerified = false;
+  let metadataRole: "admin" | "member" | null = null;
   try {
     const user = await currentUser();
+    metadataRole = roleFromClerkMetadata(user?.publicMetadata);
     email =
       user?.primaryEmailAddress?.emailAddress ??
       user?.emailAddresses?.[0]?.emailAddress ??
@@ -70,7 +102,8 @@ export async function getCurrentUser(): Promise<User | null> {
     firstName,
     lastName,
     imageUrl,
-    role: emailVerified && ADMIN_EMAILS.has(email.toLowerCase()) ? "admin" : "member",
+    // Clerk public metadata wins; otherwise the verified ADMIN_EMAILS allowlist.
+    role: metadataRole ?? (emailVerified && ADMIN_EMAILS.has(email.toLowerCase()) ? "admin" : "member"),
   });
 }
 
