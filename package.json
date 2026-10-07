@@ -14,6 +14,7 @@
     "test": "pnpm run test:engine",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
+    "db:seed": "node --import tsx scripts/seed.mts",
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {

@@ -176,6 +176,7 @@ pnpm test:engine      # Engine and library tests (node:test)
 pnpm typecheck        # tsc --noEmit
 pnpm db:generate      # Drizzle: generate migrations
 pnpm db:push          # Drizzle: push the schema to DATABASE_URL
+pnpm db:seed          # Tiers and Collective rooms (idempotent; run after db:push)
 ```
 
 ---
@@ -234,7 +235,8 @@ The app deploys and runs with **zero** environment variables. Add them in the
 Vercel dashboard to turn on each integration.
 
 For a durable database, add the Neon integration from the Vercel Marketplace;
-it sets `DATABASE_URL` for you. Then run `pnpm db:push` once.
+it sets `DATABASE_URL` for you. Put the same value in `.env.local`, then run
+`pnpm db:push` and `pnpm db:seed` once (both are safe to re-run).
 
 ### Webhooks
 
