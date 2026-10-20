@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { handleAuthError, requireMember, requireTier } from "@/lib/auth";
 import { getStore } from "@/lib/db/store";
+import { notifyCallRsvp } from "@/lib/notifications/notify";
 import type { RsvpStatus } from "@/lib/db/schema";
 
 /**
@@ -63,11 +64,15 @@ export async function POST(
       requested = parsed.data.status;
     }
 
+    // The prior RSVP is needed both to toggle and to decide whether this is a
+    // transition into `going`, which is the only case that notifies the host.
+    const before = await store.listRsvps(id);
+    const current = before.find((rsvp) => rsvp.userId === user.id);
+    const previousStatus = current?.status ?? null;
+
     let next: RsvpStatus = requested ?? "going";
     if (!requested) {
-      const existing = await store.listRsvps(id);
-      const mine = existing.find((rsvp) => rsvp.userId === user.id);
-      next = mine && mine.status === "going" ? "declined" : "going";
+      next = current?.status === "going" ? "declined" : "going";
     }
 
     const saved = await store.rsvpCall(id, user.id, next);
@@ -79,6 +84,14 @@ export async function POST(
       targetType: "live_call",
       targetId: id,
       after: { status: saved.status },
+    });
+
+    // Only a change into `going` is news to the host; a toggle off is not.
+    await notifyCallRsvp(store, {
+      call,
+      member: user,
+      status: saved.status,
+      previousStatus,
     });
 
     return Response.json({

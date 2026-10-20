@@ -4,6 +4,7 @@ import { z } from "zod";
 import { handleAuthError, requireAdmin, requireUser } from "@/lib/auth";
 import type { ApplicationStatus } from "@/lib/db/schema";
 import { getStore } from "@/lib/db/store";
+import { notifyAdminsOfApplication } from "@/lib/notifications/notify";
 
 /**
  * Membership applications.
@@ -153,6 +154,13 @@ export async function POST(request: NextRequest): Promise<Response> {
   // `createApplication` mirrors this too, but stating it here keeps the
   // contract obvious at the call site and covers a store that only inserts.
   await store.updateUser(user.id, { membershipStatus: "pending" });
+
+  // Put the application in the review desk's bell. This never throws, so a
+  // notification failure cannot turn a successful submission into an error.
+  await notifyAdminsOfApplication(store, {
+    applicant: user,
+    applicationId: application.id,
+  });
 
   return Response.json({ ok: true, application }, { status: 201 });
 }

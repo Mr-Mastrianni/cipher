@@ -4,6 +4,7 @@ import { z } from "zod";
 import { handleAuthError, requireAdmin } from "@/lib/auth";
 import type { TierKey } from "@/lib/db/schema";
 import { getStore } from "@/lib/db/store";
+import { notifyApplicantOfDecision } from "@/lib/notifications/notify";
 
 /**
  * Decide one membership application.
@@ -123,6 +124,15 @@ export async function PATCH(
       applicantUserId: application.userId,
       note,
     },
+  });
+
+  // Close the loop: without this the applicant is approved and never told,
+  // which is the only place the decision currently reaches them.
+  await notifyApplicantOfDecision(store, {
+    userId: application.userId,
+    applicationId: application.id,
+    decision: parsed.data.decision === "approve" ? "approved" : "denied",
+    tier: grantedTier,
   });
 
   return Response.json({ ok: true, application, tier: grantedTier });

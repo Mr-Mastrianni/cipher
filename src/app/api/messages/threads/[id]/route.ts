@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { handleAuthError, requireMember, requireTier } from "@/lib/auth";
 import { getStore } from "@/lib/db/store";
+import { notifyDirectMessage } from "@/lib/notifications/notify";
 import type { DirectMessage, User } from "@/lib/db/schema";
 
 /**
@@ -217,6 +218,15 @@ export async function POST(
       threadId: id,
       authorId: user.id,
       body,
+    });
+
+    // Tell the other participant. Never throws, so a bell failure cannot lose
+    // the message that has already been stored.
+    await notifyDirectMessage(store, {
+      thread,
+      author: user,
+      body,
+      messageId: created.id,
     });
 
     const [enriched] = await enrich([created]);
