@@ -2,10 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { motion, useReducedMotion } from "motion/react";
 import {
   Bell,
+  Compass,
   Globe2,
   HeartHandshake,
   HelpCircle,
@@ -32,6 +33,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { THEME_LABEL, THEMES, useTheme, type Theme } from "@/components/providers/theme-provider";
 import { useSound } from "@/components/providers/sound-provider";
 import { useBrowserValue } from "@/lib/hooks/use-browser-value";
+import { restartTour } from "@/lib/tour";
 import { cn } from "@/lib/utils";
 import type { AuraAvatar } from "@/lib/cipher/aura-avatar";
 import { AuraAvatarChip } from "@/components/cipher/aura-avatar-card";
@@ -300,7 +302,10 @@ export function DashboardShell({
       <div className="mx-auto flex w-full max-w-7xl flex-1 gap-8 px-4 py-8 sm:px-6 lg:px-8">
         <aside className="hidden w-56 shrink-0 lg:block">
           <div className="sticky top-24 flex flex-col gap-6">
-            <div className="surface rounded-lg p-3">{nav}</div>
+            {/* The tour spotlights the nav card, not the `<aside>`: a stretched
+                flex item is as tall as the page, which would make the spotlight
+                enormous and scroll the target far out of view. */}
+            <div className="surface rounded-lg p-3" data-tour="nav">{nav}</div>
             {user.avatar ? (
               <div className="surface rounded-lg p-4">
                 <p className="font-mono text-[9px] uppercase tracking-[0.28em] text-faint">
@@ -636,6 +641,7 @@ export function MemberPreferences({
 }) {
   const { theme, setTheme } = useTheme();
   const { enabled, setEnabled, play } = useSound();
+  const router = useRouter();
   // `null` during SSR and hydration; the stored JSON (or "") on the client.
   const storedPrefs = useBrowserValue(readStoredPrefs, null);
   const loaded = storedPrefs !== null;
@@ -644,7 +650,11 @@ export function MemberPreferences({
     () => ({ ...DEFAULT_PREFS, ...parseStoredPrefs(storedPrefs), ...edits }),
     [storedPrefs, edits],
   );
-  const [portal, setPortal] = useState<"idle" | "loading" | "missing" | "error">("idle");
+  const [portal, setPortal] = useState<"idle" | "loading" | "error">("idle");
+  // The route explains itself honestly (503 when billing is unconfigured, 409
+  // when there is no customer yet). Showing "could not reach" for those hid a
+  // configuration problem behind a network-sounding one.
+  const [portalMessage, setPortalMessage] = useState<string | null>(null);
 
 
   const updatePref = (key: keyof NotificationPrefs, value: boolean) => {
@@ -660,28 +670,26 @@ export function MemberPreferences({
 
   const openPortal = async () => {
     setPortal("loading");
+    setPortalMessage(null);
     play("select");
     try {
       const response = await fetch("/api/stripe/portal", { method: "POST" });
-      if (response.status === 404) {
-        setPortal("missing");
-        play("error");
-        return;
-      }
-      if (!response.ok) {
+      const data = (await response.json().catch(() => null)) as {
+        url?: string;
+        error?: string;
+      } | null;
+
+      if (!response.ok || !data?.url) {
         setPortal("error");
+        setPortalMessage(data?.error ?? "The billing portal could not be opened.");
         play("error");
         return;
       }
-      const data = (await response.json()) as { url?: string };
-      if (data.url) {
-        window.location.assign(data.url);
-        return;
-      }
-      setPortal("error");
-      play("error");
+
+      window.location.assign(data.url);
     } catch {
       setPortal("error");
+      setPortalMessage("We could not reach billing. Check your connection and try again.");
       play("error");
     }
   };
@@ -769,6 +777,32 @@ export function MemberPreferences({
         </div>
       </section>
 
+      <section aria-labelledby="tour-heading" className="surface rounded-lg p-5">
+        <h3 id="tour-heading" className="font-display text-lg text-bone">
+          Guided tour
+        </h3>
+        <p className="mt-1 text-sm text-muted">
+          The four-stop walkthrough of the dashboard, offered once on your first
+          visit. Replaying it starts again from the overview.
+        </p>
+        <div className="mt-4">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              play("select");
+              // Clears the stored flag and wakes the mounted tour, then lands on
+              // the one route where its targets exist.
+              restartTour();
+              router.push("/dashboard");
+            }}
+          >
+            <Compass aria-hidden="true" className="h-4 w-4" strokeWidth={1.5} />
+            Replay the tour
+          </Button>
+        </div>
+      </section>
+
       <section aria-labelledby="tier-heading" className="surface rounded-lg p-5">
         <h3 id="tier-heading" className="font-display text-lg text-bone">
           Membership
@@ -788,11 +822,7 @@ export function MemberPreferences({
             Manage billing
           </Button>
           <span aria-live="polite" className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted">
-            {portal === "missing"
-              ? "Billing portal is not configured in this deployment."
-              : portal === "error"
-                ? "Could not reach the billing portal."
-                : ""}
+            {portalMessage ?? ""}
           </span>
         </div>
       </section>

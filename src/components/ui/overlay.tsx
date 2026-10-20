@@ -29,6 +29,12 @@ export interface OverlayBehaviorOptions {
   dismissible?: boolean;
   /** Element to focus on open; defaults to the first focusable descendant. */
   initialFocusRef?: RefObject<HTMLElement | null>;
+  /**
+   * Lock body scroll while open. Defaults to `true`, which is right for a modal
+   * sheet. A guided tour passes `false`: it scrolls the page to its target, and
+   * a locked body would defeat `scrollIntoView`.
+   */
+  lockScroll?: boolean;
 }
 
 /**
@@ -42,6 +48,7 @@ export function useOverlayBehavior({
   panelRef,
   dismissible = true,
   initialFocusRef,
+  lockScroll = true,
 }: OverlayBehaviorOptions) {
   const onCloseRef = useRef(onClose);
 
@@ -57,9 +64,11 @@ export function useOverlayBehavior({
     const scrollbarWidth =
       window.innerWidth - document.documentElement.clientWidth;
 
-    document.body.style.overflow = "hidden";
-    if (scrollbarWidth > 0) {
-      document.body.style.paddingRight = `${scrollbarWidth}px`;
+    if (lockScroll) {
+      document.body.style.overflow = "hidden";
+      if (scrollbarWidth > 0) {
+        document.body.style.paddingRight = `${scrollbarWidth}px`;
+      }
     }
 
     const frame = window.requestAnimationFrame(() => {
@@ -116,7 +125,7 @@ export function useOverlayBehavior({
       document.body.style.paddingRight = paddingRight;
       previouslyFocused?.focus({ preventScroll: true });
     };
-  }, [open, dismissible, panelRef, initialFocusRef]);
+  }, [open, dismissible, panelRef, initialFocusRef, lockScroll]);
 }
 
 const noopSubscribe = () => () => {};

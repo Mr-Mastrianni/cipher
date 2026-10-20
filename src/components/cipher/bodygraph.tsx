@@ -13,13 +13,14 @@ import {
   GATE_POSITIONS,
   polygonPoints,
 } from "@/lib/human-design/bodygraph-layout";
+import {
+  activationMarkers,
+  type ActivationMarker,
+} from "@/lib/human-design/activation-markers";
 import { cn } from "@/lib/utils";
 
-export interface BodygraphNode {
-  gate: number;
-  line: number;
-  source: "personality" | "design" | "both";
-}
+/** One activation, as handed to the renderer (one per planet, before collapse). */
+export type BodygraphNode = ActivationMarker;
 
 export interface BodygraphEdge {
   gates: readonly [number, number];
@@ -66,18 +67,15 @@ export function Bodygraph({
   const reduced = useReducedMotion();
   const shouldAnimate = animate && !reduced;
 
-  const nodeByGate = useMemo(() => {
-    const map = new Map<number, BodygraphNode>();
-    for (const node of data.nodes) {
-      const existing = map.get(node.gate);
-      if (!existing || existing.source !== "both") {
-        map.set(node.gate, existing && existing.source !== node.source
-          ? { ...node, source: "both" }
-          : node);
-      }
-    }
-    return map;
-  }, [data.nodes]);
+  // One marker per gate: several planets can share a gate on the same side
+  // (Sun and Mercury in gate 60 is ordinary), and drawing the raw activation
+  // list put duplicate dots — and duplicate React keys — on the same spot.
+  const markers = useMemo(() => activationMarkers(data.nodes), [data.nodes]);
+
+  const markerByGate = useMemo(
+    () => new Map(markers.map((marker) => [marker.gate, marker])),
+    [markers],
+  );
 
   const defined = useMemo(
     () => new Set(data.definedCenters),
@@ -198,7 +196,7 @@ export function Bodygraph({
           {Array.from({ length: 64 }, (_, i) => i + 1).map((gate) => {
             const position = GATE_POSITIONS[gate];
             if (!position) return null;
-            const node = nodeByGate.get(gate);
+            const node = markerByGate.get(gate);
             const isActive = Boolean(node);
             const centre = GATE_TO_CENTER[gate];
             const centreDefined = centre ? defined.has(centre) : false;
@@ -224,16 +222,18 @@ export function Bodygraph({
         </g>
       )}
 
-      {/* ── Activation dots: personality above, design below ─────────── */}
+      {/* ── Activation dots: design left of the gate, personality right ── */}
       <g>
-        {data.nodes.map((node) => {
-          const position = GATE_POSITIONS[node.gate];
+        {markers.map((marker) => {
+          const position = GATE_POSITIONS[marker.gate];
           if (!position) return null;
           const [x, y] = position;
-          const showLeft = node.source === "design" || node.source === "both";
-          const showRight = node.source === "personality" || node.source === "both";
+          const showLeft = marker.source === "design" || marker.source === "both";
+          const showRight =
+            marker.source === "personality" || marker.source === "both";
           return (
-            <g key={`${node.gate}-${node.source}`}>
+            // One marker per gate, so the gate is a stable unique key.
+            <g key={marker.gate}>
               {showLeft && (
                 <circle cx={x - 13} cy={y} r={2.6} fill="var(--c-src-design)" />
               )}

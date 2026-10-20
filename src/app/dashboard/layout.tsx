@@ -9,6 +9,7 @@ import type { AuraAvatar } from "@/lib/cipher/aura-avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader, PageShell } from "@/components/chrome/page-shell";
+import { Tour } from "@/components/tour/tour";
 import {
   DashboardShell,
   type ChromeUser,
@@ -234,13 +235,18 @@ export default async function DashboardLayout({
   };
 
   return (
-    <DashboardShell
-      user={chromeUser}
-      clerkEnabled={clerkConfigured}
-      demoMode={demo || !process.env.DATABASE_URL}
-      initialUnread={unread}
-    >
-      {children}
-    </DashboardShell>
+    <>
+      <DashboardShell
+        user={chromeUser}
+        clerkEnabled={clerkConfigured}
+        demoMode={demo || !process.env.DATABASE_URL}
+        initialUnread={unread}
+      >
+        {children}
+      </DashboardShell>
+      {/* Runs itself once, only on the overview and only if this device has not
+          seen it. Rendered from the layout so it survives client navigation. */}
+      <Tour />
+    </>
   );
 }

@@ -2,9 +2,10 @@
 
 A futuristic cosmic portal for **Krishnamurti Paddhati (KP) astrology**, Human
 Design and astrocartography, with a Starseed community: cosmic matching,
-themed rooms, live events, courses, flashcards, personalised recommendations,
-tiered membership, and an admin-only AI agent that can research the site and
-propose changes as pull requests.
+themed rooms, live events, courses, flashcards, personalised recommendations, a
+first-run tour with a self-completing setup checklist, tiered membership, and an
+admin-only AI agent that can research the site and propose changes as pull
+requests.
 
 **KP is the only astrology on the platform.** It is sidereal (KP ayanamsa),
 uses Placidus cusps and sub lords, and has no Western or tropical chart and no
@@ -70,7 +71,9 @@ indexable. Everything here is a real route with its own metadata, plus a
 ### 4. One design system
 
 A single token family with four themes (Void, Bone, Plum, Moss) rather than two
-parallel sets, one theme storage key rather than three, and no dead themes.
+parallel sets, one theme choice rather than three, and no dead themes. The choice
+is mirrored into a cookie so the server renders the right `data-theme` in the
+HTML: no pre-paint script, nothing to flash.
 
 ---
 
@@ -194,7 +197,10 @@ Four tiers, with the base paid tier at **$15/month**:
 
 Membership is by application. An admin reviews each one and approves or denies
 it from `/admin/applications`; nothing is charged before approval. Applications,
-reviewer notes and every privileged action are recorded in an audit log.
+reviewer notes and every privileged action are recorded in an audit log. The
+review desk is notified in-app when an application arrives, and the applicant is
+notified when it is decided — the reviewer's private note is never copied into
+that notification.
 
 ---
 

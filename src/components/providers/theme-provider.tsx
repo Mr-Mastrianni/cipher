@@ -8,9 +8,17 @@ import {
   useSyncExternalStore,
 } from "react";
 import { readStoredTheme, writeStoredTheme } from "@/lib/audio/sound-engine";
+import {
+  DEFAULT_THEME,
+  isTheme,
+  THEMES,
+  THEME_COOKIE,
+  THEME_MAX_AGE,
+  type Theme,
+} from "@/lib/theme";
 
-export const THEMES = ["dark", "light", "plum", "moss"] as const;
-export type Theme = (typeof THEMES)[number];
+export { THEMES };
+export type { Theme };
 
 export const THEME_LABEL: Record<Theme, string> = {
   dark: "Void",
@@ -27,10 +35,6 @@ interface ThemeContextValue {
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
-function isTheme(value: unknown): value is Theme {
-  return typeof value === "string" && (THEMES as readonly string[]).includes(value);
-}
-
 /** Re-render when anything changes the root element's `data-theme`. */
 function subscribeToTheme(onChange: () => void): () => void {
   const observer = new MutationObserver(onChange);
@@ -46,12 +50,12 @@ function readDocumentTheme(): Theme {
   const attr = document.documentElement.getAttribute("data-theme");
   if (isTheme(attr)) return attr;
   const stored = readStoredTheme();
-  return isTheme(stored) ? stored : "dark";
+  return isTheme(stored) ? stored : DEFAULT_THEME;
 }
 
 export function ThemeProvider({
   children,
-  initialTheme = "dark",
+  initialTheme = DEFAULT_THEME,
 }: {
   children: React.ReactNode;
   initialTheme?: Theme;
@@ -67,6 +71,13 @@ export function ThemeProvider({
 
   const setTheme = useCallback((next: Theme) => {
     writeStoredTheme(next);
+    // The cookie is what the server reads on the next request, so the correct
+    // theme is in the HTML before any script could run.
+    try {
+      document.cookie = `${THEME_COOKIE}=${next}; path=/; max-age=${THEME_MAX_AGE}; samesite=lax`;
+    } catch {
+      /* A cookie-less browser still gets the choice for this page view. */
+    }
     document.documentElement.setAttribute("data-theme", next);
     const meta = document.querySelector('meta[name="theme-color"]');
     if (meta) {

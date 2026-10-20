@@ -40,6 +40,7 @@ import { AuraAvatarChip } from "@/components/cipher/aura-avatar-card";
 import type { AuraAvatar } from "@/lib/cipher/aura-avatar";
 import { timeAgo } from "@/lib/utils";
 import { Countdown, RsvpButton } from "./_components/dashboard-shell";
+import { SetupChecklist, type SetupTask } from "./_components/setup-checklist";
 
 /**
  * The dashboard overview.
@@ -213,10 +214,14 @@ export default async function DashboardOverviewPage() {
     unread: boolean;
   }[] = [];
 
+  // Whether the member has ever posted — used by the setup checklist below.
+  let myPosts = 0;
+
   for (const channel of channels) {
     const page = await store.listMessages(channel.id, { limit: 6 });
     for (const message of page.items) {
       if (message.deletedAt) continue;
+      if (message.authorId === user.id) myPosts += 1;
       if (!authorCache.has(message.authorId)) {
         const author = await store.getUserById(message.authorId);
         authorCache.set(
@@ -328,6 +333,48 @@ export default async function DashboardOverviewPage() {
     dueFlashcards: dueToday,
   });
 
+  /* ── Setup checklist ───────────────────────────────────────────────────── */
+
+  // Every tick is derived from state this page already loaded, so the checklist
+  // costs no extra query and can never disagree with what the member can see.
+  const setupTasks: readonly SetupTask[] = [
+    {
+      id: "birth",
+      title: "Confirm your birth moment",
+      detail: "The chart, the map and matching are all cast from it.",
+      href: "/onboarding",
+      done: Boolean(profile),
+    },
+    {
+      id: "interests",
+      title: "Choose what you are into",
+      detail: "Powers matching and ranks the courses and rooms you see.",
+      href: "/dashboard/matching",
+      done: (user.interests?.length ?? 0) > 0,
+    },
+    {
+      id: "collective",
+      title: "Say something in the Collective",
+      detail: "One post is enough — it is how the room learns who you are.",
+      href: "/dashboard/community",
+      done: myPosts > 0,
+    },
+    {
+      id: "seat",
+      title: "Save your seat on the next call",
+      detail: "RSVP so the host knows who to expect, and get the calendar file.",
+      href: "/dashboard/calls",
+      done: myRsvp?.status === "going",
+    },
+    {
+      id: "lesson",
+      title: "Open your first lesson",
+      detail: "KP Foundations and Human Design are free on the threshold tier.",
+      href: "/dashboard/courses",
+      done: progressRows.length > 0,
+    },
+  ];
+
   return (
     <PageShell width="wide">
       <PageHeader
@@ -351,9 +398,12 @@ export default async function DashboardOverviewPage() {
       />
 
       <div className="flex flex-col gap-12">
+        <SetupChecklist tasks={setupTasks} />
+
         {/* For you ---------------------------------------------------------- */}
         {recommendations.length > 0 ? (
-          <Section eyebrow="For you" title="What your chart and the Collective suggest now">
+          <div data-tour="for-you">
+            <Section eyebrow="For you" title="What your chart and the Collective suggest now">
             <ul className="m-0 grid list-none gap-4 p-0 sm:grid-cols-2 xl:grid-cols-3">
               {recommendations.map((item) => {
                 const Icon = RECOMMENDATION_ICON[item.kind];
@@ -378,10 +428,12 @@ export default async function DashboardOverviewPage() {
                 );
               })}
             </ul>
-          </Section>
+            </Section>
+          </div>
         ) : null}
 
         {/* Chart at a glance ------------------------------------------------ */}
+        <div data-tour="chart">
         <Section
           eyebrow="At a glance"
           title="Your bodygraph"
@@ -438,6 +490,7 @@ export default async function DashboardOverviewPage() {
             />
           )}
         </Section>
+        </div>
 
         {/* Next call -------------------------------------------------------- */}
         <Section

@@ -1,6 +1,12 @@
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
+import { cookies } from "next/headers";
 import { AppProviders } from "@/components/providers/app-providers";
+import {
+  DEFAULT_THEME,
+  isTheme,
+  THEME_COOKIE,
+} from "@/lib/theme";
 import "./globals.css";
 
 /**
@@ -93,22 +99,31 @@ export const viewport: Viewport = {
 };
 
 /**
- * Applied before first paint so the correct theme is on <html> with no flash.
- * Kept tiny and dependency-free on purpose.
+ * The theme is rendered here, on the server, from a cookie.
+ *
+ * This used to be a pre-paint `<script>` in `<head>` reading localStorage. That
+ * works, but React refuses to treat a script element rendered from a component
+ * as executable ("Scripts inside React components are never executed when
+ * rendering on the client"), so every page logged a console error in
+ * development. `next/script` does not replace it: with `beforeInteractive` Next
+ * queues the body for the client loader (`__next_s.push`), which runs after
+ * hydration and would flash the wrong theme first.
+ *
+ * Reading the cookie instead puts the right `data-theme` in the HTML itself —
+ * no script, no warning, and nothing to flash. The provider writes the cookie
+ * whenever a member changes the theme.
  */
-const themeBootstrap = `(function(){try{var t=localStorage.getItem('cipher:theme');if(!t){t='dark';}document.documentElement.setAttribute('data-theme',t);}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();`;
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  const storedTheme = (await cookies()).get(THEME_COOKIE)?.value;
+  const theme = isTheme(storedTheme) ? storedTheme : DEFAULT_THEME;
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      data-theme="dark"
+      data-theme={theme}
       suppressHydrationWarning
       className={`${cinzel.variable} ${montserrat.variable} ${jetbrainsMono.variable} h-full`}
     >
-      <head>
-        <script dangerouslySetInnerHTML={{ __html: themeBootstrap }} />
-      </head>
       <body className="min-h-full flex flex-col bg-void text-bone font-sans antialiased">
         <a
           href="#main"

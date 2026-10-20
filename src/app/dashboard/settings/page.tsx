@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
@@ -11,10 +10,11 @@ import type { ShareableBirth } from "@/lib/cipher/share-code";
 import { describeIssue, kpBirthSchema } from "@/lib/kp/birth-schema";
 import type { VerifiedBirth } from "@/components/cipher/birth-verification";
 import { BirthDataForm } from "./birth-data-form";
+import { ProfileForm } from "./profile-form";
+import { CancelMembership } from "./cancel-membership";
 import { profileInputFromReading } from "@/lib/cipher/profile-snapshot";
+import { isStripeConfigured } from "@/lib/payments/stripe";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Field, Input } from "@/components/ui/input";
 import { PageHeader, PageShell } from "@/components/chrome/page-shell";
 import { Section } from "@/components/chrome/section";
 import { MemberPreferences } from "../_components/dashboard-shell";
@@ -69,6 +69,16 @@ export default async function SettingsPage({
 
   const store = getStore();
   const profile = await store.getBirthProfileByUser(user.id);
+
+  // Format the paid-until date here, in the member's own zone, so the client
+  // component never has to guess a timezone (or disagree with the server during
+  // hydration).
+  const periodEndLabel = user.currentPeriodEnd
+    ? new Intl.DateTimeFormat("en-GB", {
+        timeZone: user.timezone ?? "UTC",
+        dateStyle: "long",
+      }).format(user.currentPeriodEnd)
+    : null;
 
   /**
    * Persist the profile name and image.
@@ -158,35 +168,16 @@ export default async function SettingsPage({
 
       <div className="flex flex-col gap-12">
         <Section eyebrow="Identity" title="Profile">
-          <form action={updateProfile} className="flex flex-col gap-5">
-            <Field label="Display name" description="Shown on your posts and messages.">
-              <Input
-                name="displayName"
-                defaultValue={user.displayName ?? [user.firstName, user.lastName].filter(Boolean).join(" ")}
-                maxLength={80}
-                autoComplete="name"
-              />
-            </Field>
-            <Field label="Pronouns" description="Optional. Shown beside your name if set.">
-              <Input name="pronouns" defaultValue={user.pronouns ?? ""} maxLength={40} />
-            </Field>
-            <Field
-              label="Image URL"
-              description="A square image works best. Leave blank to use your initials."
-            >
-              <Input
-                name="imageUrl"
-                defaultValue={user.imageUrl ?? ""}
-                inputMode="url"
-                placeholder="https://…"
-              />
-            </Field>
-            <div>
-              <Button type="submit" variant="primary" size="sm">
-                Save profile
-              </Button>
-            </div>
-          </form>
+          <ProfileForm
+            save={updateProfile}
+            defaults={{
+              displayName:
+                user.displayName ??
+                [user.firstName, user.lastName].filter(Boolean).join(" "),
+              pronouns: user.pronouns ?? "",
+              imageUrl: user.imageUrl ?? "",
+            }}
+          />
         </Section>
 
         <Section
@@ -228,18 +219,12 @@ export default async function SettingsPage({
           title="Leaving"
           description="Cancelling ends the membership at the end of the paid period. Your reading stays available."
         >
-          <div className="surface flex flex-wrap items-center justify-between gap-4 rounded-lg border-danger/30 p-5">
-            <div>
-              <p className="font-display text-lg text-bone">Cancel membership</p>
-              <p className="mt-1 text-sm text-muted">
-                You keep access until the current period ends. No further charges
-                are made.
-              </p>
-            </div>
-            <Button asChild variant="danger" size="sm">
-              <Link href="/membership/cancel">Cancel membership</Link>
-            </Button>
-          </div>
+          <CancelMembership
+            billingConfigured={isStripeConfigured()}
+            hasBillingAccount={Boolean(user.stripeCustomerId)}
+            subscriptionStatus={user.subscriptionStatus}
+            periodEndLabel={periodEndLabel}
+          />
         </Section>
       </div>
     </PageShell>
