@@ -87,7 +87,7 @@ export function Bodygraph({
   return (
     <svg
       viewBox={`0 0 ${BODYGRAPH_VIEWBOX.width} ${BODYGRAPH_VIEWBOX.height}`}
-      className={cn("h-auto w-full max-w-md", className)}
+      className={cn("h-auto w-full max-w-xl", className)}
       role="img"
       aria-label={`Bodygraph with ${defined.size} of 9 centres defined and ${definedEdges.length} channels`}
     >
@@ -111,15 +111,27 @@ export function Bodygraph({
           const key = `${a}-${b}`;
           const stroke = SOURCE_COLOR[edge.source] ?? "var(--c-channel-edge)";
           const line = (
-            <line
-              x1={from[0]}
-              y1={from[1]}
-              x2={to[0]}
-              y2={to[1]}
-              stroke={stroke}
-              strokeWidth={7}
-              opacity={0.92}
-            />
+            <g>
+              {/* A void-coloured underlay keeps two crossing channels legible
+                  as separate ribbons rather than one merged blob. */}
+              <line
+                x1={from[0]}
+                y1={from[1]}
+                x2={to[0]}
+                y2={to[1]}
+                stroke="var(--c-void)"
+                strokeWidth={11}
+              />
+              <line
+                x1={from[0]}
+                y1={from[1]}
+                x2={to[0]}
+                y2={to[1]}
+                stroke={stroke}
+                strokeWidth={7}
+                opacity={0.95}
+              />
+            </g>
           );
           if (!shouldAnimate) return <g key={key}>{line}</g>;
           return (
@@ -214,6 +226,11 @@ export function Bodygraph({
                 }
                 fontWeight={isActive ? 600 : 400}
                 opacity={isActive ? 1 : 0.75}
+                // The numbers sit on the centre edges, so a void-coloured halo
+                // keeps them readable where a channel passes behind them.
+                stroke="var(--c-void)"
+                strokeWidth={3}
+                paintOrder="stroke"
               >
                 {gate}
               </text>

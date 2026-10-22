@@ -672,6 +672,11 @@ export default function AgentConsolePage() {
             <Badge tone={status?.mode === "write" ? "danger" : "teal"}>
               {status?.mode === "write" ? "Write mode" : "Read-only"}
             </Badge>
+            {/* GitHub and the model are independent: with a model but no token
+                the agent can read the database but not the repository. */}
+            <Badge tone={status?.github ? "ok" : "warn"}>
+              {status?.github ? "GitHub connected" : "No GitHub token"}
+            </Badge>
             <Badge tone="neutral">{status?.model ?? "model unset"}</Badge>
           </div>
         </div>

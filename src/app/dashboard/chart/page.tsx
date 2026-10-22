@@ -314,7 +314,7 @@ export default async function ChartPage() {
             title="The bodygraph"
             description="Defined centres have a consistent way of operating. Open centres take in and amplify the room — that is the sensitivity, not the fault."
           >
-            <div className="grid gap-6 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)]">
+            <div className="grid gap-6 lg:grid-cols-[minmax(0,30rem)_minmax(0,1fr)]">
               <div className="surface rounded-lg p-4">
                 <Bodygraph data={reading.visualization} />
               </div>
