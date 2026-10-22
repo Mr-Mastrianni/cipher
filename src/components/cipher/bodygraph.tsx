@@ -159,9 +159,13 @@ export function Bodygraph({
               y1={from[1]}
               x2={to[0]}
               y2={to[1]}
-              stroke="var(--c-open-stroke)"
-              strokeWidth={3.2}
-              opacity={0.34}
+              // `--c-open` rather than `--c-open-stroke`: the skeleton is
+              // structure, not a highlight, and at 0.34 opacity on the indigo
+              // ground it was invisible. This reads as a body outline while
+              // still letting the defined channels dominate.
+              stroke="var(--c-open)"
+              strokeWidth={3.6}
+              opacity={0.72}
             />
           );
         })}

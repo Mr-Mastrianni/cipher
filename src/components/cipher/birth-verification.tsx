@@ -56,7 +56,6 @@ export function BirthVerification({
 }) {
   const [response, setResponse] = useState<ResolveResponse | null>(null);
   const [fold, setFold] = useState<"earlier" | "later" | null>(null);
-  const [nodeType, setNodeType] = useState<"mean" | "true">("mean");
   const [confirmed, setConfirmed] = useState(false);
 
   const key = JSON.stringify(draft);
@@ -89,10 +88,18 @@ export function BirthVerification({
   const ready = Boolean(moment) && confirmed;
 
   useEffect(() => {
-    onChange(ready ? { ...draft, nodeType, ...(ambiguous && fold ? { fold } : {}) } : null);
+    // Rāhu and Ketu are cast on the **mean node**, which is the KP convention.
+    // There is nothing to ask: the choice only ever mattered against Western
+    // practice, and Human Design is calculated separately on the true node
+    // without needing this input.
+    onChange(
+      ready
+        ? { ...draft, nodeType: "mean", ...(ambiguous && fold ? { fold } : {}) }
+        : null,
+    );
     // `draft` is captured through `key`.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready, fold, nodeType, key, ambiguous]);
+  }, [ready, fold, key, ambiguous]);
 
   if (!response) {
     return (
@@ -184,39 +191,11 @@ export function BirthVerification({
         </ul>
       ) : null}
 
-      <fieldset className="flex flex-col gap-2">
-        <legend className="mb-2 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.2em] text-faint">
-          <Globe2 aria-hidden="true" className="h-4 w-4" strokeWidth={1.5} />
-          Rahu and Ketu
-        </legend>
-        <div className="flex flex-wrap gap-3">
-          {(
-            [
-              ["mean", "Mean node", "KP default"],
-              ["true", "True node", "osculating"],
-            ] as const
-          ).map(([value, label, note]) => (
-            <label
-              key={value}
-              className={cn(
-                "flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-sm transition-colors",
-                nodeType === value ? "border-gold bg-gold/10 text-bone" : "border-hairline text-muted hover:border-line",
-              )}
-            >
-              <input
-                type="radio"
-                name="nodeType"
-                value={value}
-                checked={nodeType === value}
-                onChange={() => setNodeType(value)}
-                className="accent-[var(--c-gold)]"
-              />
-              {label}
-              <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-faint">{note}</span>
-            </label>
-          ))}
-        </div>
-      </fieldset>
+      <p className="flex items-start gap-2 text-xs leading-relaxed text-faint">
+        <Globe2 aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.5} />
+        Rāhu and Ketu are cast on the mean node, the KP convention. Human Design
+        is calculated separately on the true node, so there is nothing to choose.
+      </p>
 
       <label
         className={cn(
