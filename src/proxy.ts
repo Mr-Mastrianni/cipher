@@ -23,7 +23,7 @@ import { NextResponse, type NextRequest } from "next/server";
 const PATHNAME_HEADER = "x-cipher-pathname";
 
 /** Paths that require a session. Kept as a list so a typo cannot over-match. */
-const PROTECTED_PREFIXES = ["/dashboard", "/admin", "/onboarding"] as const;
+const PROTECTED_PREFIXES = ["/dashboard", "/admin", "/onboarding", "/world"] as const;
 
 /** Paths a signed-in visitor should never see. */
 const ANONYMOUS_ONLY = ["/sign-in", "/sign-up"] as const;

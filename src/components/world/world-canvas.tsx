@@ -152,11 +152,14 @@ export function WorldCanvas({
   nakshatras,
   planets,
   moonLongitude,
+  fullscreen = false,
 }: {
   lines: WorldLine[];
   nakshatras: readonly string[];
   planets: WorldPlanet[];
   moonLongitude?: number;
+  /** Fill the viewport with no card chrome, for the `/world` route. */
+  fullscreen?: boolean;
 }) {
   // `null` until the client has checked, so server and first paint agree.
   const [supported, setSupported] = useState<boolean | null>(null);
@@ -170,7 +173,14 @@ export function WorldCanvas({
   }, []);
 
   return (
-    <div className="relative h-[68vh] min-h-[26rem] w-full overflow-hidden rounded-xl border border-hairline bg-abyss">
+    <div
+      className={cn(
+        "relative w-full overflow-hidden bg-abyss",
+        fullscreen
+          ? "absolute inset-0 h-full rounded-none"
+          : "h-[68vh] min-h-[26rem] rounded-xl border border-hairline",
+      )}
+    >
       {supported === false ? (
         <WorldFallback />
       ) : supported === null ? (
