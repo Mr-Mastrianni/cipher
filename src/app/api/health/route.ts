@@ -1,3 +1,4 @@
+import { resolveAgentProvider } from "@/lib/agent/provider";
 import { isDatabaseConfigured } from "@/lib/db/client";
 
 /**
@@ -17,8 +18,12 @@ export function GET() {
     ),
     database: isDatabaseConfigured(),
     stripe: Boolean(process.env.STRIPE_SECRET_KEY),
-    agent: Boolean(process.env.OPENAI_API_KEY),
-    github: Boolean(process.env.GITHUB_TOKEN && process.env.GITHUB_REPO),
+    // Any configured model key, DeepSeek or OpenAI; the agent resolves the rest.
+    agent: resolveAgentProvider().apiKey !== null,
+    github: Boolean(
+      (process.env.GITHUB_TOKEN || process.env.GITHUB_AGENT_TOKEN) &&
+        (process.env.AGENT_GITHUB_REPO || process.env.GITHUB_REPO),
+    ),
     realtime: Boolean(process.env.ABLY_API_KEY),
     calls: Boolean(process.env.DAILY_API_KEY),
     email: Boolean(process.env.RESEND_API_KEY),

@@ -182,7 +182,7 @@ export async function POST(): Promise<Response> {
           {
             ok: false,
             error:
-              "Realtime voice is set to OpenAI but OPENAI_API_KEY is not set on this deployment.",
+              "Realtime voice is set to OpenAI but OPENAI_API_KEY is not set on this deployment. A DeepSeek key cannot drive the Realtime API; leave voice on the browser's speech engine, or add an OpenAI key.",
           },
           { status: 503 },
         );

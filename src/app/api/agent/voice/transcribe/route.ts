@@ -56,7 +56,7 @@ export async function POST(request: NextRequest): Promise<Response> {
         {
           ok: false,
           error:
-            "Server transcription is not configured on this deployment. Set OPENAI_API_KEY, or use a browser that supports the Web Speech API.",
+            "Server transcription is not configured on this deployment. It uses OpenAI's transcription API, so it needs OPENAI_API_KEY even when the agent itself runs on DeepSeek. Use a browser that supports the Web Speech API, or set the key.",
         },
         { status: 503 },
       );

@@ -685,11 +685,14 @@ export default function AgentConsolePage() {
               The agent is not connected to a model yet
             </CardTitle>
             <CardDescription>
-              Set <code className="text-code">OPENAI_API_KEY</code> (optionally{" "}
-              <code className="text-code">OPENAI_BASE_URL</code> and{" "}
-              <code className="text-code">AGENT_MODEL</code>) to bring it online.
-              Until then it answers honestly that it cannot run, and this page
-              still shows the exact tool surface this deployment exposes.
+              Set <code className="text-code">DEEPSEEK_API_KEY</code> (or{" "}
+              <code className="text-code">OPENAI_API_KEY</code>; optionally{" "}
+              <code className="text-code">AGENT_MODEL</code> and{" "}
+              <code className="text-code">AGENT_PROVIDER</code>) to bring it
+              online. DeepSeek is the default provider, on{" "}
+              <code className="text-code">deepseek-flash</code>. Until then it
+              answers honestly that it cannot run, and this page still shows the
+              exact tool surface this deployment exposes.
             </CardDescription>
           </CardHeader>
         </Card>

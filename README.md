@@ -227,8 +227,11 @@ repository, and propose changes — by **voice or text**. Its security model:
   ephemeral credentials minted server-side, with the Web Speech API as a
   key-free fallback.
 
-Without `OPENAI_API_KEY` the console still loads, lists its tools, and explains
-what it needs. That is deliberate: the UI should never be a mock.
+The loop speaks OpenAI-compatible Chat Completions: **DeepSeek** when
+`DEEPSEEK_API_KEY` is set (`deepseek-flash`, or `deepseek-v4-pro` via
+`AGENT_MODEL`), **OpenAI** as the fallback, and any compatible gateway via
+`OPENAI_BASE_URL`. Without a model key the console still loads, lists its tools,
+and explains what it needs. That is deliberate: the UI should never be a mock.
 
 ---
 

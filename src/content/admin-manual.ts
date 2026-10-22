@@ -265,13 +265,19 @@ export const ADMIN_MANUAL: readonly ManualSection[] = [
       {
         kind: "note",
         tone: "info",
+        title: "DeepSeek by default",
+        text: "The loop speaks OpenAI-compatible Chat Completions. It uses DeepSeek when DEEPSEEK_API_KEY is set — deepseek-flash (V4.1-Flash) unless AGENT_MODEL names deepseek-v4-pro — and falls back to OpenAI (gpt-4o-mini) when only OPENAI_API_KEY is present. AGENT_PROVIDER forces one, OPENAI_BASE_URL points at a gateway, and the console header shows the model in use. Voice and server-side transcription remain OpenAI-only; DeepSeek cannot drive them.",
+      },
+      {
+        kind: "note",
+        tone: "info",
         title: "Every tool call is audited",
         text: "Including refusals and unavailable tools. A session's transcript is stored, and each attempt adds an audit row.",
       },
       {
         kind: "note",
         tone: "warn",
-        title: "Without OPENAI_API_KEY the console is still honest",
+        title: "Without a model key the console is still honest",
         text: "The page loads, lists its tools and explains what it needs. It never pretends to answer.",
       },
     ],
@@ -320,7 +326,7 @@ export const ADMIN_MANUAL: readonly ManualSection[] = [
           "Create a Clerk application, set NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY and CLERK_SECRET_KEY, and point a webhook at /api/webhooks/clerk for user.created, user.updated and user.deleted.",
           "Set ADMIN_EMAILS to your own address and sign in once. You are now the first admin; after that, manage roles under Members.",
           "Create three monthly Stripe prices, put their ids in STRIPE_PRICE_INITIATE, STRIPE_PRICE_ADEPT and STRIPE_PRICE_ORACLE, set STRIPE_SECRET_KEY, and point a webhook at /api/stripe/webhook.",
-          "Optionally add OPENAI_API_KEY for the admin agent, and GITHUB_TOKEN plus AGENT_GITHUB_REPO for its write mode.",
+          "Optionally add DEEPSEEK_API_KEY for the admin agent (or OPENAI_API_KEY), and GITHUB_TOKEN plus AGENT_GITHUB_REPO for its write mode.",
         ],
       },
       {
@@ -333,7 +339,7 @@ export const ADMIN_MANUAL: readonly ManualSection[] = [
           ["STRIPE_SECRET_KEY, STRIPE_PRICE_*", "Checkout, the billing portal and the webhook."],
           ["STRIPE_WEBHOOK_SECRET", "Verified Stripe webhooks."],
           ["ADMIN_EMAILS", "The first admin account."],
-          ["OPENAI_API_KEY, OPENAI_BASE_URL, AGENT_MODEL", "The admin agent, and the model it uses."],
+          ["DEEPSEEK_API_KEY (or OPENAI_API_KEY), AGENT_MODEL, AGENT_PROVIDER", "The admin agent and the model it uses. DeepSeek is the default (deepseek-flash); OpenAI is the fallback."],
           ["GITHUB_TOKEN, AGENT_GITHUB_REPO, AGENT_ENABLE_WRITES", "The agent's write and pull-request tools."],
           ["AGENT_CONFIRMATION_SECRET", "Confirmations that survive a restart. Without it the secret is per-process and approvals fail closed after a cold start."],
         ],

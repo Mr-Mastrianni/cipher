@@ -1948,6 +1948,9 @@ function confirmationSecret(): string {
   return (
     envString("AGENT_CONFIRMATION_SECRET") ??
     envString("AUTH_SECRET") ??
+    // Any configured model key is stable for the life of the deployment, so an
+    // approval survives a cold start even without a dedicated secret.
+    envString("DEEPSEEK_API_KEY") ??
     envString("OPENAI_API_KEY") ??
     FALLBACK_CONFIRMATION_SECRET
   );

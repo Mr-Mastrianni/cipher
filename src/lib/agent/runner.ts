@@ -36,6 +36,7 @@ import {
   type AgentToolAuditEntry,
   type AgentToolDefinition,
 } from "./tools";
+import { resolveAgentProvider } from "./provider";
 import { randomUUID } from "node:crypto";
 
 /* ────────────────────────────────────────────────────────────────────────────
@@ -127,40 +128,30 @@ const MAX_STORED_TOOL_BYTES = 8 * 1024;
 /** Messages of history replayed to the model. */
 const MAX_HISTORY_MESSAGES = 200;
 
-/** The default model when `AGENT_MODEL` is unset. */
-export const DEFAULT_AGENT_MODEL = "gpt-4o-mini";
-
-/** The default OpenAI-compatible base URL. */
-export const DEFAULT_OPENAI_BASE_URL = "https://api.openai.com/v1";
-
-/** Whether `OPENAI_API_KEY` is present, i.e. whether the loop can run. */
+/**
+ * Whether a provider key is present, i.e. whether the loop can run.
+ *
+ * The resolution itself lives in `./provider`: DeepSeek when a
+ * `DEEPSEEK_API_KEY` is configured, OpenAI otherwise, with `AGENT_PROVIDER`,
+ * `OPENAI_BASE_URL` and `AGENT_MODEL` as overrides.
+ */
 export function isAgentConfigured(): boolean {
-  const key = process.env.OPENAI_API_KEY;
-  return typeof key === "string" && key.trim() !== "";
+  return resolveAgentProvider().apiKey !== null;
 }
 
 /** The configured model id. */
 export function agentModel(): string {
-  const configured = process.env.AGENT_MODEL?.trim();
-  return configured && configured !== "" ? configured : DEFAULT_AGENT_MODEL;
+  return resolveAgentProvider().model;
 }
 
-/**
- * The OpenAI-compatible base URL, without a trailing slash.
- *
- * Set `OPENAI_BASE_URL` to `https://api.deepseek.com/v1` (or any compatible
- * gateway) to point the agent elsewhere. The path must include the version
- * segment if the provider needs one.
- */
+/** The configured OpenAI-compatible base URL, without a trailing slash. */
 export function agentBaseUrl(): string {
-  const configured = process.env.OPENAI_BASE_URL?.trim();
-  if (!configured || configured === "") return DEFAULT_OPENAI_BASE_URL;
-  return configured.replace(/\/+$/, "");
+  return resolveAgentProvider().baseUrl;
 }
 
 /** The honest message shown when no model key is configured. */
 export const NO_MODEL_MESSAGE =
-  "I am not connected to a language model on this deployment yet, so I cannot answer questions or run tools. Set OPENAI_API_KEY (optionally OPENAI_BASE_URL and AGENT_MODEL) and I will come online. Everything else is already wired: the tool surface, the audit trail, and session storage. The status panel lists exactly which tools this deployment exposes.";
+  "I am not connected to a language model on this deployment yet, so I cannot answer questions or run tools. Set DEEPSEEK_API_KEY (or OPENAI_API_KEY), optionally AGENT_MODEL and AGENT_PROVIDER, and I will come online. Everything else is already wired: the tool surface, the audit trail, and session storage. The status panel lists exactly which tools this deployment exposes.";
 
 /* ────────────────────────────────────────────────────────────────────────────
  * Chat message shapes (the OpenAI-compatible wire format)
@@ -631,8 +622,9 @@ export async function* runAgentTurn(
     return;
   }
 
-  const apiKey = process.env.OPENAI_API_KEY?.trim() ?? "";
-  const baseUrl = agentBaseUrl();
+  const provider = resolveAgentProvider();
+  const apiKey = provider.apiKey ?? "";
+  const baseUrl = provider.baseUrl;
 
   // An approval replays the exact call the operator saw, server-side. Asking
   // the model to re-send identical arguments is unreliable for large payloads
