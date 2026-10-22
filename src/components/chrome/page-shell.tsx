@@ -57,7 +57,7 @@ export function PageHeader({
 }: PageHeaderProps) {
   return (
     <header
-      className={cn("flex flex-col gap-3 border-b border-hairline pb-8", className)}
+      className={cn("flex flex-col gap-3 border-b border-hairline pb-6", className)}
     >
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div className="flex flex-col gap-2">
@@ -66,11 +66,14 @@ export function PageHeader({
               {eyebrow}
             </p>
           ) : null}
-          <h1 className="font-display text-3xl leading-tight text-bone text-balance sm:text-4xl">
+          {/* Two steps rather than three: a long title (a greeting with a full
+              name) should wrap at most once, and restraint beats a headline
+              that pushes the page content below the fold. */}
+          <h1 className="font-display text-2xl leading-tight text-bone text-balance sm:text-3xl">
             {title}
           </h1>
           {description ? (
-            <p className="max-w-2xl text-sm leading-relaxed text-muted text-pretty sm:text-base">
+            <p className="max-w-2xl text-sm leading-relaxed text-muted text-pretty">
               {description}
             </p>
           ) : null}

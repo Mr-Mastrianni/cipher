@@ -378,7 +378,7 @@ export default async function DashboardOverviewPage() {
   return (
     <PageShell width="wide">
       <PageHeader
-        eyebrow="The Cipher"
+        eyebrow="Overview"
         title={`${greeting()}, ${name}`}
         description={
           profile?.bodygraph

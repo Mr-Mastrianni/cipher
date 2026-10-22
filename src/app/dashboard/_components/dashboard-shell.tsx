@@ -63,19 +63,44 @@ interface NavItem {
   icon: typeof LayoutDashboard;
 }
 
-/** The persistent navigation, in reading order. */
-const NAV_ITEMS: readonly NavItem[] = [
-  { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
-  { href: "/dashboard/chart", label: "My Chart", icon: Sparkles },
-  { href: "/dashboard/map", label: "Cosmic Map", icon: Globe2 },
-  { href: "/dashboard/horary", label: "Horary", icon: HelpCircle },
-  { href: "/dashboard/community", label: "Community", icon: MessagesSquare },
-  { href: "/dashboard/matching", label: "Matching", icon: HeartHandshake },
-  { href: "/dashboard/messages", label: "Messages", icon: MessageCircle },
-  { href: "/dashboard/calls", label: "Calls", icon: Layers },
-  { href: "/dashboard/courses", label: "Courses", icon: BookOpen },
-  { href: "/dashboard/flashcards", label: "Flashcards", icon: Layers },
-  { href: "/dashboard/settings", label: "Settings", icon: Settings },
+/**
+ * The persistent navigation, grouped by what the member is doing rather than
+ * listed flat.
+ *
+ * Eleven equally weighted items read as a wall; four labelled groups read as a
+ * map, and the grouping is the same on the desktop rail and in the mobile
+ * drawer because both render this element.
+ */
+const NAV_GROUPS: readonly { label: string; items: readonly NavItem[] }[] = [
+  {
+    label: "Your chart",
+    items: [
+      { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
+      { href: "/dashboard/chart", label: "My Chart", icon: Sparkles },
+      { href: "/dashboard/map", label: "Cosmic Map", icon: Globe2 },
+      { href: "/dashboard/horary", label: "Horary", icon: HelpCircle },
+    ],
+  },
+  {
+    label: "The Collective",
+    items: [
+      { href: "/dashboard/community", label: "Community", icon: MessagesSquare },
+      { href: "/dashboard/matching", label: "Matching", icon: HeartHandshake },
+      { href: "/dashboard/messages", label: "Messages", icon: MessageCircle },
+      { href: "/dashboard/calls", label: "Calls", icon: Layers },
+    ],
+  },
+  {
+    label: "Study",
+    items: [
+      { href: "/dashboard/courses", label: "Courses", icon: BookOpen },
+      { href: "/dashboard/flashcards", label: "Flashcards", icon: Layers },
+    ],
+  },
+  {
+    label: "Account",
+    items: [{ href: "/dashboard/settings", label: "Settings", icon: Settings }],
+  },
 ];
 
 /** Whether `href` is the current route (or a parent of it). */
@@ -95,7 +120,7 @@ interface NotificationWire {
 }
 
 const NAV_LINK =
-  "group flex items-center gap-3 rounded-md px-3 py-2 font-mono text-[11px] uppercase tracking-[0.16em] transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 focus-visible:ring-offset-void";
+  "group flex items-center gap-3 rounded-md px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.16em] transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 focus-visible:ring-offset-void";
 
 /**
  * The dashboard frame: sidebar, mobile drawer, notification bell and demo
@@ -191,46 +216,78 @@ export function DashboardShell({
     }
   };
 
-  // Admins also get a way into the admin console.
-  const navItems: readonly NavItem[] =
+  // Admins also get a way into the admin console, filed with Account.
+  const adminItem: NavItem = {
+    href: "/admin",
+    label: "Admin",
+    icon: ShieldCheck,
+  };
+  const navGroups =
     user.role === "admin"
-      ? [...NAV_ITEMS, { href: "/admin", label: "Admin", icon: ShieldCheck }]
-      : NAV_ITEMS;
+      ? NAV_GROUPS.map((group) =>
+          group.label === "Account"
+            ? { ...group, items: [...group.items, adminItem] }
+            : group,
+        )
+      : NAV_GROUPS;
 
   const nav = (
-    <nav aria-label="Dashboard" className="flex flex-col gap-1">
-      {navItems.map((item) => {
-        const active = isActive(pathname, item.href);
-        const Icon = item.icon;
-        return (
-          <Link
-            key={item.href}
-            href={item.href}
-            aria-current={active ? "page" : undefined}
-            onClick={() => openDrawer(false)}
-            onMouseEnter={() => play("hover")}
-            className={cn(
-              NAV_LINK,
-              active
-                ? "bg-raised text-gold"
-                : "text-muted hover:bg-raised hover:text-bone",
-            )}
+    <nav aria-label="Dashboard" className="flex flex-col gap-4">
+      {navGroups.map((group) => (
+        <div
+          key={group.label}
+          role="group"
+          aria-label={group.label}
+          className="flex flex-col gap-0.5"
+        >
+          {/* Visible as a printed section marker; the group already carries the
+              same name for assistive technology. */}
+          <p
+            aria-hidden="true"
+            className="px-3 pb-1.5 font-mono text-[9px] uppercase tracking-[0.24em] text-faint"
           >
-            <Icon aria-hidden="true" strokeWidth={1.5} className="h-4 w-4" />
-            {item.label}
-          </Link>
-        );
-      })}
+            {group.label}
+          </p>
+          {group.items.map((item) => {
+            const active = isActive(pathname, item.href);
+            const Icon = item.icon;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                aria-current={active ? "page" : undefined}
+                onClick={() => openDrawer(false)}
+                onMouseEnter={() => play("hover")}
+                className={cn(
+                  NAV_LINK,
+                  active
+                    ? "bg-raised text-gold"
+                    : "text-muted hover:bg-raised hover:text-bone",
+                )}
+              >
+                <Icon aria-hidden="true" strokeWidth={1.5} className="h-4 w-4" />
+                {item.label}
+              </Link>
+            );
+          })}
+        </div>
+      ))}
     </nav>
   );
 
   const identity = (
     <div className="flex items-center gap-3">
-      {user.avatar ? <AuraAvatarChip avatar={user.avatar} /> : null}
+      {/* The aura label is a long badge; on a phone it squeezed the wordmark
+          into two lines. The rail and the drawer both show it in full. */}
+      {user.avatar ? (
+        <span className="hidden md:inline-flex">
+          <AuraAvatarChip avatar={user.avatar} />
+        </span>
+      ) : null}
       {clerkEnabled ? (
         <UserButton appearance={{ elements: { avatarBox: "h-8 w-8" } }} />
       ) : (
-        <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted">
+        <span className="hidden font-mono text-[10px] uppercase tracking-[0.16em] text-muted sm:inline">
           {user.name}
         </span>
       )}
@@ -264,7 +321,7 @@ export function DashboardShell({
             </button>
             <Link
               href="/dashboard"
-              className="font-display text-sm tracking-[0.24em] text-gradient-gold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+              className="whitespace-nowrap font-display text-sm tracking-[0.24em] text-gradient-gold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
             >
               THE CIPHER
             </Link>
