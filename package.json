@@ -21,6 +21,7 @@
     "@clerk/nextjs": "^7.9.11",
     "@hookform/resolvers": "^5.9.1",
     "@neondatabase/serverless": "^1.2.0",
+    "@react-three/fiber": "^9.8.2",
     "astronomia": "^4.2.0",
     "astronomy-engine": "^2.1.19",
     "clsx": "^2.1.1",
@@ -38,6 +39,7 @@
     "react-hook-form": "^7.89.0",
     "stripe": "^23.0.0",
     "tailwind-merge": "^3.7.0",
+    "three": "^0.186.1",
     "topojson-client": "^3.1.0",
     "world-atlas": "^2.0.2",
     "zod": "^4.6.5"
@@ -49,6 +51,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/three": "^0.186.0",
     "@types/topojson-client": "^3.1.5",
     "@types/topojson-specification": "^1.0.5",
     "drizzle-kit": "^0.31.11",
