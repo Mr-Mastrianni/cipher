@@ -9,6 +9,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import {
   Activity,
+  BookOpen,
   FileCheck2,
   LayoutDashboard,
   ScrollText,
@@ -52,6 +53,7 @@ const NAV: ReadonlyArray<{
   { href: "/admin/members", label: "Members", icon: Users },
   { href: "/admin/agent", label: "Agent", icon: Activity },
   { href: "/admin/audit", label: "Audit", icon: ScrollText },
+  { href: "/admin/manual", label: "Manual", icon: BookOpen },
 ];
 
 function isActive(pathname: string, href: string, exact: boolean): boolean {

@@ -202,6 +202,12 @@ review desk is notified in-app when an application arrives, and the applicant is
 notified when it is decided — the reviewer's private note is never copied into
 that notification.
 
+Admins work from `/admin`, which carries its own manual at `/admin/manual`:
+getting access, the application workflow, member edits, the tier ladder and
+billing, moderation, the agent and its guardrails, first-run setup, and what to
+check when something looks wrong. It is written for whoever runs the site, and
+it says plainly which declared integrations are not wired up yet.
+
 ---
 
 ## The admin agent
