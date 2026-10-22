@@ -272,6 +272,49 @@ export default function EnterPage() {
   const [lastCodeDismissed, setLastCodeDismissed] = useState(false);
   const lastCode = lastCodeDismissed ? null : storedLastCode;
 
+  /**
+   * Prefill from the hero.
+   *
+   * The hero collects date, time and place so a first-time visitor is one
+   * action from the chart, but it hands off here: the time zone and any
+   * daylight-saving fold still have to be confirmed against the place, and
+   * guessing them would move the Ascendant.
+   */
+  const prefilledFromHero = useRef(false);
+  /* Reading the URL during render would desynchronise SSR from the first
+     client paint, so this genuinely has to be an effect. */
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    if (prefilledFromHero.current) return;
+    prefilledFromHero.current = true;
+
+    const params = new URLSearchParams(window.location.search);
+    const date = params.get("d");
+    const time = params.get("t");
+    const city = params.get("q");
+    if (!date && !time && !city) return;
+
+    if (date) {
+      const [y, m, d] = date.split("-");
+      if (y && m && d) {
+        setYear(y);
+        setMonth(String(Number(m)));
+        setDay(d);
+      }
+    }
+    if (time) {
+      const [h, mi, s] = time.split(":");
+      if (h) setHour(h);
+      if (mi) setMinute(mi);
+      if (s) setSecond(s);
+    }
+    if (city) setQuery(city);
+
+    // With the date and time already filled, the place is the first empty step.
+    if (date && time) setStep(2);
+  }, []);
+  /* eslint-enable react-hooks/set-state-in-effect */
+
   const searching = debouncedQuery.length >= 2 && dismissedQuery !== debouncedQuery;
   const settled = search.query === debouncedQuery;
   const results = searching && settled ? search.results : NO_RESULTS;

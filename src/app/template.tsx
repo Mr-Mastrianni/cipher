@@ -1,28 +1,17 @@
-"use client";
-
 import type { ReactNode } from "react";
-import { motion, useReducedMotion } from "motion/react";
 
 /**
  * The route transition.
  *
  * `template.tsx` re-mounts on every navigation (a layout does not), which is
- * what makes a one-shot fade-and-rise work per page. It is deliberately short:
- * a transition should cover the swap, not delay the content. Under reduced
- * motion it renders nothing at all, so no wrapper and no movement.
+ * what makes a one-shot enter animation work per page.
+ *
+ * It is deliberately **CSS, not `motion`**: a motion wrapper renders its
+ * initial `opacity: 0` inline on the server and animates on the client, so any
+ * hydration mismatch on the page left the content permanently invisible. CSS
+ * animation produces identical markup on both sides. The reduced-motion block
+ * in globals.css collapses it to a single frame.
  */
 export default function Template({ children }: { children: ReactNode }) {
-  const reduced = useReducedMotion();
-
-  if (reduced) return <>{children}</>;
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
-    >
-      {children}
-    </motion.div>
-  );
+  return <div className="route-in">{children}</div>;
 }

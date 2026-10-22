@@ -617,3 +617,48 @@
     display: none !important;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Route transition and hero orbit.
+
+   These are CSS rather than `motion` on purpose. A motion element renders its
+   initial inline style on the server and animates from it on the client, which
+   caused a hydration attribute mismatch — and because the route template's
+   wrapper starts at opacity 0, that mismatch left the whole page invisible.
+   CSS animation is identical markup on both sides, and the global
+   reduced-motion block above already collapses it to a single frame.
+   ------------------------------------------------------------------------- */
+@keyframes route-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.route-in {
+  animation: route-in 380ms var(--ease-out-quint) both;
+}
+
+@keyframes ring-spin {
+  to {
+    transform: rotateZ(360deg);
+  }
+}
+
+.ring-spin {
+  animation: ring-spin 72s linear infinite;
+}
+
+@keyframes orbit-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.orbit-spin {
+  animation: orbit-spin 44s linear infinite;
+}

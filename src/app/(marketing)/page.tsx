@@ -12,7 +12,7 @@ import {
   Sparkles,
   Users,
 } from "lucide-react";
-import { Threshold } from "@/components/cipher/threshold";
+import { HeroIntake } from "@/components/cipher/hero-intake";
 import { Cosmogram } from "@/components/cipher/cosmogram";
 import { useSound } from "@/components/providers/sound-provider";
 import { cn } from "@/lib/utils";
@@ -180,7 +180,7 @@ export default function LandingPage() {
   return (
     <main id="main" className="flex-1">
       {/* ── The threshold ──────────────────────────────────────────────── */}
-      <Threshold destination="/enter" />
+      <HeroIntake />
 
       {/* ── What it computes ───────────────────────────────────────────── */}
       <section className="relative border-t border-hairline px-6 py-24 sm:py-32">
