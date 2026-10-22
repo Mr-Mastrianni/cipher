@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { Globe2 } from "lucide-react";
+import { Globe2, Orbit } from "lucide-react";
 import { clerkConfigured, getCurrentUser } from "@/lib/auth";
 import { getStore } from "@/lib/db/store";
 import { getCompleteProfile } from "@/lib/cipher/profile-snapshot";
@@ -116,6 +116,14 @@ export default async function MapPage() {
         eyebrow="Cosmic Map"
         title="Where your grahas meet the Earth"
         description="Astrocartography lines for your birth instant. Click any place to read your KP chart relocated there, then save it with your own insight."
+        actions={
+          <Button asChild variant="secondary" size="sm">
+            <Link href="/dashboard/world">
+              <Orbit aria-hidden="true" className="h-4 w-4" strokeWidth={1.5} />
+              Open the 3D world
+            </Link>
+          </Button>
+        }
       />
       {content}
     </PageShell>
