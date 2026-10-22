@@ -13,55 +13,55 @@
 [data-theme="dark"] {
   color-scheme: dark;
 
-  /* canvas */
-  --c-void: #0b0b11;
-  --c-abyss: #07070c;
-  --c-ink: #14141d;
-  --c-raised: #1c1c28;
-  --c-overlay: #22222f;
+  /* canvas — deep indigo, the neon research-lab ground */
+  --c-void: #070312;
+  --c-abyss: #04010c;
+  --c-ink: #0d0720;
+  --c-raised: #171034;
+  --c-overlay: #1e1442;
 
   /* text */
-  --c-bone: #ede6d0;
-  --c-muted: #8a8a9a;
-  --c-faint: #6b6b7c;
-  --c-code: #c7c7d6;
+  --c-bone: #f4f1ff;
+  --c-muted: #a99bd0;
+  --c-faint: #776a9e;
+  --c-code: #cfc6ea;
 
   /* structure */
-  --c-line: #3a3a48;
-  --c-hairline: #2a2a36;
-  --c-open-stroke: #4a4a5a;
+  --c-line: #2c2154;
+  --c-hairline: #1f1739;
+  --c-open-stroke: #3b2f63;
 
-  /* accents */
-  --c-gold: #c8912f;
-  --c-gold-hi: #e8b95c;
-  --c-purple: #7b61ff;
-  --c-purple-hi: #9d84ff;
-  --c-teal: #2dd4bf;
-  --c-rose: #cf8a6d;
+  /* accents — lime is the primary, cyan and magenta the secondaries */
+  --c-gold: #d4ff3f;
+  --c-gold-hi: #e9ff8a;
+  --c-purple: #b45cff;
+  --c-purple-hi: #cf8bff;
+  --c-teal: #5ce1e6;
+  --c-rose: #ff5cc8;
 
   /* human design semantics */
   --c-defined: #7b61ff;
-  --c-defined-hi: #9d84ff;
-  --c-open: #52526a;
-  --c-src-design: #2dd4bf;
-  --c-src-personality: #9d84ff;
-  --c-src-both: #c8912f;
-  --c-gate-fill-def: #1c1c28;
-  --c-gate-num-def: #ede6d0;
-  --c-channel-edge: #c8912f;
+  --c-defined-hi: #a98bff;
+  --c-open: #4a3d78;
+  --c-src-design: #5ce1e6;
+  --c-src-personality: #b45cff;
+  --c-src-both: #d4ff3f;
+  --c-gate-fill-def: #171034;
+  --c-gate-num-def: #f4f1ff;
+  --c-channel-edge: #d4ff3f;
 
   /* astrology semantics */
-  --c-fire: #e0603f;
-  --c-earth: #7fa05a;
-  --c-air: #d9b75e;
-  --c-water: #4f8ec0;
+  --c-fire: #ff6a4d;
+  --c-earth: #9bdc5c;
+  --c-air: #e9d76a;
+  --c-water: #5c9dff;
 
   /* state */
-  --c-ok: #4e9e7a;
-  --c-warn: #d9b75e;
-  --c-danger: #d6402a;
-  --c-info: #4fb2c0;
-  --c-on-accent: #0b0b11;
+  --c-ok: #5ce1a0;
+  --c-warn: #e9d76a;
+  --c-danger: #ff4d6a;
+  --c-info: #5ce1e6;
+  --c-on-accent: #070312;
 
   /* elevation */
   --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
@@ -72,7 +72,7 @@
 
   --c-ground: radial-gradient(
       circle at 50% 12%,
-      #161622 0%,
+      #170c33 0%,
       var(--c-void) 62%
     ),
     var(--c-void);

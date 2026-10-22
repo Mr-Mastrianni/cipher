@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import {
   CENTER_MAP,
+  CHANNELS,
   GATE_TO_CENTER,
   type CenterKey,
 } from "@/lib/human-design/constants";
@@ -141,7 +142,32 @@ export function Bodygraph({
         strokeWidth={1.2}
       />
 
-      {/* ── Channels ─────────────────────────────────────────────────── */}
+      {/* ── The channel skeleton ─────────────────────────────────────── */}
+      {/* Every bodygraph prints all 36 channels; only the defined ones carry
+          colour. Without the skeleton the chart reads as a few floating wires
+          instead of a body, because an average design defines 3-5 of them. */}
+      <g fill="none" strokeLinecap="round">
+        {CHANNELS.map((channel) => {
+          const [a, b] = channel.gates;
+          const from = GATE_POSITIONS[a];
+          const to = GATE_POSITIONS[b];
+          if (!from || !to) return null;
+          return (
+            <line
+              key={`skeleton-${channel.gates[0]}-${channel.gates[1]}`}
+              x1={from[0]}
+              y1={from[1]}
+              x2={to[0]}
+              y2={to[1]}
+              stroke="var(--c-open-stroke)"
+              strokeWidth={3.2}
+              opacity={0.34}
+            />
+          );
+        })}
+      </g>
+
+      {/* ── Defined channels ─────────────────────────────────────────── */}
       <g fill="none" strokeLinecap="round">
         {definedEdges.map((edge, index) => {
           const [a, b] = edge.gates;

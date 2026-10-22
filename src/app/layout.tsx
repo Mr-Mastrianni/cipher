@@ -19,29 +19,36 @@ import "./globals.css";
  * inside `@next/font/dist/google/loader.js`. Serving the files from the repo
  * removes the failure mode entirely and cuts two round-trips at runtime.
  *
- * Each file is the variable cut, so one file covers the whole weight axis and
- * only the basic-latin subset is shipped.
+ * The faces are Syne (a geometric display grotesque) and Space Mono, matching
+ * the neon research-lab reference. The CSS variable names are unchanged —
+ * `--font-cinzel` is still the display family, `--font-montserrat` the body and
+ * `--font-jetbrains` the mono — so every existing `font-display` / `font-sans` /
+ * `font-mono` utility keeps working and only the faces moved.
  */
-const cinzel = localFont({
-  src: "./fonts/Cinzel-Variable.woff2",
+const syne = localFont({
+  src: "./fonts/Syne-Variable.woff2",
   variable: "--font-cinzel",
-  weight: "400 900",
-  display: "swap",
-  fallback: ["ui-serif", "Georgia", "serif"],
-});
-
-const montserrat = localFont({
-  src: "./fonts/Montserrat-Variable.woff2",
-  variable: "--font-montserrat",
-  weight: "100 900",
+  weight: "400 800",
   display: "swap",
   fallback: ["ui-sans-serif", "system-ui", "sans-serif"],
 });
 
-const jetbrainsMono = localFont({
-  src: "./fonts/JetBrainsMono-Variable.woff2",
+const spaceMono = localFont({
+  src: [
+    { path: "./fonts/SpaceMono-Regular.woff2", weight: "400" },
+    { path: "./fonts/SpaceMono-Bold.woff2", weight: "700" },
+  ],
+  variable: "--font-montserrat",
+  display: "swap",
+  fallback: ["ui-monospace", "SFMono-Regular", "monospace"],
+});
+
+const spaceMonoCode = localFont({
+  src: [
+    { path: "./fonts/SpaceMono-Regular.woff2", weight: "400" },
+    { path: "./fonts/SpaceMono-Bold.woff2", weight: "700" },
+  ],
   variable: "--font-jetbrains",
-  weight: "100 800",
   display: "swap",
   fallback: ["ui-monospace", "SFMono-Regular", "monospace"],
 });
@@ -122,7 +129,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       data-theme={theme}
       suppressHydrationWarning
-      className={`${cinzel.variable} ${montserrat.variable} ${jetbrainsMono.variable} h-full`}
+      className={`${syne.variable} ${spaceMono.variable} ${spaceMonoCode.variable} h-full`}
     >
       <body className="min-h-full flex flex-col bg-void text-bone font-sans antialiased">
         <a
