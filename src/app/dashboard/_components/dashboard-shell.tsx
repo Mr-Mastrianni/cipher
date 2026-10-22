@@ -79,7 +79,7 @@ const NAV_GROUPS: readonly { label: string; items: readonly NavItem[] }[] = [
       { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
       { href: "/dashboard/chart", label: "My Chart", icon: Sparkles },
       { href: "/dashboard/map", label: "Cosmic Map", icon: Globe2 },
-      { href: "/dashboard/world", label: "World", icon: Orbit },
+      { href: "/world", label: "World", icon: Orbit },
       { href: "/dashboard/horary", label: "Horary", icon: HelpCircle },
     ],
   },

@@ -205,7 +205,7 @@ export function WorldCanvas({
       <GrahaHud planets={planets} selected={selected} onSelect={setSelected} />
 
       <p className="pointer-events-none absolute inset-x-0 bottom-3 text-center font-mono text-[9px] uppercase tracking-[0.24em] text-faint">
-        drag to rotate · scroll to zoom
+        click to look · WASD to move · space to rise
       </p>
     </div>
   );

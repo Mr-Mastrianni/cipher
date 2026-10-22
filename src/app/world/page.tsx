@@ -165,6 +165,10 @@ export default async function WorldRoute() {
         </h1>
       </div>
 
+      <p className="pointer-events-none absolute bottom-4 left-1/2 hidden -translate-x-1/2 font-mono text-[9px] uppercase tracking-[0.24em] text-faint md:block">
+        click to look · WASD to move · shift to run · space to rise
+      </p>
+
       <div className="absolute right-4 top-4">
         <Button asChild variant="secondary" size="sm">
           <Link href="/dashboard">
