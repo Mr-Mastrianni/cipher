@@ -2,6 +2,16 @@ import { auth, currentUser } from "@clerk/nextjs/server";
 import { getStore } from "@/lib/db/store";
 import type { TierKey, User } from "@/lib/db/schema";
 import { hasTierAccess } from "@/lib/payments/stripe";
+import {
+  roleForNewUser,
+  roleFromClerkMetadata,
+  shouldPromoteToAdmin,
+  verifiedEmailFromUser,
+  type MetadataRole,
+} from "./roles";
+
+export { roleFromClerkMetadata };
+export type { MetadataRole };
 
 /**
  * Server-side auth helpers.
@@ -33,22 +43,11 @@ export async function getClerkUserId(): Promise<string | null> {
  * first sight so that a brand-new sign-up always has a row to attach
  * onboarding data to.
  */
-/**
- * The role Clerk's public metadata assigns, if any: `{ "role": "admin" }` or
- * `{ "role": "member" }`. Public metadata can only be written from the Clerk
- * dashboard or a server, never by the user, so it is trusted.
- */
-export function roleFromClerkMetadata(metadata: unknown): "admin" | "member" | null {
-  if (!metadata || typeof metadata !== "object") return null;
-  const role = (metadata as { role?: unknown }).role;
-  return role === "admin" || role === "member" ? role : null;
-}
-
 const ROLE_RESYNC_MS = 5 * 60_000;
 const lastRoleSync = new Map<string, number>();
 
 /** Public metadata exposed in the session token, when the token is customised to carry it. */
-async function sessionMetadataRole(): Promise<"admin" | "member" | null> {
+async function sessionMetadataRole(): Promise<MetadataRole | null> {
   try {
     const { sessionClaims } = await auth();
     const claims = sessionClaims as Record<string, unknown> | null | undefined;
@@ -65,16 +64,31 @@ export async function getCurrentUser(): Promise<User | null> {
   const store = getStore();
   const existing = await store.getUserByClerkId(clerkUserId);
   if (existing) {
-    // Keep the local role in step with Clerk's public metadata: from the
-    // session token when it carries the metadata (free), otherwise from the
-    // Clerk API at most once per ROLE_RESYNC_MS per user and instance.
+    // Keep the local role in step with Clerk: from the session token when it
+    // carries the metadata (free), otherwise from the Clerk API at most once
+    // per ROLE_RESYNC_MS per user and instance. That one fetch also lets the
+    // ADMIN_EMAILS allowlist promote an account that already exists — without
+    // it, setting the variable after signing up had no effect at all.
     let metadataRole = await sessionMetadataRole();
     if (!metadataRole) {
       const last = lastRoleSync.get(clerkUserId) ?? 0;
       if (Date.now() - last > ROLE_RESYNC_MS) {
         lastRoleSync.set(clerkUserId, Date.now());
         try {
-          metadataRole = roleFromClerkMetadata((await currentUser())?.publicMetadata);
+          const clerkUser = await currentUser();
+          metadataRole = roleFromClerkMetadata(clerkUser?.publicMetadata);
+          if (
+            shouldPromoteToAdmin({
+              metadataRole,
+              verifiedEmail: verifiedEmailFromUser(clerkUser),
+              allowlist: ADMIN_EMAILS,
+              currentRole: existing.role,
+            })
+          ) {
+            return (
+              (await store.updateUser(existing.id, { role: "admin" })) ?? existing
+            );
+          }
         } catch {
           // Clerk unreachable: keep the stored role.
         }
@@ -88,11 +102,11 @@ export async function getCurrentUser(): Promise<User | null> {
 
   // First sight: mirror the minimum from Clerk so the row is usable.
   let email = "";
+  let verifiedEmail: string | null = null;
   let firstName: string | null = null;
   let lastName: string | null = null;
   let imageUrl: string | null = null;
-  let emailVerified = false;
-  let metadataRole: "admin" | "member" | null = null;
+  let metadataRole: MetadataRole | null = null;
   try {
     const user = await currentUser();
     metadataRole = roleFromClerkMetadata(user?.publicMetadata);
@@ -100,10 +114,7 @@ export async function getCurrentUser(): Promise<User | null> {
       user?.primaryEmailAddress?.emailAddress ??
       user?.emailAddresses?.[0]?.emailAddress ??
       "";
-    // Admin bootstrap only trusts the primary address, and only once verified.
-    emailVerified =
-      user?.primaryEmailAddress?.verification?.status === "verified" &&
-      user.primaryEmailAddress.emailAddress.toLowerCase() === email.toLowerCase();
+    verifiedEmail = verifiedEmailFromUser(user);
     firstName = user?.firstName ?? null;
     lastName = user?.lastName ?? null;
     imageUrl = user?.imageUrl ?? null;
@@ -117,17 +128,22 @@ export async function getCurrentUser(): Promise<User | null> {
     firstName,
     lastName,
     imageUrl,
-    // Clerk public metadata wins; otherwise the verified ADMIN_EMAILS allowlist.
-    role: metadataRole ?? (emailVerified && ADMIN_EMAILS.has(email.toLowerCase()) ? "admin" : "member"),
+    role: roleForNewUser({
+      metadataRole,
+      verifiedEmail,
+      allowlist: ADMIN_EMAILS,
+    }),
   });
 }
 
 /**
- * Bootstrap admins.
+ * The admin allowlist.
  *
- * Anyone whose email is listed in `ADMIN_EMAILS` (comma-separated) is promoted
- * on first sign-in. This is how the first admin is created without a manual
- * database edit. After that, roles are managed in the admin console.
+ * A comma-separated list of email addresses. A **verified** address on it
+ * grants admin on sign-in, including for an account that already exists — so
+ * setting `ADMIN_EMAILS` after a member has signed up still promotes them.
+ * Clerk's public metadata still wins when it names a role, and nothing here
+ * demotes: remove the address *and* change the role in the console.
  */
 export const ADMIN_EMAILS: ReadonlySet<string> = new Set(
   (process.env.ADMIN_EMAILS ?? "")

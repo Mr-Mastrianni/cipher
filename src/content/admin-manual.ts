@@ -45,7 +45,7 @@ export const ADMIN_MANUAL: readonly ManualSection[] = [
         kind: "steps",
         items: [
           "Clerk public metadata: set publicMetadata.role to \"admin\" on the account, from the Clerk dashboard or the Clerk API. Only a server or the dashboard can write public metadata, so a member cannot promote themselves.",
-          "ADMIN_EMAILS: a comma-separated allowlist of email addresses, checked once at first sign-in and only against a verified primary address. This is how the first admin exists without a database edit.",
+          "ADMIN_EMAILS: a comma-separated allowlist of email addresses. A verified address on it grants admin on sign-in — including for an account that already exists, so you do not have to sign up in a particular order. This is how the first admin exists without a database edit.",
         ],
       },
       {
@@ -56,13 +56,19 @@ export const ADMIN_MANUAL: readonly ManualSection[] = [
       },
       {
         kind: "note",
-        tone: "warn",
-        title: "The allowlist is a bootstrap, not a switch",
-        text: "Adding an address to ADMIN_EMAILS does not promote an account that already exists, and removing one does not demote it. Change existing roles under Members, or in Clerk metadata.",
+        tone: "info",
+        title: "Adding an address is enough",
+        text: "Set ADMIN_EMAILS and redeploy; the next sign-in promotes that account. The address must be the verified primary email, and the match is exact. Removing an address does not demote anyone — change the role under Members for that.",
+      },
+      {
+        kind: "note",
+        tone: "info",
+        title: "Admins skip onboarding",
+        text: "An admin does not need a birth chart to run the site, so the dashboard no longer routes admins through onboarding or the membership application. You can still complete onboarding deliberately to see the member experience.",
       },
       {
         kind: "prose",
-        text: "Visitors who are not signed in are sent to sign-in with a redirect back here. Signed-in members who are not admins go to their dashboard rather than a 404, because \"why can't I get in\" is the expensive failure. Every admin page re-checks access on the server; the sidebar is a convenience, not the boundary.",
+        text: "Visitors who are not signed in are sent to sign-in with a redirect back here. A signed-in account that is not an admin sees an \"Administrator access required\" screen that names the address it is signed in as, and the two ways to grant it — because \"why can't I get in\" is the expensive failure. Every admin page re-checks access on the server; the sidebar is a convenience, not the boundary.",
       },
     ],
   },
@@ -349,7 +355,11 @@ export const ADMIN_MANUAL: readonly ManualSection[] = [
         items: [
           {
             question: "I set ADMIN_EMAILS but I still cannot get in.",
-            answer: "It only applies to a verified primary email at first sign-in. If the account already existed, it will not be promoted — change its role under Members, or set publicMetadata.role in Clerk.",
+            answer: "Check three things: the variable is set on the deployment that is serving the site (and redeployed after you added it), the address is the account's verified primary email in Clerk, and it matches exactly. The admin console's access screen prints the address you are signed in as — compare it there. As a fallback, set publicMetadata.role to admin for the account in Clerk.",
+          },
+          {
+            question: "I am an admin but the dashboard keeps asking me to onboard.",
+            answer: "That was a bug: the onboarding redirect applied to admins as well. It no longer does. If you still see it, the account is not actually an administrator — open /admin and read the address on the access screen.",
           },
           {
             question: "My role change was reverted.",

@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server";
 import { verifyWebhook } from "@clerk/nextjs/webhooks";
 
 import { isAdminEmail, roleFromClerkMetadata } from "@/lib/auth";
+import { verifiedEmailFromWebhook } from "@/lib/auth/roles";
 import { db } from "@/lib/db/client";
 import { webhookEvents } from "@/lib/db/schema";
 import { getStore } from "@/lib/db/store";
@@ -107,19 +108,6 @@ function primaryEmail(data: ClerkUserPayload): string {
   ).toLowerCase();
 }
 
-/**
- * The primary email only when Clerk has verified it. Admin bootstrap keys off
- * this, so an unverified address can never claim an `ADMIN_EMAILS` entry.
- */
-function verifiedPrimaryEmail(data: ClerkUserPayload): string | null {
-  const primary = (data.email_addresses ?? []).find(
-    (address) => address.id === data.primary_email_address_id,
-  );
-  return primary?.verification?.status === "verified"
-    ? primary.email_address.toLowerCase()
-    : null;
-}
-
 /** Project one Clerk user payload onto the local `users` row. */
 async function syncUser(
   data: ClerkUserPayload,
@@ -128,6 +116,10 @@ async function syncUser(
   const store = getStore();
   const email = primaryEmail(data);
   const metadataRole = roleFromClerkMetadata(data.public_metadata);
+  // A verified address on the allowlist is a standing grant, applied on create
+  // *and* on update — otherwise setting ADMIN_EMAILS after someone had already
+  // signed up changed nothing.
+  const allowlisted = isAdminEmail(verifiedEmailFromWebhook(data));
   await store.upsertUser({
     clerkUserId: data.id,
     email,
@@ -135,18 +127,15 @@ async function syncUser(
     lastName: data.last_name ?? null,
     imageUrl: data.image_url || null,
     // A role set in Clerk's public metadata always wins (only the dashboard
-    // or a server can write it). Otherwise admins are bootstrapped from the
-    // verified ADMIN_EMAILS allowlist on first sight only, and later webhooks
-    // leave the role to the admin console.
+    // or a server can write it). Otherwise the verified allowlist grants admin;
+    // with neither, a new row is a member and an existing row keeps its role.
     ...(metadataRole
       ? { role: metadataRole }
-      : isCreate
-        ? {
-            role: isAdminEmail(verifiedPrimaryEmail(data))
-              ? ("admin" as const)
-              : ("member" as const),
-          }
-        : {}),
+      : allowlisted
+        ? { role: "admin" as const }
+        : isCreate
+          ? { role: "member" as const }
+          : {}),
     clerkUpdatedAt: new Date(data.updated_at),
   });
 }

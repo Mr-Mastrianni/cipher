@@ -206,7 +206,12 @@ export default async function DashboardLayout({
   const { user, demo } = await resolveDashboardUser();
 
   if (!user) redirect("/sign-in");
-  if (!user.onboardingCompletedAt) redirect("/onboarding");
+  // Admins run the console; they do not need a birth chart to do it. Without
+  // this exemption an admin who had never onboarded was pushed into the
+  // nine-step flow every time they opened the dashboard.
+  if (!user.onboardingCompletedAt && user.role !== "admin") {
+    redirect("/onboarding");
+  }
 
   // Profiles saved before the KP engine (or seeded with birth data only) get
   // their KP chart and bodygraph snapshots computed once, here, so every

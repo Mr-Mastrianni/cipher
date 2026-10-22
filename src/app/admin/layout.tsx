@@ -17,7 +17,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-import { Avatar, Badge } from "@/components/ui";
+import { Avatar, Badge, Button } from "@/components/ui";
 import { getAccessLevel } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 
@@ -61,14 +61,67 @@ function isActive(pathname: string, href: string, exact: boolean): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
+/**
+ * Shown to a signed-in account that is not an administrator.
+ *
+ * It names the signed-in address and both ways to grant the role, because the
+ * old behaviour — redirect to `/dashboard` — was indistinguishable from being
+ * forced through onboarding, with nothing to act on.
+ */
+function AdminAccessRequired({ email }: { email: string | null }) {
+  return (
+    <main className="mx-auto flex min-h-dvh w-full max-w-xl flex-col justify-center gap-5 px-6 py-16">
+      <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-gold">
+        Admin
+      </p>
+      <h1 className="font-display text-3xl leading-tight text-bone text-balance">
+        Administrator access required
+      </h1>
+      <p className="text-sm leading-relaxed text-muted text-pretty">
+        You are signed in as{" "}
+        <span className="text-bone">
+          {email ?? "an account with no email on file"}
+        </span>
+        , which is not an administrator on this deployment.
+      </p>
+      <div className="rounded-lg border border-gold/30 bg-gold/5 px-5 py-4">
+        <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-gold">
+          How to fix it
+        </p>
+        <p className="mt-2 text-sm leading-relaxed text-muted text-pretty">
+          Add that exact address to <code className="text-bone">ADMIN_EMAILS</code>{" "}
+          in this deployment&apos;s environment and redeploy, or set{" "}
+          <code className="text-bone">publicMetadata.role</code> to{" "}
+          <code className="text-bone">&quot;admin&quot;</code> for the account in
+          Clerk. The address must be verified in Clerk. Then reload this page.
+        </p>
+      </div>
+      <div className="flex flex-wrap gap-3">
+        <Button asChild variant="secondary" size="sm">
+          <Link href="/dashboard">Back to the dashboard</Link>
+        </Button>
+        <Button asChild variant="ghost" size="sm">
+          <Link href="/">The public site</Link>
+        </Button>
+      </div>
+    </main>
+  );
+}
+
 export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
   const { level, user } = await getAccessLevel();
 
   if (level === "anonymous") {
     redirect("/sign-in?redirect_url=/admin");
   }
+
+  // A signed-in member who is not an admin gets an explanation, not a silent
+  // bounce into the dashboard — which, for an account that had never
+  // onboarded, used to feel like being forced through the application flow
+  // with no hint about why. The signed-in address is shown so the fix is
+  // obvious: put that exact address in ADMIN_EMAILS (or set Clerk metadata).
   if (level !== "admin" || !user) {
-    redirect("/dashboard");
+    return <AdminAccessRequired email={user?.email ?? null} />;
   }
 
   // Provided by `src/proxy.ts`; a server layout cannot read the URL itself.
