@@ -6,10 +6,11 @@ import Link from "next/link";
 import { Globe2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import type { WorldLine } from "./world-scene";
+import { cn } from "@/lib/utils";
+import type { WorldLine, WorldPlanet } from "./world-scene";
 
 /**
- * The WebGL boundary.
+ * The WebGL boundary and the graha HUD.
  *
  * `three` is heavy, so the scene is loaded with `ssr: false` and only on this
  * route. Two guards protect the rest of the app:
@@ -85,17 +86,81 @@ function detectWebgl(): boolean {
   }
 }
 
+/** The graha list: select one to swing it to the front. */
+function GrahaHud({
+  planets,
+  selected,
+  onSelect,
+}: {
+  planets: WorldPlanet[];
+  selected: string | null;
+  onSelect: (graha: string | null) => void;
+}) {
+  return (
+    <div className="pointer-events-auto absolute bottom-3 left-3 max-h-[70%] w-44 overflow-y-auto rounded-lg border border-hairline bg-void/80 p-2 backdrop-blur">
+      <button
+        type="button"
+        onClick={() => onSelect(null)}
+        className={cn(
+          "mb-1 w-full rounded px-2 py-1 text-left font-mono text-[9px] uppercase tracking-[0.18em] transition-colors",
+          selected === null ? "bg-raised text-gold" : "text-faint hover:text-bone",
+        )}
+      >
+        The whole sky
+      </button>
+      <ul className="flex list-none flex-col gap-px p-0">
+        {planets.map((planet) => {
+          const active = selected === planet.graha;
+          return (
+            <li key={planet.graha}>
+              <button
+                type="button"
+                onClick={() => onSelect(active ? null : planet.graha)}
+                aria-pressed={active}
+                className={cn(
+                  "flex w-full items-baseline gap-2 rounded px-2 py-1 text-left transition-colors",
+                  active ? "bg-raised" : "hover:bg-raised/70",
+                )}
+              >
+                <span aria-hidden="true" className="w-4 shrink-0 text-sm text-bone">
+                  {planet.glyph}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span
+                    className={cn(
+                      "block truncate text-xs capitalize",
+                      active ? "text-gold" : "text-bone",
+                    )}
+                  >
+                    {planet.graha}
+                  </span>
+                  <span className="block truncate text-[10px] text-faint">
+                    {planet.nakshatra} · {planet.longitude.toFixed(2)}°
+                  </span>
+                </span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
 export function WorldCanvas({
   lines,
   nakshatras,
+  planets,
   moonLongitude,
 }: {
   lines: WorldLine[];
   nakshatras: readonly string[];
+  planets: WorldPlanet[];
   moonLongitude?: number;
 }) {
   // `null` until the client has checked, so server and first paint agree.
   const [supported, setSupported] = useState<boolean | null>(null);
+  const [selected, setSelected] = useState<string | null>(null);
 
   useEffect(() => {
     // A WebGL capability probe can only run in the browser; reading it during
@@ -119,10 +184,15 @@ export function WorldCanvas({
           <WorldScene
             lines={lines}
             nakshatras={nakshatras}
+            planets={planets}
+            selected={selected}
+            onSelect={setSelected}
             moonLongitude={moonLongitude}
           />
         </WorldBoundary>
       )}
+
+      <GrahaHud planets={planets} selected={selected} onSelect={setSelected} />
 
       <p className="pointer-events-none absolute inset-x-0 bottom-3 text-center font-mono text-[9px] uppercase tracking-[0.24em] text-faint">
         drag to rotate · scroll to zoom

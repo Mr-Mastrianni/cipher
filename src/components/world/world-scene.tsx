@@ -5,17 +5,15 @@ import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 
 /**
- * The 3D world — Phase 1.
+ * The 3D world — Phase 2.
  *
- * A globe with the member's real astrocartography lines and the 27-nakshatra
- * belt. It is deliberately *data-true*: the arcs come from
- * `lib/astrocartography` (spherical astronomy, not decoration), and the belt is
- * the 13°20′ ecliptic division. The decoration sits behind them.
+ * A globe with the member's real astrocartography lines, the 27-nakshatra belt,
+ * and the nine grahas placed on that belt by their sidereal longitude. Clicking
+ * a graha (in the scene or the HUD) swings it to the front and holds it.
  *
- * Interaction is hand-rolled rather than pulling in OrbitControls: drag to
- * rotate, wheel to zoom, a slow auto-orbit when idle. That keeps the bundle to
- * `three` + `@react-three/fiber` and avoids a second dependency for 40 lines of
- * pointer maths.
+ * Everything data-bearing comes from `lib/kp` and `lib/astrocartography`; the
+ * stars are decoration. Interaction is hand-rolled rather than pulling in
+ * OrbitControls, and auto-orbit respects reduced motion.
  */
 
 export interface WorldLine {
@@ -25,9 +23,22 @@ export interface WorldLine {
   segments: Array<Array<[number, number]>>;
 }
 
+export interface WorldPlanet {
+  graha: string;
+  /** Unicode graha glyph, e.g. ☉ for the Sun. */
+  glyph: string;
+  /** Sidereal longitude at the birth instant, 0–360. */
+  longitude: number;
+  /** Nakshatra the graha occupies. */
+  nakshatra: string;
+}
+
 interface WorldProps {
   lines: WorldLine[];
   nakshatras: readonly string[];
+  planets: WorldPlanet[];
+  selected: string | null;
+  onSelect: (graha: string | null) => void;
   /** Sidereal longitude of the Moon, to mark the current nakshatra. */
   moonLongitude?: number;
 }
@@ -45,6 +56,8 @@ const GRAHA_COLOR: Record<string, string> = {
 };
 
 const GLOBE_R = 1;
+const BELT_R = 2.05;
+const ARC = 360 / 27;
 
 /** [lon, lat] in degrees → a point on a sphere of radius r. */
 function toVector(lon: number, lat: number, r: number): THREE.Vector3 {
@@ -55,6 +68,22 @@ function toVector(lon: number, lat: number, r: number): THREE.Vector3 {
     r * Math.cos(phi),
     r * Math.sin(phi) * Math.sin(theta),
   );
+}
+
+/** A point on the belt plane at a celestial longitude. */
+function beltPosition(longitude: number, r: number): [number, number, number] {
+  const a = longitude * (Math.PI / 180);
+  return [-Math.sin(a) * r, 0, -Math.cos(a) * r];
+}
+
+/**
+ * The yaw that brings a belt longitude to the front of the camera.
+ *
+ * The belt places a graha at (-sin L, 0, -cos L); rotating the rig by π − L
+ * lands that point at +Z, where the camera is.
+ */
+export function focusYawFor(longitude: number): number {
+  return Math.PI - longitude * (Math.PI / 180);
 }
 
 function Globe() {
@@ -70,12 +99,10 @@ function Globe() {
           emissiveIntensity={0.55}
         />
       </mesh>
-      {/* A faint graticule so the sphere reads as a chart, not a marble. */}
       <mesh scale={1.002}>
         <sphereGeometry args={[GLOBE_R, 36, 24]} />
         <meshBasicMaterial color="#3b5f8f" wireframe transparent opacity={0.14} />
       </mesh>
-      {/* Atmosphere */}
       <mesh scale={1.045}>
         <sphereGeometry args={[GLOBE_R, 48, 32]} />
         <meshBasicMaterial color="#5ce1e6" transparent opacity={0.055} />
@@ -105,7 +132,6 @@ function CartoArcs({ lines }: { lines: WorldLine[] }) {
     return built;
   }, [lines]);
 
-  // Dispose GPU buffers when the chart changes or the page unmounts.
   useEffect(() => {
     return () => {
       for (const line of objects) {
@@ -127,11 +153,16 @@ function CartoArcs({ lines }: { lines: WorldLine[] }) {
 function NakshatraBelt({
   nakshatras,
   moonLongitude,
+  planets,
+  selected,
+  onSelect,
 }: {
   nakshatras: readonly string[];
   moonLongitude?: number;
+  planets: WorldPlanet[];
+  selected: string | null;
+  onSelect: (graha: string | null) => void;
 }) {
-  const ARC = 360 / 27;
   const activeIndex =
     typeof moonLongitude === "number"
       ? Math.floor((((moonLongitude % 360) + 360) % 360) / ARC)
@@ -140,21 +171,56 @@ function NakshatraBelt({
   return (
     <group rotation={[Math.PI / 2.6, 0, 0]}>
       <mesh>
-        <torusGeometry args={[2.05, 0.004, 8, 240]} />
+        <torusGeometry args={[BELT_R, 0.004, 8, 240]} />
         <meshBasicMaterial color="#d4ff3f" transparent opacity={0.35} />
       </mesh>
-      {nakshatras.map((name, index) => {
-        const angle = (index * ARC) * (Math.PI / 180);
-        const r = 2.05;
-        const active = index === activeIndex;
+
+      {nakshatras.map((name, index) => (
+        <mesh key={name} position={beltPosition(index * ARC, BELT_R)}>
+          <sphereGeometry args={[index === activeIndex ? 0.035 : 0.016, 12, 12]} />
+          <meshBasicMaterial color={index === activeIndex ? "#d4ff3f" : "#8f7bd6"} />
+        </mesh>
+      ))}
+
+      {/* The nine grahas, on the same belt, by sidereal longitude. */}
+      {planets.map((planet) => {
+        const isSelected = selected === planet.graha;
+        const color = GRAHA_COLOR[planet.graha] ?? "#d4ff3f";
         return (
-          <mesh
-            key={name}
-            position={[-Math.sin(angle) * r, 0, -Math.cos(angle) * r]}
-          >
-            <sphereGeometry args={[active ? 0.035 : 0.016, 12, 12]} />
-            <meshBasicMaterial color={active ? "#d4ff3f" : "#8f7bd6"} />
-          </mesh>
+          <group key={planet.graha} position={beltPosition(planet.longitude, BELT_R)}>
+            <mesh
+              onClick={(event) => {
+                event.stopPropagation();
+                onSelect(planet.graha);
+              }}
+              onPointerOver={(event) => {
+                event.stopPropagation();
+                document.body.style.cursor = "pointer";
+              }}
+              onPointerOut={() => {
+                document.body.style.cursor = "";
+              }}
+            >
+              <sphereGeometry args={[isSelected ? 0.085 : 0.055, 20, 20]} />
+              <meshBasicMaterial color={color} />
+            </mesh>
+
+            <mesh scale={isSelected ? 2.6 : 1.7}>
+              <sphereGeometry args={[0.055, 16, 16]} />
+              <meshBasicMaterial
+                color={color}
+                transparent
+                opacity={isSelected ? 0.28 : 0.12}
+              />
+            </mesh>
+
+            {isSelected ? (
+              <mesh rotation={[Math.PI / 2, 0, 0]}>
+                <torusGeometry args={[0.16, 0.006, 8, 48]} />
+                <meshBasicMaterial color={color} transparent opacity={0.8} />
+              </mesh>
+            ) : null}
+          </group>
         );
       })}
     </group>
@@ -165,8 +231,7 @@ function Starfield({ count = 2400 }: { count?: number }) {
   const positions = useMemo(() => {
     const array = new Float32Array(count * 3);
     // Deterministic pseudo-random: a hash of the index, so the field is stable
-    // across renders (React treats Math.random() in render as impure) and the
-    // same sky comes back after a remount.
+    // across renders and the same sky returns after a remount.
     const rand = (n: number) => {
       const x = Math.sin(n * 12.9898) * 43758.5453;
       return x - Math.floor(x);
@@ -197,9 +262,11 @@ function Starfield({ count = 2400 }: { count?: number }) {
 function OrbitRig({
   children,
   autoRotate,
+  focusYaw,
 }: {
   children: React.ReactNode;
   autoRotate: boolean;
+  focusYaw: number | null;
 }) {
   const group = useRef<THREE.Group>(null);
   const { gl, camera } = useThree();
@@ -213,6 +280,11 @@ function OrbitRig({
     targetRotY: 0,
     zoom: 1,
   });
+
+  // A selection wins over idle rotation: swing the graha to the front.
+  useEffect(() => {
+    if (focusYaw !== null) state.current.targetRotY = focusYaw;
+  }, [focusYaw]);
 
   useEffect(() => {
     const element = gl.domElement;
@@ -261,7 +333,7 @@ function OrbitRig({
 
   useFrame(() => {
     const s = state.current;
-    if (autoRotate && !s.dragging) s.targetRotY += 0.0012;
+    if (autoRotate && !s.dragging && focusYaw === null) s.targetRotY += 0.0012;
     s.rotX += (s.targetRotX - s.rotX) * 0.08;
     s.rotY += (s.targetRotY - s.rotY) * 0.08;
     if (group.current) {
@@ -275,7 +347,14 @@ function OrbitRig({
   return <group ref={group}>{children}</group>;
 }
 
-export function WorldScene({ lines, nakshatras, moonLongitude }: WorldProps) {
+export function WorldScene({
+  lines,
+  nakshatras,
+  planets,
+  selected,
+  onSelect,
+  moonLongitude,
+}: WorldProps) {
   // Respect the OS preference: no idle motion, but the globe is still draggable.
   const [reduced, setReduced] = useState(false);
   useEffect(() => {
@@ -285,6 +364,10 @@ export function WorldScene({ lines, nakshatras, moonLongitude }: WorldProps) {
     query.addEventListener("change", update);
     return () => query.removeEventListener("change", update);
   }, []);
+
+  const selectedPlanet = planets.find((planet) => planet.graha === selected);
+  const focusYaw =
+    selectedPlanet !== undefined ? focusYawFor(selectedPlanet.longitude) : null;
 
   return (
     <Canvas
@@ -297,10 +380,16 @@ export function WorldScene({ lines, nakshatras, moonLongitude }: WorldProps) {
       <ambientLight intensity={0.9} />
       <directionalLight position={[3, 2, 4]} intensity={1.6} color="#fff4d6" />
       <Starfield />
-      <OrbitRig autoRotate={!reduced}>
+      <OrbitRig autoRotate={!reduced} focusYaw={focusYaw}>
         <Globe />
         <CartoArcs lines={lines} />
-        <NakshatraBelt nakshatras={nakshatras} moonLongitude={moonLongitude} />
+        <NakshatraBelt
+          nakshatras={nakshatras}
+          moonLongitude={moonLongitude}
+          planets={planets}
+          selected={selected}
+          onSelect={onSelect}
+        />
       </OrbitRig>
     </Canvas>
   );

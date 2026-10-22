@@ -10,7 +10,7 @@ import { astrocartography } from "@/lib/astrocartography/lines";
 import { type ShareableBirth } from "@/lib/cipher/share-code";
 import { resolveKpBirth, type KpBirthInput } from "@/lib/kp/chart";
 import { siderealLongitude } from "@/lib/kp/positions";
-import { NAKSHATRAS } from "@/lib/kp/constants";
+import { NAKSHATRAS, type Graha } from "@/lib/kp/constants";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader, PageShell } from "@/components/chrome/page-shell";
@@ -65,6 +65,19 @@ function birthFromProfile(profile: BirthProfile): ShareableBirth | null {
     nodeType: stored?.system?.nodeType ?? "mean",
   };
 }
+
+/** Display order and glyphs for the nine grahas. */
+const PLANETS: ReadonlyArray<{ graha: Graha; glyph: string }> = [
+  { graha: "sun", glyph: "☉" },
+  { graha: "moon", glyph: "☽" },
+  { graha: "mars", glyph: "♂" },
+  { graha: "mercury", glyph: "☿" },
+  { graha: "jupiter", glyph: "♃" },
+  { graha: "venus", glyph: "♀" },
+  { graha: "saturn", glyph: "♄" },
+  { graha: "rahu", glyph: "☊" },
+  { graha: "ketu", glyph: "☋" },
+];
 
 export default async function WorldPage() {
   const user = await currentMember();
@@ -133,6 +146,19 @@ export default async function WorldPage() {
   const lines = astrocartography(instant, nodeType);
   const moonLongitude = siderealLongitude("moon", instant, nodeType);
 
+  // The nine grahas on the belt, by their sidereal longitude at birth.
+  const planets = PLANETS.map(({ graha, glyph }) => {
+    const longitude = siderealLongitude(graha, instant as Date, nodeType);
+    const normalized = ((longitude % 360) + 360) % 360;
+    const index = Math.min(26, Math.floor(normalized / (360 / 27)));
+    return {
+      graha,
+      glyph,
+      longitude: normalized,
+      nakshatra: NAKSHATRAS[index]?.name ?? "—",
+    };
+  });
+
   return (
     <PageShell width="wide">
       {header}
@@ -144,6 +170,7 @@ export default async function WorldPage() {
           segments: line.segments,
         }))}
         nakshatras={NAKSHATRAS.map((nakshatra) => nakshatra.name)}
+        planets={planets}
         moonLongitude={moonLongitude}
       />
 
@@ -151,7 +178,9 @@ export default async function WorldPage() {
         Lines are where each graha is angular at your birth instant: solid for
         the 10th-cusp (MC) line, faint for the rest. The belt is the sidereal
         zodiac divided into the 27 nakshatras, lit at the one holding the Moon.
-        Geometric altitude, no refraction — the same convention as the flat map.
+        The nine grahas sit on that belt by their sidereal longitude; select one
+        to swing it to the front. Geometric altitude, no refraction — the same
+        convention as the flat map.
       </p>
     </PageShell>
   );
