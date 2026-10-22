@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 
@@ -259,92 +259,93 @@ function Starfield({ count = 2400 }: { count?: number }) {
 }
 
 /** Drag to rotate, wheel to zoom, slow auto-orbit when untouched. */
-function OrbitRig({
-  children,
-  autoRotate,
-  focusYaw,
-}: {
-  children: React.ReactNode;
-  autoRotate: boolean;
-  focusYaw: number | null;
-}) {
-  const group = useRef<THREE.Group>(null);
-  const { gl, camera } = useThree();
-  const state = useRef({
-    dragging: false,
-    lastX: 0,
-    lastY: 0,
-    rotX: 0.32,
-    rotY: 0,
-    targetRotX: 0.32,
-    targetRotY: 0,
-    zoom: 1,
-  });
+const GROUND_Y = -2.2;
 
-  // A selection wins over idle rotation: swing the graha to the front.
-  useEffect(() => {
-    if (focusYaw !== null) state.current.targetRotY = focusYaw;
-  }, [focusYaw]);
+/**
+ * First person.
+ *
+ * Click to lock the pointer, mouse to look, WASD to move, Shift to run, Space
+ * and C to rise and fall. There is no collision yet — the ground plane is a
+ * floor, not an obstacle — so this is a fly-cam that happens to start at eye
+ * height, which is enough to make the world navigable while the structures are
+ * still to come.
+ *
+ * Pointer lock is requested on a click rather than on mount: browsers require a
+ * gesture, and a page that hijacks the cursor on load is hostile.
+ */
+function FirstPersonRig({ children }: { children: React.ReactNode }) {
+  const { gl, camera } = useThree();
+  const keys = useRef<Record<string, boolean>>({});
+  const look = useRef({ yaw: 0, pitch: -0.06 });
+  const position = useRef(new THREE.Vector3(0, 0.7, 7));
 
   useEffect(() => {
     const element = gl.domElement;
-    const onPointerDown = (event: PointerEvent) => {
-      state.current.dragging = true;
-      state.current.lastX = event.clientX;
-      state.current.lastY = event.clientY;
-      element.setPointerCapture(event.pointerId);
+
+    const requestLock = () => {
+      void element.requestPointerLock?.();
     };
-    const onPointerMove = (event: PointerEvent) => {
-      if (!state.current.dragging) return;
-      const dx = event.clientX - state.current.lastX;
-      const dy = event.clientY - state.current.lastY;
-      state.current.lastX = event.clientX;
-      state.current.lastY = event.clientY;
-      state.current.targetRotY += dx * 0.005;
-      state.current.targetRotX = Math.max(
-        -1.15,
-        Math.min(1.15, state.current.targetRotX + dy * 0.005),
+    const onMouseMove = (event: MouseEvent) => {
+      if (document.pointerLockElement !== element) return;
+      look.current.yaw -= event.movementX * 0.0022;
+      look.current.pitch = Math.max(
+        -1.2,
+        Math.min(1.2, look.current.pitch - event.movementY * 0.0022),
       );
     };
-    const onPointerUp = () => {
-      state.current.dragging = false;
+    const onKeyDown = (event: KeyboardEvent) => {
+      keys.current[event.code] = true;
+      if (event.code === "Space") event.preventDefault();
     };
-    const onWheel = (event: WheelEvent) => {
-      event.preventDefault();
-      state.current.zoom = Math.max(
-        0.72,
-        Math.min(2.4, state.current.zoom * (1 + event.deltaY * 0.0012)),
-      );
+    const onKeyUp = (event: KeyboardEvent) => {
+      keys.current[event.code] = false;
     };
 
-    element.addEventListener("pointerdown", onPointerDown);
-    element.addEventListener("pointermove", onPointerMove);
-    element.addEventListener("pointerup", onPointerUp);
-    element.addEventListener("pointerleave", onPointerUp);
-    element.addEventListener("wheel", onWheel, { passive: false });
+    element.addEventListener("pointerdown", requestLock);
+    document.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keyup", onKeyUp);
     return () => {
-      element.removeEventListener("pointerdown", onPointerDown);
-      element.removeEventListener("pointermove", onPointerMove);
-      element.removeEventListener("pointerup", onPointerUp);
-      element.removeEventListener("pointerleave", onPointerUp);
-      element.removeEventListener("wheel", onWheel);
+      element.removeEventListener("pointerdown", requestLock);
+      document.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keyup", onKeyUp);
     };
   }, [gl]);
 
-  useFrame(() => {
-    const s = state.current;
-    if (autoRotate && !s.dragging && focusYaw === null) s.targetRotY += 0.0012;
-    s.rotX += (s.targetRotX - s.rotX) * 0.08;
-    s.rotY += (s.targetRotY - s.rotY) * 0.08;
-    if (group.current) {
-      group.current.rotation.x = s.rotX;
-      group.current.rotation.y = s.rotY;
-      group.current.scale.setScalar(s.zoom);
-    }
-    camera.lookAt(0, 0, 0);
-  });
+  // A three.js camera is a mutable object and this is its render loop; the
+  // compiler's immutability rule does not apply to it.
+  /* eslint-disable react-hooks/immutability */
+  useFrame((_, delta) => {
+    // Clamp the step so a background tab cannot teleport the camera.
+    const step = Math.min(delta, 0.05) * (keys.current.ShiftLeft ? 9 : 4.5);
+    const forward = new THREE.Vector3(
+      -Math.sin(look.current.yaw),
+      0,
+      -Math.cos(look.current.yaw),
+    );
+    const right = new THREE.Vector3(
+      Math.cos(look.current.yaw),
+      0,
+      -Math.sin(look.current.yaw),
+    );
 
-  return <group ref={group}>{children}</group>;
+    const p = position.current;
+    if (keys.current.KeyW) p.addScaledVector(forward, step);
+    if (keys.current.KeyS) p.addScaledVector(forward, -step);
+    if (keys.current.KeyD) p.addScaledVector(right, step);
+    if (keys.current.KeyA) p.addScaledVector(right, -step);
+    if (keys.current.Space) p.y += step;
+    if (keys.current.KeyC) p.y -= step;
+    p.y = Math.max(GROUND_Y + 1.1, Math.min(40, p.y));
+
+    camera.position.copy(p);
+    camera.rotation.order = "YXZ";
+    camera.rotation.set(look.current.pitch, look.current.yaw, 0);
+  });
+  /* eslint-enable react-hooks/immutability */
+
+  return <group>{children}</group>;
 }
 
 export function WorldScene({
@@ -355,20 +356,6 @@ export function WorldScene({
   onSelect,
   moonLongitude,
 }: WorldProps) {
-  // Respect the OS preference: no idle motion, but the globe is still draggable.
-  const [reduced, setReduced] = useState(false);
-  useEffect(() => {
-    const query = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const update = () => setReduced(query.matches);
-    update();
-    query.addEventListener("change", update);
-    return () => query.removeEventListener("change", update);
-  }, []);
-
-  const selectedPlanet = planets.find((planet) => planet.graha === selected);
-  const focusYaw =
-    selectedPlanet !== undefined ? focusYawFor(selectedPlanet.longitude) : null;
-
   return (
     <Canvas
       dpr={[1, 1.75]}
@@ -377,10 +364,20 @@ export function WorldScene({
       className="touch-none"
     >
       <color attach="background" args={["#05020c"]} />
+      <fog attach="fog" args={["#05020c", 16, 80]} />
       <ambientLight intensity={0.9} />
       <directionalLight position={[3, 2, 4]} intensity={1.6} color="#fff4d6" />
       <Starfield />
-      <OrbitRig autoRotate={!reduced} focusYaw={focusYaw}>
+      {/* The floor: a dark plane with a faint grid, so there is a horizon. */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, GROUND_Y, 0]}>
+        <planeGeometry args={[240, 240]} />
+        <meshBasicMaterial color="#05020c" />
+      </mesh>
+      <gridHelper
+        args={[240, 80, "#241a45", "#120a24" as unknown as string]}
+        position={[0, GROUND_Y + 0.01, 0]}
+      />
+      <FirstPersonRig>
         <Globe />
         <CartoArcs lines={lines} />
         <NakshatraBelt
@@ -390,7 +387,7 @@ export function WorldScene({
           selected={selected}
           onSelect={onSelect}
         />
-      </OrbitRig>
+      </FirstPersonRig>
     </Canvas>
   );
 }
