@@ -9,6 +9,7 @@ import {
 } from "@/lib/human-design/constants";
 import {
   BODYGRAPH_VIEWBOX,
+  BODY_SILHOUETTE,
   CENTER_SHAPES,
   GATE_POSITIONS,
   polygonPoints,
@@ -99,7 +100,46 @@ export function Bodygraph({
             <feMergeNode in="SourceGraphic" />
           </feMerge>
         </filter>
+
+        {/* A single soft aura behind the whole figure. Kept faint: it should
+            read as depth, not as a light show. */}
+        <radialGradient id="bg-aura" cx="50%" cy="42%" r="58%">
+          <stop offset="0%" stopColor="var(--c-defined)" stopOpacity="0.16" />
+          <stop offset="62%" stopColor="var(--c-defined)" stopOpacity="0.05" />
+          <stop offset="100%" stopColor="var(--c-void)" stopOpacity="0" />
+        </radialGradient>
+
+        {/* Defined centres get a vertical wash so they read as lit from above. */}
+        <linearGradient id="bg-center-defined" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="var(--c-defined-hi)" stopOpacity="0.52" />
+          <stop offset="100%" stopColor="var(--c-defined)" stopOpacity="0.2" />
+        </linearGradient>
+
+        <filter id="bg-dot-glow" x="-160%" y="-160%" width="420%" height="420%">
+          <feGaussianBlur stdDeviation="2.2" result="dotBlur" />
+          <feMerge>
+            <feMergeNode in="dotBlur" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
       </defs>
+
+      {/* ── Aura and silhouette ──────────────────────────────────────── */}
+      <rect
+        x="0"
+        y="0"
+        width={BODYGRAPH_VIEWBOX.width}
+        height={BODYGRAPH_VIEWBOX.height}
+        fill="url(#bg-aura)"
+      />
+      <path
+        d={BODY_SILHOUETTE}
+        fill="var(--c-bone)"
+        fillOpacity={0.025}
+        stroke="var(--c-hairline)"
+        strokeOpacity={0.7}
+        strokeWidth={1.2}
+      />
 
       {/* ── Channels ─────────────────────────────────────────────────── */}
       <g fill="none" strokeLinecap="round">
@@ -153,12 +193,11 @@ export function Bodygraph({
           const shape = CENTER_SHAPES[key];
           const isDefined = defined.has(key);
           const common = {
-            fill: isDefined
-              ? "color-mix(in srgb, var(--c-defined) 26%, var(--c-void))"
-              : "var(--c-void)",
+            fill: isDefined ? "url(#bg-center-defined)" : "var(--c-void)",
             stroke: isDefined ? "var(--c-defined-hi)" : "var(--c-open-stroke)",
-            strokeWidth: isDefined ? 1.6 : 1,
+            strokeWidth: isDefined ? 1.8 : 1,
             strokeLinejoin: "round" as const,
+            filter: isDefined ? "url(#bg-glow)" : undefined,
           };
           const shapeEl =
             shape.kind === "polygon" ? (
@@ -218,8 +257,12 @@ export function Bodygraph({
                 x={position[0]}
                 y={position[1]}
                 fill={
-                  isActive
-                    ? "var(--c-bone)"
+                  node
+                    ? node.source === "both"
+                      ? "var(--c-src-both)"
+                      : node.source === "design"
+                        ? "var(--c-src-design)"
+                        : "var(--c-src-personality)"
                     : centreDefined
                       ? "var(--c-muted)"
                       : "var(--c-faint)"
@@ -252,10 +295,22 @@ export function Bodygraph({
             // One marker per gate, so the gate is a stable unique key.
             <g key={marker.gate}>
               {showLeft && (
-                <circle cx={x - 13} cy={y} r={2.6} fill="var(--c-src-design)" />
+                <circle
+                  cx={x - 13}
+                  cy={y}
+                  r={3.1}
+                  fill="var(--c-src-design)"
+                  filter="url(#bg-dot-glow)"
+                />
               )}
               {showRight && (
-                <circle cx={x + 13} cy={y} r={2.6} fill="var(--c-src-personality)" />
+                <circle
+                  cx={x + 13}
+                  cy={y}
+                  r={3.1}
+                  fill="var(--c-src-personality)"
+                  filter="url(#bg-dot-glow)"
+                />
               )}
             </g>
           );

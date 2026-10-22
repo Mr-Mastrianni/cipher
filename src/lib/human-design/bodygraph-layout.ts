@@ -13,7 +13,21 @@ import type { CenterKey } from "./constants";
  * bodygraph — it is structural, not stylistic — so it is reproduced as data.
  */
 
-export const BODYGRAPH_VIEWBOX = { width: 500, height: 800 } as const;
+export const BODYGRAPH_VIEWBOX = { width: 500, height: 840 } as const;
+
+/**
+ * A soft human silhouette drawn behind the centres.
+ *
+ * Purely decorative: it is never used for a calculation. It exists because the
+ * bodygraph is a *body* — the centres are placed on a torso, and without the
+ * outline the geometry reads as an unexplained collection of shapes.
+ */
+export const BODY_SILHOUETTE =
+  "M250 16 C296 16 330 52 330 98 C330 132 314 160 290 176 C344 198 378 250 378 320 " +
+  "L378 548 C378 580 354 604 322 608 L322 736 C322 784 292 814 250 814 " +
+  "C208 814 178 784 178 736 L178 608 C146 604 122 580 122 548 " +
+  "L122 320 C122 250 156 198 210 176 C186 160 170 132 170 98 " +
+  "C170 52 204 16 250 16 Z";
 
 export type CenterShape =
   | { kind: "polygon"; points: readonly (readonly [number, number])[] }
