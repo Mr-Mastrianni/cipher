@@ -52,7 +52,6 @@ import {
   waterMaterial,
 } from "./textures";
 import {
-  cloudTexture,
   fireTexture,
   glowSprite,
   glyphSprite,
@@ -114,7 +113,6 @@ export interface World {
   fill: THREE.DirectionalLight;
   stars: THREE.Points;
   motes: THREE.Points;
-  clouds: THREE.Sprite[];
   fires: Fire[];
   space: SpaceWorld;
   plots: PlotVisual[];
@@ -149,30 +147,30 @@ const PRESETS: Record<
 > = {
   dusk: {
     sun: 0xc6a6ff,
-    sunI: 2.35,
-    hemiSky: 0x7a68b8,
-    hemiGround: 0x241c32,
-    hemiI: 0.85,
-    fog: 0x352c4d,
-    fogDensity: 0.00175,
-    exposure: 1.38,
+    sunI: 2.6,
+    hemiSky: 0x8a75c8,
+    hemiGround: 0x2e2444,
+    hemiI: 1.0,
+    fog: 0x3b3258,
+    fogDensity: 0.0016,
+    exposure: 1.44,
     envI: 0.55,
     bgI: 0.62,
-    star: 0.46,
+    star: 0.5,
     glow: 0.34,
   },
   void: {
     sun: 0x9fb6ff,
-    sunI: 0.55,
-    hemiSky: 0x1c2740,
-    hemiGround: 0x0d0b14,
-    hemiI: 0.24,
+    sunI: 0.7,
+    hemiSky: 0x253454,
+    hemiGround: 0x12101c,
+    hemiI: 0.34,
     fog: 0x0b0a18,
     fogDensity: 0.0017,
-    exposure: 1.46,
+    exposure: 1.5,
     envI: 0.34,
     bgI: 0.48,
-    star: 0.72,
+    star: 0.78,
     glow: 0.2,
   },
   golden: {
@@ -576,14 +574,14 @@ export function createWorld(
     if (!isClear(x, z)) continue;
     const h = heightAt(x, z);
     const n = normalAt(x, z);
+    if (n[1] < 0.58) continue;
     const big = r > 360;
-    const s = (big ? 5 : 1.1) + rand() * (big ? 16 : 4.2);
-    TMP.position.set(x, h - s * 0.25, z);
+    const s = (big ? 5 : 1.1) + rand() * (big ? 11 : 4.2);
+    TMP.position.set(x, h - s * 0.45, z);
     TMP.rotation.set(rand() * 0.5, rand() * Math.PI * 2, rand() * 0.5);
     TMP.scale.set(s * (0.8 + rand() * 0.7), s * (0.6 + rand() * 0.6), s * (0.8 + rand() * 0.7));
     TMP.updateMatrix();
     boulders.setMatrixAt(bi++, TMP.matrix);
-    if (n[1] > 0.96 && rand() < 0.4) bi--;
   }
   boulders.count = bi;
   boulders.instanceMatrix.needsUpdate = true;
@@ -653,7 +651,7 @@ export function createWorld(
     axis.add(cap);
     const num = textSprite(String(i + 1).padStart(2, "0"), {
       color: n.css,
-      size: 40,
+      size: 32,
       scale: 0.26,
     });
     num.position.set(x * 0.92, 1.6, z * 0.92);
@@ -873,10 +871,44 @@ export function createWorld(
   basinGlow.position.y = 3.4;
   observatory.add(basinGlow);
 
+  const basinRipples = [0, 1].map((index) => {
+    const ring = new THREE.Mesh(
+      new THREE.TorusGeometry(2.1, 0.025, 4, 72),
+      new THREE.MeshBasicMaterial({
+        color: 0x5ce1e6,
+        transparent: true,
+        opacity: 0.3,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        toneMapped: false,
+      }),
+    );
+    ring.rotation.x = Math.PI / 2;
+    ring.position.y = 2.85;
+    ring.userData.phase = index * 0.5;
+    observatory.add(ring);
+    return ring;
+  });
+
+  const projectionBeam = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.06, 0.5, 6.1, 10, 1, true),
+    new THREE.MeshBasicMaterial({
+      color: 0x5ce1e6,
+      transparent: true,
+      opacity: 0.035,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+      toneMapped: false,
+    }),
+  );
+  projectionBeam.position.y = 5.95;
+  observatory.add(projectionBeam);
+
   // The astrolabe: the member's chart, above the basin.
   const astro = new THREE.Group();
-  astro.position.y = 10.4;
-  astro.rotation.x = 0.34;
+  astro.position.y = 9.0;
+  astro.rotation.x = 0.3;
   const astroRing = new THREE.Mesh(new THREE.TorusGeometry(9, 0.06, 4, 160), lime);
   astroRing.rotation.x = Math.PI / 2;
   astro.add(astroRing);
@@ -918,6 +950,31 @@ export function createWorld(
       pip.position.set(x, 0.2, z);
       astro.add(pip);
     });
+    // A faint polygon through the grahas, in longitude order. It reads as a
+    // constellation drawn by the chart rather than a decoration.
+    const ordered = [...chart.grahas].sort((a, b) => a.lon - b.lon);
+    if (ordered.length > 1) {
+    const chord = new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints([
+        ...ordered.map((g) => {
+          const a = (g.lon * Math.PI) / 180;
+          return new THREE.Vector3(Math.cos(a) * 8.4, 0.22, Math.sin(a) * 8.4);
+        }),
+        (() => {
+          const a = (ordered[0].lon * Math.PI) / 180;
+          return new THREE.Vector3(Math.cos(a) * 8.4, 0.22, Math.sin(a) * 8.4);
+        })(),
+      ]),
+      new THREE.LineBasicMaterial({
+        color: 0x5ce1e6,
+        transparent: true,
+        opacity: 0.12,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      }),
+    );
+    astro.add(chord);
+    }
     if (chart.lagna !== null) {
       const a = (chart.lagna * Math.PI) / 180;
       const x = Math.cos(a) * 9.6;
@@ -1239,7 +1296,7 @@ export function createWorld(
     const text = textSprite("Unclaimed", {
       color: "#a99bd0",
       sub: "Terrace " + (plot.index + 1),
-      size: 40,
+      size: 32,
       scale: 0.72,
     });
     text.position.set(0, 6.6, 0);
@@ -1277,7 +1334,7 @@ export function createWorld(
       roughness: 0.6,
       metalness: 0.4,
       emissive: new THREE.Color(pavilion.css),
-      emissiveIntensity: 0.04,
+      emissiveIntensity: 0.16,
     }));
     roof.position.y = 6.2;
     roof.rotation.y = Math.PI / 4;
@@ -1296,8 +1353,13 @@ export function createWorld(
       depthWrite: false,
       toneMapped: false,
     }));
-    banner.position.set(0, 4.4, 3.5);
+    banner.position.set(0, 4.4, 4.0);
     g.add(banner);
+    const bench = new THREE.Mesh(new THREE.BoxGeometry(5.4, 0.35, 1.5), stone);
+    bench.position.set(0, 1.05, 0.4);
+    bench.castShadow = true;
+    bench.receiveShadow = true;
+    g.add(bench);
     const label = textSprite(pavilion.name, {
       color: pavilion.css,
       sub: pavilion.tierRequired ? `${pavilion.tierRequired} tier` : "all members",
@@ -1317,6 +1379,36 @@ export function createWorld(
   const commonsGlow = glowSprite("rgba(92,225,160,1)", 18, 0.18);
   commonsGlow.position.set(0, 1.6, 0);
   commons.add(commonsGlow);
+  const commonsPlinth = new THREE.Mesh(new THREE.CylinderGeometry(3.2, 3.8, 0.5, 8), darkStone);
+  commonsPlinth.position.y = 0.25;
+  commonsPlinth.receiveShadow = true;
+  commons.add(commonsPlinth);
+  const commonsLantern = new THREE.Mesh(
+    new THREE.IcosahedronGeometry(0.8, 1),
+    new THREE.MeshBasicMaterial({ color: 0x5ce1a0, toneMapped: false }),
+  );
+  commonsLantern.position.y = 4.2;
+  commons.add(commonsLantern);
+  const lanternGlow = glowSprite("rgba(92,225,160,1)", 6, 0.22);
+  lanternGlow.position.y = 4.2;
+  commons.add(lanternGlow);
+  const commonsBeam = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.08, 0.4, 3.8, 8, 1, true),
+    new THREE.MeshBasicMaterial({
+      color: 0x5ce1a0,
+      transparent: true,
+      opacity: 0.1,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+      toneMapped: false,
+    }),
+  );
+  commonsBeam.position.y = 2.3;
+  commons.add(commonsBeam);
+  const commonsLabel = textSprite("THE COMMONS", { color: "#5ce1a0", size: 44, scale: 1.4 });
+  commonsLabel.position.y = 7.2;
+  commons.add(commonsLabel);
   root.add(commons);
 
   /* ── the Lake stone ────────────────────────────────────────────────────── */
@@ -1445,10 +1537,40 @@ export function createWorld(
   skyDome.renderOrder = -10;
   root.add(skyDome);
 
-  const stars = makeStars(q === "low" ? 1100 : 2400);
-  root.add(stars);
+  const stars = makeStars(q === "low" ? 900 : 2200);
+  const brightStars = makeBrightStars(q === "low" ? 70 : 180);
+  const milkyWay = makeMilkyWay(q === "low" ? 1400 : 4400);
+  const skyGroup = new THREE.Group();
+  skyGroup.add(stars, brightStars, milkyWay);
+  root.add(skyGroup);
+
   const motes = makeMotes(q === "low" ? 120 : 280);
   root.add(motes);
+
+  // The moon is a real light source: a cool fill opposite the setting sun, a
+  // textured disc and a soft halo. It gives the valley a second light to shape
+  // silhouettes rather than a single backlight.
+  const moonDirection = new THREE.Vector3(0.3, 0.5, -0.81).normalize();
+  const moon = new THREE.Sprite(
+    new THREE.SpriteMaterial({
+      map: moonTexture(),
+      transparent: true,
+      opacity: 0.96,
+      depthWrite: false,
+      toneMapped: false,
+    }),
+  );
+  moon.position.copy(moonDirection).multiplyScalar(2800);
+  moon.scale.set(80, 80, 1);
+  moon.renderOrder = -4;
+  root.add(moon);
+  const moonGlow = glowSprite("rgba(190,205,255,1)", 180, 0.06);
+  moonGlow.position.copy(moon.position);
+  moonGlow.renderOrder = -5;
+  root.add(moonGlow);
+  const moonLight = new THREE.DirectionalLight(0x9fb6ff, 0.45);
+  moonLight.position.copy(moonDirection).multiplyScalar(700);
+  root.add(moonLight);
 
   const sunLight = new THREE.DirectionalLight(0xffcf9a, 2);
   sunLight.castShadow = q !== "low";
@@ -1464,39 +1586,19 @@ export function createWorld(
 
   const hemi = new THREE.HemisphereLight(0x6a5aa8, 0x1a1424, 0.5);
   root.add(hemi);
-  const ambient = new THREE.AmbientLight(0x6a5a9a, 0.4);
+  const ambient = new THREE.AmbientLight(0x6a5a9a, 0.5);
   root.add(ambient);
-  const fill = new THREE.DirectionalLight(0x8a6fa0, 0.3);
-  fill.position.set(-1, 0.6, -1);
+  const fill = new THREE.DirectionalLight(0x8a7ac8, 0.5);
+  fill.position.set(-0.62, 0.55, -0.55);
   root.add(fill);
 
   // The sun itself, as a soft body on the horizon.
   const sunGlow = glowSprite("rgba(255,214,150,1)", 220, 0.55);
   sunGlow.position.set(SUN_DIR.x * 900, SUN_DIR.y * 900, SUN_DIR.z * 900);
-  sunGlow.material.depthTest = false;
   root.add(sunGlow);
   const sunCore = glowSprite("rgba(255,246,220,1)", 70, 0.9);
   sunCore.position.copy(sunGlow.position);
-  sunCore.material.depthTest = false;
   root.add(sunCore);
-
-  const clouds: THREE.Sprite[] = [];
-  const cloudTex = cloudTexture();
-  for (let i = 0; i < (q === "low" ? 6 : 12); i++) {
-    const s = new THREE.Sprite(new THREE.SpriteMaterial({
-      map: cloudTex,
-      transparent: true,
-      opacity: 0.24 + Math.random() * 0.18,
-      depthWrite: false,
-      toneMapped: false,
-    }));
-    s.position.set((Math.random() * 2 - 1) * 1200, 120 + Math.random() * 220, (Math.random() * 2 - 1) * 1200);
-    s.scale.set(280 + Math.random() * 380, 90 + Math.random() * 90, 1);
-    s.userData.drift = 0.5 + Math.random() * 0.9;
-    s.userData.baseOpacity = s.material.opacity;
-    clouds.push(s);
-    root.add(s);
-  }
 
   const space = createSpace(q, sky);
   root.add(space.group);
@@ -1666,8 +1768,12 @@ export function createWorld(
     hemi.color.set(base.hemiSky);
     hemi.groundColor.set(base.hemiGround);
     hemi.intensity = base.hemiI;
-    fill.color.set(t === "void" ? 0x445a9a : t === "dusk" ? 0x8a6fa0 : 0x6f86c8);
-    fill.intensity = t === "void" ? 0.2 : 0.32;
+    fill.color.set(t === "void" ? 0x5a74b8 : t === "dusk" ? 0x8a7ac8 : 0x8a9ad0);
+    fill.intensity = t === "void" ? 0.4 : 0.55;
+    const moonVisible = t !== "golden";
+    moon.visible = moonVisible;
+    moonGlow.visible = moonVisible;
+    moonLight.intensity = t === "void" ? 0.55 : t === "dusk" ? 0.45 : 0.12;
     scene.fog = new THREE.FogExp2(base.fog, base.fogDensity);
     starBase = base.star;
     glowBase = base.glow;
@@ -1699,20 +1805,26 @@ export function createWorld(
       }
     }
 
-    for (const s of clouds) {
-      s.position.x += dt * (s.userData.drift as number) * 0.6;
-      if (s.position.x > 1250) s.position.x = -1250;
-    }
-
     motes.rotation.y = time * 0.006;
-    stars.rotation.y = time * 0.0015;
+    skyGroup.rotation.y = time * 0.0014;
+    moonGlow.material.opacity = (timeOfDay === "void" ? 0.09 : 0.06) + Math.sin(time * 0.7) * 0.006;
 
     astro.rotation.y += dt * 0.035;
     core.rotation.y += dt * 0.4;
     astroLight.intensity = 24 + Math.sin(time * 1.6) * 5;
+    projectionBeam.material.opacity = 0.07 + Math.sin(time * 1.3) * 0.02;
+    for (const ripple of basinRipples) {
+      const phase = ((time * 0.12 + (ripple.userData.phase as number)) % 1);
+      ripple.scale.setScalar(1 + phase * 2.4);
+      (ripple.material as THREE.MeshBasicMaterial).opacity = Math.max(0, 0.3 * (1 - phase));
+    }
 
     bowlGlow.material.opacity = 0.5 + Math.sin(time * 1.2) * 0.12;
     bowlLight.intensity = 22 + Math.sin(time * 1.1) * 5;
+    commonsLantern.rotation.y += dt * 0.25;
+    commonsLantern.rotation.x += dt * 0.12;
+    lanternGlow.material.opacity = 0.18 + Math.sin(time * 1.4) * 0.04;
+    commonsBeam.material.opacity = 0.08 + Math.sin(time * 1.1) * 0.02;
 
     for (const visual of plots) {
       visual.beacon.position.y = 5.8 + Math.sin(time * 1.4 + visual.index) * 0.08;
@@ -1735,14 +1847,16 @@ export function createWorld(
     }
     sunLight.intensity = base.sunI * (1 - s) + (timeOfDay === "void" ? 0.9 : 1.8) * s;
     hemi.intensity = base.hemiI * (1 - s) + 0.1 * s;
-    fill.intensity = 0.18 * (1 - s) + 0.06 * s;
+    fill.intensity = 0.3 * (1 - s) + 0.06 * s;
+    moon.visible = timeOfDay !== "golden" && s < 0.55;
+    moonGlow.visible = moon.visible;
+    moonLight.intensity = (timeOfDay === "void" ? 0.55 : timeOfDay === "dusk" ? 0.45 : 0.12) * (1 - s);
     (stars.material as THREE.PointsMaterial).opacity = Math.max(starBase, smoothstep(0.1, 0.62, s));
+    (brightStars.material as THREE.PointsMaterial).opacity = Math.max(0.7, smoothstep(0.08, 0.55, s));
+    (milkyWay.material as THREE.PointsMaterial).opacity = Math.max(0.012, smoothstep(0.06, 0.5, s) * 0.03);
     sunGlow.material.opacity = glowBase * Math.max(0, 1 - s * 2) * 0.9;
     sunCore.material.opacity = 0.9 * Math.max(0, 1 - s * 1.5);
     (motes.material as THREE.PointsMaterial).opacity = (timeOfDay === "void" ? 0.2 : 0.3) * (1 - s);
-    for (const c of clouds) {
-      c.material.opacity = (c.userData.baseOpacity as number) * Math.max(0, 1 - s * 1.35);
-    }
     exposure = base.exposure * (1 - s) + 1.0 * s;
 
     const grounded = player.y < 650;
@@ -1787,7 +1901,6 @@ export function createWorld(
     skyDome,
     stars,
     motes,
-    clouds: clouds[0] ?? new THREE.Group(),
     terrain,
     water,
     grass,
@@ -1820,6 +1933,16 @@ export function createWorld(
         else mat.dispose();
       }
       if ((o as THREE.Sprite).isSprite) (o as THREE.Sprite).material.dispose();
+      if ((o as THREE.Line).isLine) {
+        const line = o as THREE.Line;
+        line.geometry.dispose();
+        (line.material as THREE.Material).dispose();
+      }
+      if ((o as THREE.Points).isPoints) {
+        const points = o as THREE.Points;
+        points.geometry.dispose();
+        (points.material as THREE.Material).dispose();
+      }
     });
     space.dispose();
     scene.remove(root);
@@ -1834,7 +1957,6 @@ export function createWorld(
     fill,
     stars,
     motes,
-    clouds,
     fires,
     space,
     plots,
@@ -1887,6 +2009,136 @@ function makeStars(count: number): THREE.Points {
     toneMapped: false,
   });
   return new THREE.Points(geo, mat);
+}
+
+
+/** A sparse layer of brighter, slightly coloured stars. */
+function makeBrightStars(count: number): THREE.Points {
+  const positions = new Float32Array(count * 3);
+  const colors = new Float32Array(count * 3);
+  for (let i = 0; i < count; i++) {
+    const u = Math.random() * 2 - 1;
+    const theta = Math.random() * Math.PI * 2;
+    const r = 2500 + Math.random() * 1900;
+    const s = Math.sqrt(1 - u * u);
+    positions[i * 3] = r * s * Math.cos(theta);
+    positions[i * 3 + 1] = r * u;
+    positions[i * 3 + 2] = r * s * Math.sin(theta);
+    const tone = Math.random();
+    const color =
+      tone < 0.18
+        ? new THREE.Color(0xffd9a0)
+        : tone < 0.48
+          ? new THREE.Color(0xa9c8ff)
+          : new THREE.Color(0xf4f1ff);
+    colors[i * 3] = color.r;
+    colors[i * 3 + 1] = color.g;
+    colors[i * 3 + 2] = color.b;
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+  geo.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+  const mat = new THREE.PointsMaterial({
+    map: starTexture(),
+    size: 60,
+    sizeAttenuation: true,
+    vertexColors: true,
+    transparent: true,
+    opacity: 0.8,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    toneMapped: false,
+  });
+  const points = new THREE.Points(geo, mat);
+  points.renderOrder = -3;
+  return points;
+}
+
+/**
+ * A faint galactic band. The sky should have structure when you look up, not
+ * an even sprinkle of dots; this is a ring of cold dust around the valley.
+ */
+function makeMilkyWay(count: number): THREE.Points {
+  const positions = new Float32Array(count * 3);
+  const colors = new Float32Array(count * 3);
+  const normal = new THREE.Vector3(0.25, 0.78, 0.57).normalize();
+  const u = new THREE.Vector3(1, 0, 0).cross(normal).normalize();
+  const v = normal.clone().cross(u).normalize();
+  const dir = new THREE.Vector3();
+  for (let i = 0; i < count; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    // Sum of uniforms gives a soft, triangular band rather than a hard stripe.
+    const spread = ((Math.random() + Math.random() + Math.random()) / 3 - 0.5) * 0.34;
+    dir.copy(u).multiplyScalar(Math.cos(angle));
+    dir.addScaledVector(v, Math.sin(angle));
+    dir.addScaledVector(normal, spread);
+    dir.normalize().multiplyScalar(3000 + Math.random() * 2400);
+    positions[i * 3] = dir.x;
+    positions[i * 3 + 1] = dir.y;
+    positions[i * 3 + 2] = dir.z;
+    const tone = Math.random();
+    const color =
+      tone < 0.4
+        ? new THREE.Color(0x8f7fd0)
+        : tone < 0.75
+          ? new THREE.Color(0x9fb6e8)
+          : new THREE.Color(0xf0eaff);
+    colors[i * 3] = color.r;
+    colors[i * 3 + 1] = color.g;
+    colors[i * 3 + 2] = color.b;
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+  geo.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+  const mat = new THREE.PointsMaterial({
+    map: starTexture(),
+    size: 2.6,
+    sizeAttenuation: true,
+    vertexColors: true,
+    transparent: true,
+    opacity: 0.18,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    toneMapped: false,
+  });
+  const points = new THREE.Points(geo, mat);
+  points.renderOrder = -6;
+  return points;
+}
+
+function moonTexture(): THREE.CanvasTexture {
+  const canvas = document.createElement("canvas");
+  canvas.width = 256;
+  canvas.height = 256;
+  const g = canvas.getContext("2d")!;
+  g.clearRect(0, 0, 256, 256);
+  const grad = g.createRadialGradient(108, 104, 8, 128, 128, 120);
+  grad.addColorStop(0, "#fbf8ef");
+  grad.addColorStop(0.55, "#ded8e8");
+  grad.addColorStop(0.86, "#b9b0cf");
+  grad.addColorStop(1, "rgba(120,110,150,0)");
+  g.fillStyle = grad;
+  g.beginPath();
+  g.arc(128, 128, 120, 0, Math.PI * 2);
+  g.fill();
+  g.fillStyle = "rgba(95,88,120,0.16)";
+  for (const [x, y, r] of [
+    [92, 92, 17],
+    [146, 82, 10],
+    [164, 140, 20],
+    [104, 148, 13],
+    [128, 168, 8],
+    [78, 128, 7],
+    [150, 180, 6],
+  ]) {
+    g.beginPath();
+    g.arc(x, y, r, 0, Math.PI * 2);
+    g.fill();
+  }
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 4;
+  return tex;
 }
 
 function makeMotes(count: number): THREE.Points {

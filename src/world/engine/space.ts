@@ -267,7 +267,7 @@ function makeGraha(position: SkyPosition, index: number): { group: THREE.Group; 
     color: position.css,
     sub: `${position.rashiName} ${dms(position.degree)} \u00b7 ${position.nakshatraName}${position.retrograde ? " \u211e" : ""}`,
     size: 52,
-    scale: 7.4,
+    scale: 14,
     overlay: true,
   });
   label.position.y = radius + 13;
@@ -369,7 +369,7 @@ export function createSpace(
     const label = textSprite(`${String(i + 1).padStart(2, "0")} \u00b7 ${n.name}`, {
       color: "#a8e6e8",
       size: 38,
-      scale: 6.0,
+      scale: 11,
       overlay: true,
     });
     label.position.set(x, 34, z);
