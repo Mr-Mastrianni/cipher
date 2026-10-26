@@ -24,7 +24,13 @@ export function GET() {
       (process.env.GITHUB_TOKEN || process.env.GITHUB_AGENT_TOKEN) &&
         (process.env.AGENT_GITHUB_REPO || process.env.GITHUB_REPO),
     ),
-    realtime: Boolean(process.env.ABLY_API_KEY),
+    // A room is available on a self-hosted socket or on the HTTP/Postgres
+    // transport that ships with the Neon database.
+    realtime: Boolean(
+      process.env.NEXT_PUBLIC_WORLD_WS_URL ||
+        process.env.ABLY_API_KEY ||
+        isDatabaseConfigured(),
+    ),
     calls: Boolean(process.env.DAILY_API_KEY),
     email: Boolean(process.env.RESEND_API_KEY),
   };
@@ -38,6 +44,13 @@ export function GET() {
       time: new Date().toISOString(),
       mode: configured === 0 ? "standalone" : "integrated",
       integrations,
+      world: {
+        transport: process.env.NEXT_PUBLIC_WORLD_WS_URL
+          ? "websocket"
+          : isDatabaseConfigured()
+            ? "http-postgres"
+            : "solo",
+      },
     },
     {
       headers: { "Cache-Control": "no-store, max-age=0" },

@@ -7,6 +7,8 @@ first-run tour with a self-completing setup checklist, tiered membership, and an
 admin-only AI agent that can research the site and propose changes as pull
 requests.
 
+**Live:** [cipher-zeta-indol.vercel.app](https://cipher-zeta-indol.vercel.app)
+
 **KP is the only astrology on the platform.** It is sidereal (KP ayanamsa),
 uses Placidus cusps and sub lords, and has no Western or tropical chart and no
 fallback to one. Every chart is cast from a birth time given to the second,
@@ -75,6 +77,27 @@ parallel sets, one theme choice rather than three, and no dead themes. The choic
 is mirrored into a cookie so the server renders the right `data-theme` in the
 HTML: no pre-paint script, nothing to flash.
 
+### 5. The Cipher is also a world
+
+`/world` is a navigable, first-person 3D valley: the Axis with its 27 nakshatra
+markers, nine graha stones and nine Human Design centre stelae; the Observatory,
+where the member's KP chart hangs as an astrolabe and the bodygraph stands on a
+screen; the Amphitheatre, where a member can take the floor and teach the room;
+the Studio's shared build bench; twelve claimable member terraces; a pavilion for
+every Collective room; the Lake, the Sky Gate and the flown Sky Wheel at 1,800 m.
+
+Members join from anywhere through a realtime room — a small WebSocket server on a
+long-lived host, or an HTTP/Postgres room that works on Vercel — appear to each
+other as customisable avatars, chat, build together, claim a place of their own,
+and see a live session the moment someone starts one. The movement is Shep's
+Circle's: walk, sprint, four air jumps, flight, a real height function under every
+prop, and pointer-capture that is opt-in so the interface stays usable.
+
+The 2D site is never replaced. Everything the chart, courses, Collective and
+billing own stays on the 2D site, and the world links back from every panel. The
+full architecture, controls, deployment and honest limits are in
+[`docs/world.md`](docs/world.md).
+
 ---
 
 ## Calculation engines
@@ -142,6 +165,8 @@ pnpm run test:engine
 | Database | Neon Postgres + Drizzle ORM, with a seeded in-memory fallback |
 | Payments | Stripe Billing (Checkout + Customer Portal + webhooks) |
 | Scheduling | FSRS-based spaced repetition |
+| 3D world | Three.js (r186), a procedural valley, a custom post chain, `simplex-noise`; `ssr: false` |
+| Realtime | WebSocket room (`ws`, JSON) for low latency; HTTP/Postgres room for Vercel; Clerk-authenticated in production |
 
 ### A note on Next.js 16
 
@@ -157,6 +182,7 @@ documentation is bundled at `node_modules/next/dist/docs/`.
 ```bash
 pnpm install
 pnpm dev            # http://localhost:3000
+pnpm dev:realm      # Next.js + the room server (the full 3D world)
 ```
 
 **No environment variables are required.** With an empty environment the app
@@ -168,18 +194,47 @@ is per-instance and non-durable, and the UI says so.
 To enable real integrations, copy `.env.example` to `.env.local` and fill in
 what you need. Each variable unlocks one capability independently.
 
+### The 3D world and its rooms
+
+The world has two room transports behind one interface:
+
+- **WebSocket** for low latency. Run it locally with `pnpm dev:world`, or deploy
+  `server/world-server.mjs` to a host with a long-lived process (Railway, Render,
+  Fly, a VPS) and build the Next app with `NEXT_PUBLIC_WORLD_WS_URL=wss://…/ws`.
+- **HTTP + Postgres** for Vercel. `/api/world/room` uses the project's existing
+  Neon database and creates three additive `cipher_world_*` tables on first use.
+  Presence is polled at ~1.2 s and interpolated; builds, terraces, sessions and
+  signals arrive on the next poll. In production this transport is
+  Clerk-authenticated, and a member's world id is an opaque hash.
+
+The client chooses WebSocket on localhost or when the URL is set, and HTTP
+otherwise. `?transport=ws` / `?transport=http` forces one.
+
+```bash
+pnpm dev:world        # ws://localhost:8787/ws
+pnpm dev:realm        # next dev + the WebSocket room together
+```
+
+A private room is a room name: `/world?room=our-private-room`. The WebSocket room
+name is the invitation and has no accounts of its own; set `WORLD_ROOM_SECRET`
+(and `NEXT_PUBLIC_WORLD_ROOM_KEY`) to require a shared key. If neither room is
+reachable, the world opens in **solo orbit** and says so. See
+[`docs/world.md`](docs/world.md) for the protocol, limits and deployment notes.
+
 ### Scripts
 
 ```bash
-pnpm dev              # development server
-pnpm build            # production build
-pnpm start            # serve the production build
-pnpm lint             # ESLint
-pnpm test:engine      # Engine and library tests (node:test)
-pnpm typecheck        # tsc --noEmit
-pnpm db:generate      # Drizzle: generate migrations
-pnpm db:push          # Drizzle: push the schema to DATABASE_URL
-pnpm db:seed          # Tiers and Collective rooms (idempotent; run after db:push)
+pnpm dev                # development server
+pnpm dev:world          # the WebSocket room server on :8787
+pnpm dev:realm          # Next.js and the room server together
+pnpm build              # production build
+pnpm start              # serve the production build
+pnpm lint               # ESLint
+pnpm test:engine        # Engine and library tests (node:test)
+pnpm typecheck          # tsc --noEmit
+pnpm db:generate        # Drizzle: generate migrations
+pnpm db:push            # Drizzle: push the schema to DATABASE_URL
+pnpm db:seed            # Tiers and Collective rooms (idempotent; run after db:push)
 ```
 
 ---
@@ -278,3 +333,62 @@ cross-check.
 `topojson-client` and `world-atlas` (Natural Earth data) are ISC. The Swiss
 Ephemeris (AGPL/commercial) is **not** a dependency: it was used only offline
 to generate the reference values in `src/lib/kp/__tests__/`.
+
+
+---
+
+## The world: verification and limits
+
+The world was verified in a real browser with software WebGL (Chromium + Mesa
+llvmpipe under Xvfb) at 1440×900 and 390×844:
+
+- The landing, the avatar builder and the room-status probe render before entry;
+  entry is queued if the valley is still loading.
+- Walk, sprint, four air jumps, flight and the return to walking change the player
+  state and the HUD.
+- All nine panels open from the HUD: Atlas, chat, Codex, chart, build, avatar,
+  learning, terraces and settings.
+- Two members in one room see each other's presence; a chat message sent by one is
+  read by the other.
+- A piece placed in the Studio appears on the second client; the server persists
+  it.
+- A terrace claim made by one member is visible to the other with its title and
+  colour.
+- A live session started on the Amphitheatre floor produces a LIVE card on the
+  second client.
+- Mobile: the hero CTA is above the fold, the touch controls appear, and the
+  Atlas opens from the touch cluster.
+- On the deployed Vercel preview, two browsers met over HTTPS through the
+  HTTP/Postgres room: presence reached 2 on both, chat arrived, a Studio piece
+  placed by one appeared for the other, and the server snapshot showed both
+  players and the piece.
+
+Honest limits:
+
+- **Two transports, two latency profiles.** The HTTP/Postgres room works on
+  Vercel with no extra host, but presence is ~1.2 s and signals arrive on the next
+  poll. The WebSocket room is the low-latency option and needs a long-lived
+  process and a persistent volume.
+- **The WebSocket room has no accounts.** The link is the invitation; names are
+  not unique and a plot reconnects by name. The HTTP transport is Clerk-
+  authenticated in production and uses an opaque member hash, but the WebSocket
+  server remains link-keyed. Add token verification before opening it to
+  strangers.
+- **The WebSocket bench is a JSON file.** One process is assumed. The HTTP room is
+  already Postgres-backed with optimistic version retries.
+- **There is no moderation console or reporting flow in the world yet.** Chat is
+  rate-limited and sanitised, and the HTTP room is authenticated, but a room is
+  still a room. Add reporting, muting and an admin view before opening one to a
+  large public audience.
+- **Software WebGL loses the context** in some environments. The quality control
+  and `?post=0` reduce the load; the flat map is always available.
+- **No voice or video.** The Amphitheatre floor is a presence signal; the call
+  stays in the 2D site or your own room.
+
+### World assets and credits
+
+- PBR surfaces and water normals: [Poly Haven](https://polyhaven.com), CC0.
+- Planet textures: [Solar System Scope](https://www.solarsystemscope.com/textures/),
+  CC BY 4.0; see `public/textures/planets/LICENSE.txt`.
+- Renderer: [three.js](https://threejs.org), MIT. Noise: `simplex-noise`, ISC.
+- All text, glyphs, sky, fire, geometry and audio in the world are procedural.

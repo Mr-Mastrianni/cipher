@@ -45,3 +45,7 @@ next-env.d.ts
 # from the reference site (its JS bundles, CSS and HTML), so it is deliberately
 # NOT redistributed in this repository. Findings are summarised in README.md.
 /research
+
+# The room server's persisted world (presence is never persisted).
+/data/world.json
+/data/*.tmp

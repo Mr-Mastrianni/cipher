@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { motion, useReducedMotion } from "motion/react";
 import {
   ArrowRight,
@@ -181,6 +182,80 @@ export default function LandingPage() {
     <main id="main" className="flex-1">
       {/* ── The threshold ──────────────────────────────────────────────── */}
       <HeroIntake />
+
+      {/* ── The world ─────────────────────────────────────────────────── */}
+      <section className="relative overflow-hidden border-t border-hairline px-6 py-24 sm:py-32">
+        <div className="mx-auto grid max-w-6xl items-center gap-14 lg:grid-cols-[1fr_1.12fr]">
+          <Reveal>
+            <Eyebrow>The world</Eyebrow>
+            <h2 className="mt-4 max-w-xl font-display text-3xl leading-tight text-bone sm:text-4xl">
+              The Cipher is also a place.
+            </h2>
+            <p className="mt-5 max-w-xl text-pretty leading-relaxed text-muted">
+              Not a dashboard with a 3D background. A valley at dusk you can walk,
+              run and fly through — with the chart you already cast hanging in the
+              Observatory, the people you already know in the Commons, and a
+              terrace that is yours to build in.
+            </p>
+            <ul className="mt-7 grid gap-3 text-sm leading-relaxed text-muted">
+              <li className="flex gap-3">
+                <span aria-hidden="true" className="mt-2 h-1 w-4 shrink-0 bg-gold" />
+                Walk, run and fly: four air jumps, then the Sky Wheel at 1,800 metres.
+              </li>
+              <li className="flex gap-3">
+                <span aria-hidden="true" className="mt-2 h-1 w-4 shrink-0 bg-gold" />
+                Make an avatar, claim a terrace, and build inside it with anyone in the room.
+              </li>
+              <li className="flex gap-3">
+                <span aria-hidden="true" className="mt-2 h-1 w-4 shrink-0 bg-gold" />
+                Take the floor in the Amphitheatre: teach one thing, learn three.
+              </li>
+              <li className="flex gap-3">
+                <span aria-hidden="true" className="mt-2 h-1 w-4 shrink-0 bg-gold" />
+                Every Collective room has a pavilion; live sessions are visible across the world.
+              </li>
+            </ul>
+            <div className="mt-9 flex flex-wrap items-center gap-5">
+              <Link
+                href="/world"
+                onMouseEnter={() => play("hover")}
+                onClick={() => play("select")}
+                className="inline-flex items-center gap-2 border border-gold bg-gold px-5 py-3 font-mono text-[11px] font-semibold uppercase tracking-[0.2em] text-on-accent transition-colors hover:bg-gold-hi"
+              >
+                Enter the world
+                <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.8} />
+              </Link>
+              <Link
+                href="/dashboard/map"
+                className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted transition-colors hover:text-bone"
+              >
+                Or the flat cosmic map
+              </Link>
+            </div>
+            <p className="mt-6 max-w-xl text-xs leading-relaxed text-faint">
+              The 2D site is not replaced. Every chart, course, room and invoice
+              stays exactly where it was, one click away in the world&apos;s HUD.
+            </p>
+          </Reveal>
+          <Reveal delay={0.1}>
+            <figure className="relative overflow-hidden rounded-xl border border-hairline bg-abyss">
+              <Image
+                src="/world-preview.jpg"
+                alt="Inside the Observatory: a glowing astrolabe of the zodiac above a still basin, with the member's KP chart and Human Design bodygraph on two screens."
+                width={1600}
+                height={900}
+                sizes="(max-width: 1024px) 100vw, 58vw"
+                className="h-auto w-full object-cover"
+                priority={false}
+              />
+              <figcaption className="flex items-center justify-between gap-4 border-t border-hairline px-4 py-3 font-mono text-[9px] uppercase tracking-[0.18em] text-faint">
+                <span>The Observatory · your chart above the floor</span>
+                <span className="text-gold">A world you can walk</span>
+              </figcaption>
+            </figure>
+          </Reveal>
+        </div>
+      </section>
 
       {/* ── What it computes ───────────────────────────────────────────── */}
       <section className="relative border-t border-hairline px-6 py-24 sm:py-32">
