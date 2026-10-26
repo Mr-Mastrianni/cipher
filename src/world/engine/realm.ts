@@ -775,11 +775,13 @@ export class Realm {
   private travel(id: string) {
     const store = getStore();
     if (id === "space") {
-      this.player.pos.set(0, SPACE_Y + 260, 0);
+      this.player.pos.set(0, SPACE_Y + 520, 0);
       this.player.vel.set(0, 0, 0);
       this.player.mode = "fly";
-      this.player.pitch = -0.3;
+      this.player.pitch = -0.44;
       this.player.spaceWarned = true;
+      getStore().set({ attunement: null });
+      this.lastAttunementKey = "";
       toast("The Sky Wheel", "There is no floor here. Fly with WASD, Space and Ctrl.", "gold");
       return;
     }

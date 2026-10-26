@@ -39,6 +39,12 @@ The valley, structures, grass, trees, stones, sky and stars are procedural. The
 only image assets are CC0 Poly Haven PBR surfaces (grass, rock, sand, forest,
 metal, boulder, water normals) and CC BY 4.0 Solar System Scope planet maps.
 
+The dusk grade is lit by a low sun, a cool moon fill and a textured moon disc;
+the sky has a bright-star layer and a faint galactic band. In the Observatory the
+astrolabe projects a soft beam into the basin, with slow ripples at its base.
+The pass does not require HDR or a PMREM environment, so it remains usable on
+the software and mobile GPUs that the earlier photographic sky could break.
+
 ---
 
 ## Entering, identity and controls

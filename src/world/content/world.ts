@@ -455,8 +455,8 @@ export const PAVILIONS: readonly Pavilion[] = COLLECTIVE_ROOMS.map((room, index)
     slug: room.slug,
     name: room.name,
     description: room.description,
-    x: offset * 30,
-    z: 132 + Math.abs(offset) * 5,
+    x: offset * 20,
+    z: 140 + Math.abs(offset) * 4,
     css: PAVILION_COLOR[index % PAVILION_COLOR.length],
     tierRequired: room.tierRequired,
   };

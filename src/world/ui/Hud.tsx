@@ -159,7 +159,7 @@ export function Hud({ viewer }: { viewer: Viewer }) {
         ) : null}
       </div>
 
-      {s.attunement ? (
+      {s.attunement && s.altitude < 650 ? (
         <div className="world-attune" aria-live="polite">
           <p className="world-kicker">{s.attunement.tradition}</p>
           <p className="world-attune-title">{s.attunement.title}</p>
