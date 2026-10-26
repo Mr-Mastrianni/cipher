@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import type { Metadata } from "next";
 import {
   ArrowRight,
@@ -398,6 +399,38 @@ export default async function DashboardOverviewPage() {
       />
 
       <div className="flex flex-col gap-12">
+        <Link
+          href="/world"
+          className="group relative block overflow-hidden rounded-xl border border-gold/25 bg-abyss focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 focus-visible:ring-offset-void"
+        >
+          <Image
+            src="/world-preview.jpg"
+            alt=""
+            fill
+            sizes="100vw"
+            className="object-cover object-center opacity-45 transition-opacity duration-500 group-hover:opacity-65"
+          />
+          <div className="relative z-10 flex flex-col gap-5 bg-gradient-to-r from-void/95 via-void/80 to-void/20 px-6 py-7 sm:flex-row sm:items-center sm:justify-between sm:px-8 sm:py-9">
+            <div className="max-w-xl">
+              <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-gold">
+                The world
+              </p>
+              <h2 className="mt-2 font-display text-2xl leading-tight text-bone sm:text-3xl">
+                Step into the Cipher.
+              </h2>
+              <p className="mt-2 max-w-lg text-sm leading-relaxed text-muted">
+                Walk the Axis, fly to the Sky Wheel, claim a terrace and meet the
+                Collective in the Commons. Your chart is already hanging in the
+                Observatory.
+              </p>
+            </div>
+            <span className="inline-flex shrink-0 items-center gap-2 self-start border border-gold bg-gold px-4 py-2.5 font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-on-accent transition-colors group-hover:bg-gold-hi sm:self-auto">
+              Enter the world
+              <ArrowRight aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={1.8} />
+            </span>
+          </div>
+        </Link>
+
         <SetupChecklist tasks={setupTasks} />
 
         {/* For you ---------------------------------------------------------- */}

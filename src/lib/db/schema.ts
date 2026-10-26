@@ -20,6 +20,7 @@
 
 import { sql } from "drizzle-orm";
 import {
+  bigint,
   bigserial,
   boolean,
   check,
@@ -1341,3 +1342,52 @@ export const TIER_SEED: readonly NewTier[] = [
     displayOrder: 3,
   },
 ];
+
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * The world's rooms (Vercel / HTTP transport)
+ *
+ * These are additive tables for the serverless room transport in
+ * `src/app/api/world/room/route.ts`. The standalone WebSocket server keeps its
+ * own JSON file; this is what lets members meet on a deployment that cannot hold
+ * a socket open. Presence is ephemeral; the world document and chat persist.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+export const worldPresence = pgTable(
+  "cipher_world_presence",
+  {
+    room: text("room").notNull(),
+    playerId: text("player_id").notNull(),
+    data: jsonb("data").$type<Record<string, unknown>>().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.room, t.playerId] }),
+    index("cipher_world_presence_room_idx").on(t.room, t.updatedAt),
+  ],
+);
+
+export const worldState = pgTable("cipher_world_state", {
+  room: text("room").primaryKey(),
+  builds: jsonb("builds").$type<unknown[]>().notNull().default([]),
+  plots: jsonb("plots").$type<Record<string, unknown>>().notNull().default({}),
+  session: jsonb("session").$type<unknown>(),
+  signals: jsonb("signals").$type<unknown[]>().notNull().default([]),
+  version: bigint("version", { mode: "number" }).notNull().default(1),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const worldChat = pgTable(
+  "cipher_world_chat",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    room: text("room").notNull(),
+    playerId: text("player_id").notNull(),
+    name: text("name").notNull(),
+    color: text("color").notNull(),
+    channel: text("channel").notNull().default("world"),
+    text: text("text").notNull(),
+    at: timestamp("at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("cipher_world_chat_room_idx").on(t.room, t.id)],
+);

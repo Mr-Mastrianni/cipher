@@ -15,7 +15,11 @@
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
     "db:seed": "node --import tsx scripts/seed.mts",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "dev:world": "node server/world-server.mjs",
+    "dev:realm": "concurrently -k -n web,world -c cyan,magenta \"next dev\" \"node server/world-server.mjs\"",
+    "dev:realm:webpack": "concurrently -k -n web,world -c cyan,magenta \"next dev --webpack\" \"node server/world-server.mjs\"",
+    "start:world": "node server/world-server.mjs"
   },
   "dependencies": {
     "@clerk/nextjs": "^7.9.11",
@@ -37,11 +41,13 @@
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "react-hook-form": "^7.89.0",
+    "simplex-noise": "^4.0.3",
     "stripe": "^23.0.0",
     "tailwind-merge": "^3.7.0",
     "three": "^0.186.1",
     "topojson-client": "^3.1.0",
     "world-atlas": "^2.0.2",
+    "ws": "^8.22.0",
     "zod": "^4.6.5"
   },
   "devDependencies": {
@@ -54,6 +60,8 @@
     "@types/three": "^0.186.0",
     "@types/topojson-client": "^3.1.5",
     "@types/topojson-specification": "^1.0.5",
+    "@types/ws": "^8.18.2",
+    "concurrently": "^10.0.6",
     "drizzle-kit": "^0.31.11",
     "eslint": "^9",
     "eslint-config-next": "16.3.8",
