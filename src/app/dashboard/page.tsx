@@ -19,6 +19,8 @@ import {
 } from "lucide-react";
 import { clerkConfigured, getCurrentUser } from "@/lib/auth";
 import { getStore } from "@/lib/db/store";
+import { getMemberAvatar } from "@/lib/world/avatar";
+import { AVATAR_FORMS } from "@/world/content/world";
 import { getCompleteProfile } from "@/lib/cipher/profile-snapshot";
 import type { BirthProfile, User } from "@/lib/db/schema";
 import type { Bodygraph as StoredBodygraph } from "@/lib/db/schema";
@@ -177,6 +179,7 @@ const RECOMMENDATION_LABEL: Record<RecommendationKind, string> = {
 export default async function DashboardOverviewPage() {
   const user = await currentMember();
   if (!user) return null;
+  const worldAvatar = await getMemberAvatar(user.id).catch(() => null);
 
   const store = getStore();
   const [profile, channels, progressRows, decks, dueCards, upcoming] =
@@ -422,6 +425,10 @@ export default async function DashboardOverviewPage() {
                 Walk the Axis, fly to the Sky Wheel, claim a terrace and meet the
                 Collective in the Commons. Your chart is already hanging in the
                 Observatory.
+              </p>
+              <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.16em] text-gold">
+                In the world: {worldAvatar?.name ?? user.displayName ?? "A traveller"}
+                {worldAvatar ? ` · ${AVATAR_FORMS.find((form) => form.id === worldAvatar.form)?.name ?? "Cloaked"}` : ""}
               </p>
             </div>
             <span className="inline-flex shrink-0 items-center gap-2 self-start border border-gold bg-gold px-4 py-2.5 font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-on-accent transition-colors group-hover:bg-gold-hi sm:self-auto">

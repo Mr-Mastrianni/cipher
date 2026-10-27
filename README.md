@@ -89,7 +89,8 @@ every Collective room; the Lake, the Sky Gate and the flown Sky Wheel at 1,800 m
 
 Members join from anywhere through a realtime room — a small WebSocket server on a
 long-lived host, or an HTTP/Postgres room that works on Vercel — appear to each
-other as customisable avatars, chat, build together, claim a place of their own,
+other as customisable avatars (saved to the member profile, not just one
+browser), chat, build together, claim a place of their own,
 and see a scheduled or live session the moment someone opens one. The pavilion
 tabs read and write the same persistent Collective rooms as the 2D site; the
 Atlas carries recent activity and unread, and direct messages link to the right
@@ -365,6 +366,9 @@ llvmpipe under Xvfb) at 1440×900 and 390×844:
   reply there returns to the open pavilion. The Atlas shows the room as unread
   until it is opened, then clears it. A DM thread links to the right 2D
   conversation.
+- An avatar chosen in the world survives clearing local storage and a full
+  reload; the same name, silhouette, colour and crest appear on
+  `/dashboard/settings` and the dashboard world card.
 - Mobile: the hero CTA is above the fold, the touch controls appear, and the
   Atlas opens from the touch cluster.
 - On the deployed Vercel preview, two browsers met over HTTPS through the
@@ -395,6 +399,8 @@ Honest limits:
 - **Teaching notes are room state, not a recording.** The 2D call is the anchor
   and the link; slides live in the room (JSON or Postgres), not in the call record
   or a course lesson.
+- **Avatar images are not uploaded.** The member profile stores a world name,
+  silhouette, colour and crest, not a photo. There is no image moderation queue.
 - **Read markers are per browser.** World and 2D unread agree in the same browser,
   not across devices. Durable per-member read state would need the existing
   `channel_members` table to be wired up.

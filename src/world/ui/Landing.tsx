@@ -20,7 +20,9 @@ import {
   AVATAR_CRESTS,
   AVATAR_FORMS,
 } from "../content/world";
-import { getStore, useRealm, type TeachingCall } from "../state";
+import { getStore, toast, useRealm, type TeachingCall } from "../state";
+import type { MemberAvatar } from "@/lib/world/avatar-shared";
+import { persistAvatar } from "../net/avatar";
 import { send } from "../engine/bus";
 import { worldServerUrl } from "../net/client";
 import { cn } from "@/lib/utils";
@@ -37,6 +39,8 @@ export interface Viewer {
   calls: TeachingCall[];
   /** A call the member arrived from, so the teaching desk can select it. */
   teachCallId?: string;
+  /** The member's saved world avatar, when they have one. */
+  avatar?: MemberAvatar | null;
 }
 
 /**
@@ -115,6 +119,17 @@ export function Landing({ viewer }: { viewer: Viewer }) {
   }
 
   function enter() {
+    const identity = store.get().identity;
+    void persistAvatar({
+      name: identity.name,
+      color: identity.color,
+      form: identity.form,
+      crest: identity.crest,
+    }).then((ok) => {
+      if (!ok) {
+        toast("Avatar not saved", "The room will remember it for this visit only.", "danger");
+      }
+    });
     store.set({ room: room || "the-cipher" });
     send({ type: "enter" });
   }

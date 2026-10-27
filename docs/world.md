@@ -52,8 +52,10 @@ the software and mobile GPUs that the earlier photographic sky could break.
 Open `/world` (or follow **The World** in the 2D navigation, or the card on the
 dashboard). The intake screen is not a second login: it is where you choose the
 name, silhouette, colour and crest the room will see. Those four choices are
-stored in `localStorage` — they are appearance only, not a profile, and they are
-not uploaded or persisted on the room server.
+saved to the member's profile in `cipher_member_avatars` (and cached in
+`localStorage` for the first paint). They are appearance only — no image is
+uploaded — and they follow the member across devices. The room still receives
+them as presence, never as trusted state.
 
 **Pointer capture is opt-in.** The interface is clickable until you click the
 view. Once the mouse is captured, press **Esc** to release it and use the HUD
@@ -143,6 +145,11 @@ over short requests, backed by the deployment's Neon database:
 | `cipher_world_presence` | one small row per member: position, appearance, last seen |
 | `cipher_world_state` | one document per room: builds, terraces, session, signals, version |
 | `cipher_world_chat` | append-only room and pavilion messages |
+
+The member avatar is not part of the room document. It lives in the additive
+`cipher_member_avatars` table, created idempotently on first use, so it follows a
+signed-in member between devices. In a no-database demo it is kept in the Node
+process with the seeded demo member.
 
 The tables are created idempotently on first use and touch no existing Cipher
 table. Presence is written at 2 Hz; the client polls at 1.15 s and interpolates
@@ -376,6 +383,9 @@ tradition, labelled as tradition; the longitudes are astronomy and can be checke
   anchor and the link; the slides are room state (JSON on the WebSocket server,
   `session` on Postgres). They are not a recording, a transcript or a course
   lesson.
+- **Avatar images are not uploaded.** The saved avatar is a name, silhouette,
+  colour and crest. There is no photo, no file storage, and no moderation queue
+  for images.
 - **Read markers are per browser.** The world and the 2D site share unread in the
   same browser; a phone and a laptop do not. The read state is a convenience, not
   an account-level inbox.
@@ -435,7 +445,10 @@ src/world/
   ui/session-time.ts      local-time formatting for the teaching desk
 server/world-server.mjs   the WebSocket room and its JSON persistence
 src/app/api/world/room/   the HTTP/Postgres room route (GET/POST/HEAD)
+src/app/api/world/avatar/ the member avatar read/write route
 src/lib/world/room.ts     shared player, validation and world transitions
+src/lib/world/avatar.ts   the member avatar row and its idempotent table
+src/lib/world/avatar-shared.ts  the avatar contract and sanitiser
 src/lib/world/__tests__/  the session and world transition tests
 src/lib/db/schema.ts      cipher_world_presence, cipher_world_state, cipher_world_chat
 src/app/world/page.tsx    the server route: auth, chart, live sky, upcoming calls
@@ -452,7 +465,9 @@ docs/world.md             this file
   **and** to the validation sets in `server/world-server.mjs`. The HTTP route
   reads the same content constants, so it follows automatically.
 - A new avatar silhouette: add the form in `AVATAR_FORMS`, the geometry in
-  `avatars.ts`, and the 2D preview style in `world.css`.
+  `avatars.ts`, the 2D preview style in `world.css`, and the form to the avatar
+  sanitiser in `avatar-shared.ts`. Existing saved avatars fall back to the
+  cloaked silhouette if a form is removed.
 - A new learning track: add a `LearningTrack`; the Learn panel and place travel
   follow it.
 - A new room: add it to `COLLECTIVE_ROOMS`; the Commons pavilions are generated

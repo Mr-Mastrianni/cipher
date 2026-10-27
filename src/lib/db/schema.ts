@@ -1391,3 +1391,20 @@ export const worldChat = pgTable(
   },
   (t) => [index("cipher_world_chat_room_idx").on(t.room, t.id)],
 );
+
+/**
+ * A member's saved world appearance.
+ *
+ * Additive and intentionally separate from the Clerk projection: a silhouette,
+ * colour, crest and in-world name, with no image upload. The runtime creates the
+ * table idempotently from `src/lib/world/avatar.ts`; this definition keeps the
+ * schema catalogue complete for future migrations.
+ */
+export const memberAvatars = pgTable("cipher_member_avatars", {
+  userId: text("user_id").primaryKey(),
+  name: text("name").notNull(),
+  color: text("color").notNull(),
+  form: text("form").notNull(),
+  crest: text("crest").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});

@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { clerkConfigured, getCurrentUser, userHasTier } from "@/lib/auth";
 import { getStore } from "@/lib/db/store";
+import { getMemberAvatar } from "@/lib/world/avatar";
 import { getCompleteProfile } from "@/lib/cipher/profile-snapshot";
 import type { BirthProfile, User } from "@/lib/db/schema";
 import { resolveKpBirth } from "@/lib/kp/chart";
@@ -220,6 +221,7 @@ export default async function WorldPage({
   const requestedTeach = Array.isArray(params.teach) ? params.teach[0] : params.teach;
 
   const profile = await getCompleteProfile(user.id).catch(() => null);
+  const avatar = await getMemberAvatar(user.id).catch(() => null);
   const chart = memberChart(profile);
   const sky = toSky(siderealPositions(new Date(), "mean"));
   const store = getStore();
@@ -262,6 +264,7 @@ export default async function WorldPage({
     hasChart: Boolean(chart),
     calls,
     teachCallId: requestedTeach && calls.some((call) => call.id === requestedTeach) ? requestedTeach : undefined,
+    avatar,
   };
 
   return <WorldMount sky={sky} chart={chart} viewer={viewer} />;

@@ -40,7 +40,11 @@ export function WorldExperience({
   const s = useRealm();
 
   useEffect(() => {
-    seedIdentity({ name: viewer.name });
+    seedIdentity(
+      viewer.avatar
+        ? { ...viewer.avatar, persisted: true }
+        : { name: viewer.name },
+    );
     // The store is a module singleton; a client-side return to /world must not
     // inherit the last visit's phase, players or open panel.
     getStore().set({
@@ -89,7 +93,7 @@ export function WorldExperience({
       realm.destroy();
       realmRef.current = null;
     };
-  }, [viewer.name, sky, chart]);
+  }, [viewer.name, viewer.avatar, sky, chart]);
 
   useEffect(() => {
     if (s.phase === "landing" || !viewer.teachCallId || openedTeach.current) return;
