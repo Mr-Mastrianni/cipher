@@ -47,6 +47,7 @@ import {
 import type { CodexTab } from "../content/world";
 import {
   getStore,
+  toast,
   useRealm,
   type AvatarForm,
   type PlotState,
@@ -56,6 +57,7 @@ import {
   type TeachingSlide,
 } from "../state";
 import { send } from "../engine/bus";
+import { persistAvatar } from "../net/avatar";
 import { cn } from "@/lib/utils";
 import {
   Btn,
@@ -1914,8 +1916,8 @@ function AvatarPanel({ open, onClose }: { open: boolean; onClose: () => void }) 
       footer={
         <div className="world-panel-foot-row">
           <span className="world-panel-note">
-            Appearance travels with your body in the room; it is not uploaded or
-            stored on the server.
+            Saved to your member profile, so your silhouette, colour and crest follow
+            you back. No image is uploaded.
           </span>
           <div className="flex items-center gap-2">
             <Btn size="sm" onClick={() => send({ type: "third-person" })}>
@@ -1925,12 +1927,17 @@ function AvatarPanel({ open, onClose }: { open: boolean; onClose: () => void }) 
               variant="primary"
               size="sm"
               onClick={() => {
-                send({
-                  type: "identity",
+                const clean = {
                   name: identity.name.trim() || "A traveller",
                   color: identity.color,
                   form: identity.form,
                   crest: identity.crest,
+                };
+                send({ type: "identity", ...clean });
+                void persistAvatar(clean).then((ok) => {
+                  if (!ok) {
+                    toast("Avatar not saved", "The world will remember it for this visit only.", "danger");
+                  }
                 });
                 setSaved(true);
                 window.setTimeout(() => setSaved(false), 2200);

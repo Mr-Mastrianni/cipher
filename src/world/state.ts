@@ -521,9 +521,25 @@ export function closePanel() {
  * One-time migration of the old seeded identity: if the site passes a display
  * name, prefer it over the generic "A traveller" the very first visit stores.
  */
-export function seedIdentity(seed: { name?: string; color?: string }) {
+export function seedIdentity(seed: {
+  name?: string;
+  color?: string;
+  form?: AvatarForm;
+  crest?: string;
+  /** The server has a saved avatar; it wins over local storage. */
+  persisted?: boolean;
+}) {
   const store = getStore();
   const current = store.get().identity;
+  if (seed.persisted) {
+    store.setIdentity({
+      name: seed.name || current.name,
+      color: seed.color || current.color,
+      form: seed.form ?? current.form,
+      crest: seed.crest || current.crest,
+    });
+    return;
+  }
   if (current.name === "A traveller" && seed.name) {
     store.setIdentity({ name: seed.name });
   }

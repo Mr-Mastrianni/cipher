@@ -1,9 +1,12 @@
+import Link from "next/link";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { AlertTriangle, CircleCheck, Sparkles } from "lucide-react";
 import { clerkConfigured, getCurrentUser } from "@/lib/auth";
 import { getStore } from "@/lib/db/store";
+import { getMemberAvatar } from "@/lib/world/avatar";
+import { AVATAR_FORMS } from "@/world/content/world";
 import type { User } from "@/lib/db/schema";
 import { computeReading } from "@/lib/cipher/compute-reading";
 import type { ShareableBirth } from "@/lib/cipher/share-code";
@@ -69,6 +72,8 @@ export default async function SettingsPage({
 
   const store = getStore();
   const profile = await store.getBirthProfileByUser(user.id);
+  const avatar = await getMemberAvatar(user.id).catch(() => null);
+  const avatarForm = avatar ? AVATAR_FORMS.find((form) => form.id === avatar.form)?.name : null;
 
   // Format the paid-until date here, in the member's own zone, so the client
   // component never has to guess a timezone (or disagree with the server during
@@ -178,6 +183,39 @@ export default async function SettingsPage({
               imageUrl: user.imageUrl ?? "",
             }}
           />
+        </Section>
+
+        <Section
+          eyebrow="World"
+          title="Your avatar"
+          description="The silhouette, colour, crest and name you carry into the Cipher. It is saved to your member profile, not just to the browser that made it."
+        >
+          <div className="surface flex flex-col gap-4 rounded-lg p-5 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-4">
+              <span
+                className="grid h-14 w-14 place-items-center rounded-full border-2 text-xl"
+                style={{
+                  borderColor: avatar?.color ?? "#d4ff3f",
+                  color: avatar?.color ?? "#d4ff3f",
+                }}
+                aria-hidden="true"
+              >
+                {avatar?.crest ?? "\u2726"}
+              </span>
+              <div>
+                <p className="font-display text-lg text-bone">
+                  {avatar?.name ?? user.displayName ?? "A traveller"}
+                </p>
+                <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.16em] text-faint">
+                  {avatar ? `${avatarForm ?? "Cloaked"} · ${avatar.color}` : "No avatar saved yet"}
+                </p>
+              </div>
+            </div>
+            <Link href="/world" className="text-sm text-gold hover:text-gold-hi">
+              Edit in the world
+              <span aria-hidden="true"> →</span>
+            </Link>
+          </div>
         </Section>
 
         <Section
