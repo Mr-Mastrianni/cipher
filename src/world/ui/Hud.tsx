@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect } from "react";
 import {
   BookOpen,
   Compass,
@@ -19,6 +20,7 @@ import {
 
 import { useRealm, getStore } from "../state";
 import { formatSessionTime } from "./session-time";
+import { recomputeCommunityUnread, refreshCommunity } from "../net/community";
 import { send } from "../engine/bus";
 import { cn } from "@/lib/utils";
 import type { Viewer } from "./Landing";
@@ -43,6 +45,21 @@ export function Hud({ viewer }: { viewer: Viewer }) {
   const photo = s.settings.photoMode;
   const others = s.players.filter((player) => player.id !== s.selfId);
   const feed = s.feed.slice(-5);
+  useEffect(() => {
+    const tick = () => {
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+      void refreshCommunity();
+    };
+    tick();
+    const timer = window.setInterval(tick, 30000);
+    const onRead = () => recomputeCommunityUnread();
+    window.addEventListener("cipher-community-read", onRead);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("cipher-community-read", onRead);
+    };
+  }, []);
+
   const sessionScheduled = s.session?.status === "scheduled";
   const liveSlide =
     s.session && !sessionScheduled ? s.session.slides?.[s.session.slide ?? 0] : undefined;
@@ -85,7 +102,7 @@ export function Hud({ viewer }: { viewer: Viewer }) {
 
         <nav className="world-hud-actions" aria-label="World interface">
           <HudButton label="Atlas (Tab)" onClick={() => open("atlas")} icon={Compass} />
-          <HudButton label="Talk (T)" onClick={() => open("chat")} icon={MessageCircle} badge={s.unread} />
+          <HudButton label="Talk (T)" onClick={() => open("chat")} icon={MessageCircle} badge={Math.min(99, s.unread + s.communityUnread)} />
           <HudButton label="Codex (J)" onClick={() => open("codex")} icon={BookOpen} />
           <HudButton label="Chart (C)" onClick={() => open("chart")} icon={Sparkles} />
           <HudButton label="Learn (L)" onClick={() => open("learn")} icon={GraduationCap} />

@@ -14,6 +14,7 @@
 import { useSyncExternalStore } from "react";
 import type { Attunement } from "./content/world";
 import type { SkyPosition } from "./engine/space";
+import type { CommunitySummary } from "@/lib/community/summary";
 
 export type Phase = "landing" | "entering" | "playing" | "paused";
 
@@ -248,6 +249,9 @@ export interface WorldState {
   chat: ChatMessage[];
   feed: ChatMessage[];
   unread: number;
+  /** Newest activity in the 2D Collective rooms, for the world's notifications. */
+  community: CommunitySummary | null;
+  communityUnread: number;
   toast: Toast | null;
 
   sky: { positions: SkyPosition[]; updatedAt: number };
@@ -381,6 +385,8 @@ function createState(seed: { name?: string; color?: string }): WorldState {
     chat: [],
     feed: [],
     unread: 0,
+    community: null,
+    communityUnread: 0,
     toast: null,
 
     sky: { positions: [], updatedAt: 0 },

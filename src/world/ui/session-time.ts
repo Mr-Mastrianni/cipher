@@ -33,3 +33,17 @@ export function suggestedStart(): number {
   date.setMinutes(Math.ceil(date.getMinutes() / 15) * 15);
   return date.getTime();
 }
+
+
+/** A short relative stamp for recent activity lists. */
+export function formatAgo(value: string | number | null | undefined): string {
+  if (!value) return "";
+  const at = typeof value === "number" ? value : Date.parse(value);
+  if (!Number.isFinite(at)) return "";
+  const seconds = Math.max(0, Math.round((Date.now() - at) / 1000));
+  if (seconds < 45) return "just now";
+  if (seconds < 3600) return `${Math.round(seconds / 60)}m ago`;
+  if (seconds < 86400) return `${Math.round(seconds / 3600)}h ago`;
+  if (seconds < 604800) return `${Math.round(seconds / 86400)}d ago`;
+  return new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" }).format(new Date(at));
+}

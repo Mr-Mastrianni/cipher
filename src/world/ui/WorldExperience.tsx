@@ -60,6 +60,8 @@ export function WorldExperience({
       chat: [],
       feed: [],
       unread: 0,
+      community: null,
+      communityUnread: 0,
       chart,
       sky: { positions: sky, updatedAt: Date.now() },
     });

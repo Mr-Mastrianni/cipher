@@ -197,8 +197,18 @@ export class AuthorizationError extends Error {
   }
 }
 
+/** The seeded demo member, used only when Clerk is not configured. */
+async function demoMember(): Promise<User | null> {
+  if (clerkConfigured) return null;
+  try {
+    return await getStore().getUserByClerkId("user_demo_member");
+  } catch {
+    return null;
+  }
+}
+
 export async function requireUser(): Promise<User> {
-  const user = await getCurrentUser();
+  const user = (await getCurrentUser()) ?? (await demoMember());
   if (!user) {
     throw new AuthorizationError("You must be signed in.", 401);
   }
