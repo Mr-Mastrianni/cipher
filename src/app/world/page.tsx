@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
-import { clerkConfigured, getCurrentUser } from "@/lib/auth";
+import { clerkConfigured, getCurrentUser, userHasTier } from "@/lib/auth";
 import { getStore } from "@/lib/db/store";
 import { getCompleteProfile } from "@/lib/cipher/profile-snapshot";
 import type { BirthProfile, User } from "@/lib/db/schema";
@@ -15,7 +15,7 @@ import {
   RASIS_META,
 } from "@/world/content/world";
 import type { SkyPosition } from "@/world/engine/space";
-import type { MemberChart } from "@/world/state";
+import type { MemberChart, TeachingCall } from "@/world/state";
 import type { Viewer } from "@/world/ui/Landing";
 import { WorldMount } from "@/world/ui/WorldMount";
 
@@ -208,13 +208,43 @@ function memberChart(profile: BirthProfile | null): MemberChart | null {
   };
 }
 
-export default async function WorldPage() {
+export default async function WorldPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ teach?: string | string[] }>;
+}) {
   const { user, signedIn } = await currentMember();
   if (!user) redirect("/sign-in?redirect_url=/world");
+
+  const params = (await searchParams) ?? {};
+  const requestedTeach = Array.isArray(params.teach) ? params.teach[0] : params.teach;
 
   const profile = await getCompleteProfile(user.id).catch(() => null);
   const chart = memberChart(profile);
   const sky = toSky(siderealPositions(new Date(), "mean"));
+  const store = getStore();
+  const approved = user.membershipStatus === "approved" || user.role === "admin";
+  const calls: TeachingCall[] = await store
+    .listUpcomingCalls(8)
+    .then((upcoming) =>
+      upcoming.map((call) => {
+        const canJoin = approved && userHasTier(user, call.tierRequired ?? "initiate");
+        return {
+          id: call.id,
+          title: call.title,
+          startsAt: call.startsAt.getTime(),
+          durationMinutes: call.durationMinutes,
+          description: (call.description ?? "").slice(0, 320),
+          tierRequired: call.tierRequired ?? null,
+          canJoin,
+          callHref:
+            canJoin && call.roomUrl
+              ? call.roomUrl
+              : `/dashboard/calls#call-${call.id}`,
+        };
+      }),
+    )
+    .catch(() => []);
 
   const name =
     user.displayName?.trim() ||
@@ -230,6 +260,8 @@ export default async function WorldPage() {
     twoDeeHref: "/dashboard",
     chartHref: profile ? "/dashboard/chart" : "/onboarding",
     hasChart: Boolean(chart),
+    calls,
+    teachCallId: requestedTeach && calls.some((call) => call.id === requestedTeach) ? requestedTeach : undefined,
   };
 
   return <WorldMount sky={sky} chart={chart} viewer={viewer} />;

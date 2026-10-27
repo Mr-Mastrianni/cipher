@@ -4,6 +4,7 @@ import Link from "next/link";
 import {
   BookOpen,
   Compass,
+  GraduationCap,
   Hammer,
   LogOut,
   MessageCircle,
@@ -17,6 +18,7 @@ import {
 } from "lucide-react";
 
 import { useRealm, getStore } from "../state";
+import { formatSessionTime } from "./session-time";
 import { send } from "../engine/bus";
 import { cn } from "@/lib/utils";
 import type { Viewer } from "./Landing";
@@ -41,6 +43,9 @@ export function Hud({ viewer }: { viewer: Viewer }) {
   const photo = s.settings.photoMode;
   const others = s.players.filter((player) => player.id !== s.selfId);
   const feed = s.feed.slice(-5);
+  const sessionScheduled = s.session?.status === "scheduled";
+  const liveSlide =
+    s.session && !sessionScheduled ? s.session.slides?.[s.session.slide ?? 0] : undefined;
 
   function open(panel: NonNullable<typeof s.panel>) {
     getStore().set({ panel, chatOpen: panel === "chat", unread: panel === "chat" ? 0 : s.unread });
@@ -83,6 +88,7 @@ export function Hud({ viewer }: { viewer: Viewer }) {
           <HudButton label="Talk (T)" onClick={() => open("chat")} icon={MessageCircle} badge={s.unread} />
           <HudButton label="Codex (J)" onClick={() => open("codex")} icon={BookOpen} />
           <HudButton label="Chart (C)" onClick={() => open("chart")} icon={Sparkles} />
+          <HudButton label="Learn (L)" onClick={() => open("learn")} icon={GraduationCap} />
           <HudButton
             label="Build (B)"
             onClick={() => {
@@ -120,13 +126,19 @@ export function Hud({ viewer }: { viewer: Viewer }) {
         </button>
 
         {s.session ? (
-          <div className="world-session-card">
+          <div className={cn("world-session-card", sessionScheduled && "is-scheduled")}>
             <p className="world-kicker">
-              <span className="world-live-dot" aria-hidden="true" />
-              Live on the floor
+              <span className={cn("world-live-dot", sessionScheduled && "is-soon")} aria-hidden="true" />
+              {sessionScheduled ? "Scheduled" : "Live on the floor"} · {s.session.host}
             </p>
             <p className="world-session-title">{s.session.title}</p>
-            <p className="world-session-host">{s.session.host}</p>
+            <p className="world-session-host">
+              {sessionScheduled
+                ? formatSessionTime(s.session.startsAt)
+                : liveSlide
+                  ? liveSlide.title
+                  : "teaching from the room"}
+            </p>
             <button
               type="button"
               onClick={() => {
@@ -134,7 +146,7 @@ export function Hud({ viewer }: { viewer: Viewer }) {
                 getStore().set({ panel: null });
               }}
             >
-              Walk over <span aria-hidden="true">→</span>
+              {sessionScheduled ? "See the floor" : "Walk over"} <span aria-hidden="true">→</span>
             </button>
           </div>
         ) : null}

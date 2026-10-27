@@ -84,12 +84,55 @@ export interface PlotState {
   at: number;
 }
 
+export type SessionStatus = "scheduled" | "live";
+
+/** One page of the host's notes, shown on the Amphitheatre screen. */
+export interface TeachingSlide {
+  id: string;
+  title: string;
+  body: string;
+}
+
 export interface SessionState {
   id: string;
   title: string;
   hostId: string;
   host: string;
+  /** When the session was created, or when it last went live. */
   at: number;
+  /** Older rooms have no status; they are live sessions. */
+  status?: SessionStatus;
+  /** Scheduled start, in epoch milliseconds. */
+  startsAt?: number;
+  agenda?: string;
+  slides?: TeachingSlide[];
+  /** The slide currently on the Amphitheatre screen. */
+  slide?: number;
+  /** The 2D call this teaching session belongs to. */
+  callId?: string;
+  callTitle?: string;
+}
+
+/** The editable part of a teaching session, sent by the host. */
+export interface SessionInput {
+  title: string;
+  agenda: string;
+  startsAt: number;
+  slides: TeachingSlide[];
+  callId?: string;
+  callTitle?: string;
+}
+
+/** A 2D call the host can attach a teaching session to. */
+export interface TeachingCall {
+  id: string;
+  title: string;
+  startsAt: number;
+  durationMinutes: number;
+  description: string;
+  tierRequired: string | null;
+  canJoin: boolean;
+  callHref: string;
 }
 
 export interface ChatMessage {

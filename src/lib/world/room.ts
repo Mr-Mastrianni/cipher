@@ -25,6 +25,7 @@ import type {
   BuildPiece,
   PlotState,
   SessionState,
+  TeachingSlide,
 } from "@/world/state";
 
 export const WORLD_ROOM_MAX_PLAYERS = 24;
@@ -38,6 +39,34 @@ const MATERIALS = new Set(BUILD_MATERIALS.map((material) => material.id));
 const FORMS = new Set<AvatarForm>(["cloak", "orb", "wanderer"]);
 const PLOT_COUNT = PLOTS.length;
 const ROOM_RE = /^[a-z0-9-]{1,40}$/;
+const SLIDE_LIMIT = 8;
+const SESSION_HORIZON_MS = 365 * 24 * 60 * 60 * 1000;
+
+function cleanSlides(value: unknown): TeachingSlide[] {
+  const list = Array.isArray(value) ? value.slice(0, SLIDE_LIMIT) : [];
+  const slides: TeachingSlide[] = [];
+  list.forEach((raw, index) => {
+    const slide = (raw ?? {}) as Record<string, unknown>;
+    const title = cleanText(slide.title, 120);
+    const body = cleanText(slide.body, 700);
+    if (!title && !body) return;
+    slides.push({
+      id: cleanText(slide.id, 32) || `slide-${index + 1}`,
+      title: title || `Slide ${index + 1}`,
+      body,
+    });
+  });
+  return slides;
+}
+
+function cleanStartsAt(value: unknown, now: number): number {
+  const n = cleanNumber(value, now + 60 * 60 * 1000);
+  return Math.max(now - 60 * 60 * 1000, Math.min(now + SESSION_HORIZON_MS, n));
+}
+
+function sessionStatus(session: SessionState | null): "scheduled" | "live" {
+  return session?.status === "scheduled" ? "scheduled" : "live";
+}
 
 export interface RoomPlayer {
   id: string;
@@ -182,7 +211,12 @@ function cloneWorld(world: WorldDoc): WorldDoc {
     plots: Object.fromEntries(
       Object.entries(world.plots).map(([key, plot]) => [key, { ...plot }]),
     ),
-    session: world.session ? { ...world.session } : null,
+    session: world.session
+      ? {
+          ...world.session,
+          slides: world.session.slides?.map((slide) => ({ ...slide })),
+        }
+      : null,
     signals: world.signals.map((signal) => ({ ...signal })),
     version: world.version,
   };
@@ -337,16 +371,142 @@ export function applyWorldAction(
       return { ok: true, changed: true, world };
     }
 
-    case "session:start": {
+    case "session:schedule": {
+      const existing = world.session;
+      if (existing && existing.hostId !== player.id) {
+        return fail(
+          current,
+          `${existing.host} is already holding this session.`,
+        );
+      }
+      if (existing && sessionStatus(existing) === "live") {
+        return fail(current, "End the live session before scheduling another.");
+      }
       const title = cleanText(payload.title, 80);
-      if (!title) return fail(current, "A session needs a title.");
+      if (!title) return fail(current, "A scheduled session needs a title.");
+      const slides = cleanSlides(payload.slides);
+      const startsAt = cleanStartsAt(payload.startsAt, now);
+      const callId = cleanText(payload.callId, 64);
+      const callTitle = cleanText(payload.callTitle, 100);
+      world.session = {
+        id: existing?.id ?? `s-${now.toString(36)}`,
+        title,
+        hostId: player.id,
+        host: player.name,
+        at: now,
+        status: "scheduled",
+        startsAt,
+        agenda: cleanText(payload.agenda, 400),
+        slides,
+        slide: 0,
+        callId: callId || undefined,
+        callTitle: callTitle || undefined,
+      };
+      markChanged();
+      return { ok: true, changed: true, world };
+    }
+
+    case "session:update": {
+      const session = world.session;
+      if (!session) return fail(current, "There is no session to edit.");
+      if (session.hostId !== player.id) {
+        return fail(current, "Only the host can edit this session.");
+      }
+      const status = sessionStatus(session);
+      const slides =
+        payload.slides === undefined
+          ? session.slides ?? []
+          : cleanSlides(payload.slides);
+      const startsAt =
+        payload.startsAt === undefined
+          ? session.startsAt ?? now
+          : cleanStartsAt(payload.startsAt, now);
+      const callId = cleanText(payload.callId, 64);
+      const callTitle = cleanText(payload.callTitle, 100);
+      world.session = {
+        ...session,
+        title: cleanText(payload.title, 80) || session.title,
+        agenda:
+          payload.agenda === undefined
+            ? session.agenda
+            : cleanText(payload.agenda, 400),
+        status,
+        startsAt,
+        slides,
+        slide:
+          status === "live" && slides.length > 0
+            ? Math.max(0, Math.min(slides.length - 1, Math.round(cleanNumber(session.slide))))
+            : 0,
+        callId: callId || undefined,
+        callTitle: callTitle || undefined,
+      };
+      markChanged();
+      return { ok: true, changed: true, world };
+    }
+
+    case "session:start": {
+      const existing = world.session;
+      if (existing) {
+        if (existing.hostId !== player.id) {
+          return fail(
+            current,
+            `${existing.host} already has the floor.`,
+          );
+        }
+        if (sessionStatus(existing) === "live") {
+          return { ok: true, changed: false, world: current };
+        }
+        world.session = {
+          ...existing,
+          status: "live",
+          at: now,
+          slide: 0,
+        };
+        markChanged();
+        return { ok: true, changed: true, world };
+      }
+      const title = cleanText(payload.title, 80) || "An open session";
+      const slides = cleanSlides(payload.slides);
+      const callId = cleanText(payload.callId, 64);
+      const callTitle = cleanText(payload.callTitle, 100);
       world.session = {
         id: `s-${now.toString(36)}`,
         title,
         hostId: player.id,
         host: player.name,
         at: now,
+        status: "live",
+        startsAt: now,
+        agenda: cleanText(payload.agenda, 400),
+        slides,
+        slide: 0,
+        callId: callId || undefined,
+        callTitle: callTitle || undefined,
       };
+      markChanged();
+      return { ok: true, changed: true, world };
+    }
+
+    case "session:slide": {
+      const session = world.session;
+      if (!session || sessionStatus(session) !== "live") {
+        return fail(current, "There is no live session.");
+      }
+      if (session.hostId !== player.id) {
+        return fail(current, "Only the host can advance the notes.");
+      }
+      const slides = session.slides ?? [];
+      if (slides.length === 0) {
+        return fail(current, "This session has no slides yet.");
+      }
+      const index = Math.round(cleanNumber(payload.index, Number.NaN));
+      if (!Number.isFinite(index) || index < 0 || index >= slides.length) {
+        return fail(current, "That slide is not in this deck.");
+      }
+      if (session.slide === index) {
+        return { ok: true, changed: false, world: current };
+      }
+      world.session = { ...session, slide: index };
       markChanged();
       return { ok: true, changed: true, world };
     }
@@ -395,7 +555,10 @@ export type WorldActionName =
   | "plot:claim"
   | "plot:update"
   | "plot:release"
+  | "session:schedule"
+  | "session:update"
   | "session:start"
+  | "session:slide"
   | "session:end"
   | "signal";
 
@@ -406,7 +569,10 @@ export function isWorldAction(action: string): action is WorldActionName {
     action === "plot:claim" ||
     action === "plot:update" ||
     action === "plot:release" ||
+    action === "session:schedule" ||
+    action === "session:update" ||
     action === "session:start" ||
+    action === "session:slide" ||
     action === "session:end" ||
     action === "signal"
   );

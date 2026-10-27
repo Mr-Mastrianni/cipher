@@ -36,6 +36,7 @@ export function WorldExperience({
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const realmRef = useRef<Realm | null>(null);
+  const openedTeach = useRef(false);
   const s = useRealm();
 
   useEffect(() => {
@@ -87,6 +88,12 @@ export function WorldExperience({
       realmRef.current = null;
     };
   }, [viewer.name, sky, chart]);
+
+  useEffect(() => {
+    if (s.phase === "landing" || !viewer.teachCallId || openedTeach.current) return;
+    openedTeach.current = true;
+    getStore().set({ panel: "learn" });
+  }, [s.phase, viewer.teachCallId]);
 
   useEffect(() => {
     document.documentElement.dataset.world = "true";

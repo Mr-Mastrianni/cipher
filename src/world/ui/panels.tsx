@@ -5,7 +5,10 @@ import Link from "next/link";
 import {
   ArrowUpRight,
   BookOpen,
+  CalendarDays,
   Check,
+  ChevronLeft,
+  ChevronRight,
   CloudOff,
   Compass,
   ExternalLink,
@@ -13,12 +16,14 @@ import {
   MapPin,
   MessageCircle,
   Play,
+  Plus,
   Radio,
   RotateCw,
   Send,
   Sparkles,
   Trash2,
   Users,
+  Video,
 } from "lucide-react";
 
 import {
@@ -40,7 +45,15 @@ import {
   RASIS_META,
 } from "../content/world";
 import type { CodexTab } from "../content/world";
-import { getStore, useRealm, type AvatarForm, type PlotState } from "../state";
+import {
+  getStore,
+  useRealm,
+  type AvatarForm,
+  type PlotState,
+  type SessionInput,
+  type SessionState,
+  type TeachingSlide,
+} from "../state";
 import { send } from "../engine/bus";
 import { cn } from "@/lib/utils";
 import {
@@ -56,6 +69,7 @@ import {
   Toggle,
 } from "./common";
 import { AvatarPreview, type Viewer } from "./Landing";
+import { formatSessionTime, fromDateTimeLocal, suggestedStart, toDateTimeLocal } from "./session-time";
 
 const CHAT_CHANNELS = [
   { id: "world", label: "The world" },
@@ -731,9 +745,416 @@ function NatalWheel({ chart }: { chart: NonNullable<ReturnType<typeof useRealm>[
  * Learn
  * ──────────────────────────────────────────────────────────────────────────── */
 
-function LearnPanel({ open, onClose, viewer }: { open: boolean; onClose: () => void; viewer: Viewer }) {
+/* ────────────────────────────────────────────────────────────────────────────
+ * Teaching desk
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * The host's desk, and the room's view of the floor.
+ *
+ * A session can be scheduled or live. The host prepares a title, an opening
+ * note and up to eight slide notes, optionally attached to an upcoming 2D call.
+ * Everyone sees the same session; only the host can edit it or advance a slide.
+ */
+function TeachingDesk({ viewer, onClose }: { viewer: Viewer; onClose: () => void }) {
   const s = useRealm();
-  const [title, setTitle] = useState("");
+  const session = s.session;
+  const status = session?.status ?? "live";
+  const scheduled = status === "scheduled";
+  const isHost = Boolean(session && s.selfId && session.hostId === s.selfId);
+  const incoming = viewer.calls.find((call) => call.id === viewer.teachCallId);
+
+  const [editing, setEditing] = useState(false);
+  const [title, setTitle] = useState(incoming?.title ?? "");
+  const [agenda, setAgenda] = useState(incoming?.description ?? "");
+  const [startsAt, setStartsAt] = useState(
+    toDateTimeLocal(incoming?.startsAt ?? suggestedStart()),
+  );
+  const [callId, setCallId] = useState(incoming?.id ?? "");
+  const [slides, setSlides] = useState<TeachingSlide[]>([
+    { id: "slide-1", title: "", body: "" },
+  ]);
+  const [error, setError] = useState<string | null>(null);
+
+  const selectedCall = viewer.calls.find((call) => call.id === callId) ?? null;
+  const currentSlide =
+    session && status === "live" ? session.slides?.[session.slide ?? 0] : undefined;
+  const preparedSlides = slides
+    .map((slide, index) => ({
+      id: slide.id || `slide-${index + 1}`,
+      title: slide.title.trim(),
+      body: slide.body.trim(),
+    }))
+    .filter((slide) => slide.title || slide.body)
+    .slice(0, 8);
+  const showForm = !session || (isHost && editing);
+
+  function loadSession(next: SessionState) {
+    setTitle(next.title);
+    setAgenda(next.agenda ?? "");
+    setStartsAt(toDateTimeLocal(next.startsAt ?? suggestedStart()));
+    setCallId(next.callId ?? "");
+    setSlides(
+      next.slides?.length
+        ? next.slides.map((slide) => ({ ...slide }))
+        : [{ id: "slide-1", title: "", body: "" }],
+    );
+    setError(null);
+    setEditing(true);
+  }
+
+  function chooseCall(nextId: string) {
+    setCallId(nextId);
+    const call = viewer.calls.find((entry) => entry.id === nextId);
+    if (!call) return;
+    setTitle(call.title);
+    setAgenda(call.description);
+    setStartsAt(toDateTimeLocal(call.startsAt));
+  }
+
+  function updateSlide(index: number, patch: Partial<TeachingSlide>) {
+    setSlides((current) =>
+      current.map((slide, i) => (i === index ? { ...slide, ...patch } : slide)),
+    );
+  }
+
+  function addSlide() {
+    setSlides((current) =>
+      current.length >= 8
+        ? current
+        : [...current, { id: `slide-${current.length + 1}-${Date.now()}`, title: "", body: "" }],
+    );
+  }
+
+  function removeSlide(index: number) {
+    setSlides((current) => current.filter((_, i) => i !== index));
+  }
+
+  function makeInput(): SessionInput {
+    return {
+      title: title.trim(),
+      agenda: agenda.trim(),
+      startsAt: fromDateTimeLocal(startsAt) ?? suggestedStart(),
+      slides: preparedSlides,
+      callId: selectedCall?.id ?? session?.callId,
+      callTitle: selectedCall?.title ?? session?.callTitle,
+    };
+  }
+
+  function schedule() {
+    if (!title.trim()) {
+      setError("Give the session a title.");
+      return;
+    }
+    if (!s.connected) {
+      setError("The room is offline. Scheduling needs the room server.");
+      return;
+    }
+    setError(null);
+    send({ type: "session-schedule", session: makeInput() });
+    setEditing(false);
+  }
+
+  function startNow() {
+    if (!title.trim()) {
+      setError("Give the session a title.");
+      return;
+    }
+    if (!s.connected) {
+      setError("The room is offline. The floor needs the room server.");
+      return;
+    }
+    setError(null);
+    send({ type: "session-start", session: makeInput() });
+    setEditing(false);
+  }
+
+  function saveChanges() {
+    if (!title.trim()) {
+      setError("Give the session a title.");
+      return;
+    }
+    setError(null);
+    send({ type: "session-update", session: makeInput() });
+    setEditing(false);
+  }
+
+  function endSession() {
+    if (typeof window !== "undefined" && !window.confirm("Close the floor for everyone?")) return;
+    send({ type: "session-end" });
+    setEditing(false);
+  }
+
+  function cancelSession() {
+    if (typeof window !== "undefined" && !window.confirm("Cancel this scheduled session?")) return;
+    send({ type: "session-end" });
+    setEditing(false);
+  }
+
+  function jumpToFloor() {
+    send({ type: "teleport", x: -140, z: 22, label: "The Amphitheatre" });
+    onClose();
+  }
+
+  const linkedCall = session?.callId
+    ? viewer.calls.find((call) => call.id === session.callId)
+    : undefined;
+  const callHref = linkedCall?.callHref ?? (session?.callId ? `/dashboard/calls#call-${session.callId}` : undefined);
+  const externalCall = callHref?.startsWith("https://") ?? false;
+  const callTitle = session?.callTitle ?? linkedCall?.title ?? "The 2D call";
+
+  if (session && !showForm) {
+    const slideList = session.slides ?? [];
+    const slideNumber = (session.slide ?? 0) + 1;
+    return (
+      <div className="world-teach">
+        <div className="world-teach-status">
+          <div className="world-teach-head">
+            <p className="world-kicker">
+              <span className={cn("world-live-dot", scheduled && "is-soon")} aria-hidden="true" />
+              {scheduled ? "scheduled" : "live now"} · {session.host}
+            </p>
+            <p className="world-session-title">{session.title}</p>
+            <p className="world-teach-meta">
+              {scheduled
+                ? formatSessionTime(session.startsAt)
+                : `started ${formatSessionTime(session.at)}`}
+              {" · "}
+              {slideList.length} {slideList.length === 1 ? "note" : "notes"}
+            </p>
+          </div>
+          {session.agenda ? <p className="world-teach-agenda">{session.agenda}</p> : null}
+          {callHref ? (
+            <a
+              className="world-teach-call"
+              href={callHref}
+              target={externalCall ? "_blank" : undefined}
+              rel={externalCall ? "noreferrer noopener" : undefined}
+            >
+              <Video aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={1.8} />
+              {callTitle}
+            </a>
+          ) : null}
+          {currentSlide ? (
+            <div className="world-teach-slide">
+              <span>
+                slide {slideNumber} of {slideList.length}
+              </span>
+              <strong>{currentSlide.title}</strong>
+              {currentSlide.body ? <p>{currentSlide.body}</p> : null}
+            </div>
+          ) : scheduled ? (
+            <p className="world-teach-empty">
+              {slideList.length
+                ? "The notes are ready. The host will open the floor at the time above."
+                : "No notes yet. The host can add them before the floor opens."}
+            </p>
+          ) : (
+            <p className="world-teach-empty">
+              The host is teaching from the room. There are no slide notes yet.
+            </p>
+          )}
+          <div className="world-teach-controls">
+            <Btn size="sm" variant={isHost ? "ghost" : "primary"} onClick={jumpToFloor}>
+              <Play aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={1.8} />
+              {scheduled ? "See the floor" : "Join on the floor"}
+            </Btn>
+            {isHost ? (
+              <>
+                {!scheduled ? (
+                  <>
+                    <Btn
+                      size="sm"
+                      onClick={() => send({ type: "session-slide", index: (session.slide ?? 0) - 1 })}
+                      disabled={(session.slide ?? 0) <= 0}
+                    >
+                      <ChevronLeft aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={2} />
+                      Previous
+                    </Btn>
+                    <Btn
+                      size="sm"
+                      onClick={() => send({ type: "session-slide", index: (session.slide ?? 0) + 1 })}
+                      disabled={slideList.length === 0 || (session.slide ?? 0) >= slideList.length - 1}
+                    >
+                      Next
+                      <ChevronRight aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={2} />
+                    </Btn>
+                  </>
+                ) : null}
+                {scheduled ? (
+                  <Btn size="sm" variant="primary" onClick={() => send({ type: "session-start" })}>
+                    <Radio aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={1.8} />
+                    Go live
+                  </Btn>
+                ) : null}
+                <Btn size="sm" onClick={() => loadSession(session)}>
+                  Edit notes
+                </Btn>
+                <Btn size="sm" variant="danger" onClick={scheduled ? cancelSession : endSession}>
+                  {scheduled ? "Cancel" : "End session"}
+                </Btn>
+              </>
+            ) : null}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="world-teach">
+      <div className="world-session-start">
+        <div>
+          <p className="world-codex-title">{session ? "Edit the notes" : "Prepare a session"}</p>
+          <p className="world-codex-note">
+            {session
+              ? "Change the notes without leaving the floor. Everyone sees the next slide as you advance it."
+              : "Schedule a teaching session or open the floor now. Attach an upcoming 2D call so the room, the notes and the call share a time."}
+          </p>
+        </div>
+        <div className="world-teach-grid">
+          <Field label="Title">
+            <TextInput
+              value={title}
+              onChange={setTitle}
+              placeholder="What are you teaching?"
+              maxLength={80}
+              ariaLabel="Session title"
+            />
+          </Field>
+          <Field label="2D call" hint="Optional. The call stays on the 2D site.">
+            <select
+              className="world-input"
+              value={callId}
+              onChange={(event) => chooseCall(event.target.value)}
+              aria-label="Attach a 2D call"
+            >
+              <option value="">No call attached</option>
+              {viewer.calls.map((call) => (
+                <option key={call.id} value={call.id}>
+                  {call.title} · {formatSessionTime(call.startsAt)}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Starts" hint="Your own timezone.">
+            <input
+              type="datetime-local"
+              className="world-input"
+              value={startsAt}
+              onChange={(event) => setStartsAt(event.target.value)}
+              aria-label="Session start"
+            />
+          </Field>
+        </div>
+        {selectedCall ? (
+          <div className="world-teach-call-preview">
+            <CalendarDays aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={1.8} />
+            <span>
+              {selectedCall.description || selectedCall.title}
+              {selectedCall.canJoin ? " · call link ready" : " · open the call from Calls"}
+            </span>
+          </div>
+        ) : null}
+        <Field label="Opening note or agenda">
+          <textarea
+            className="world-input world-textarea"
+            value={agenda}
+            onChange={(event) => setAgenda(event.target.value)}
+            placeholder="What will the room leave with?"
+            maxLength={400}
+            rows={2}
+            aria-label="Session agenda"
+          />
+        </Field>
+        <div className="world-slide-editor">
+          <div className="world-slide-head">
+            <div>
+              <p className="world-field-label">Notes and slides</p>
+              <p className="world-field-hint">
+                Up to eight. The current slide fills the Amphitheatre screen.
+              </p>
+            </div>
+            <Btn size="sm" onClick={addSlide} disabled={slides.length >= 8}>
+              <Plus aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={2} />
+              Add slide
+            </Btn>
+          </div>
+          {slides.map((slide, index) => (
+            <div className="world-slide-row" key={slide.id}>
+              <span className="world-slide-number">{index + 1}</span>
+              <div className="world-slide-fields">
+                <input
+                  className="world-input"
+                  value={slide.title}
+                  onChange={(event) => updateSlide(index, { title: event.target.value })}
+                  placeholder={`Slide ${index + 1} title`}
+                  maxLength={120}
+                  aria-label={`Slide ${index + 1} title`}
+                />
+                <textarea
+                  className="world-input world-textarea"
+                  value={slide.body}
+                  onChange={(event) => updateSlide(index, { body: event.target.value })}
+                  placeholder="A few sentences the room can read."
+                  maxLength={700}
+                  rows={2}
+                  aria-label={`Slide ${index + 1} notes`}
+                />
+              </div>
+              <button
+                type="button"
+                className="world-slide-remove"
+                onClick={() => removeSlide(index)}
+                aria-label={`Remove slide ${index + 1}`}
+              >
+                <Trash2 aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={1.8} />
+              </button>
+            </div>
+          ))}
+          {slides.length === 0 ? (
+            <p className="world-teach-empty">
+              No notes. You can still teach from the room, or add a slide above.
+            </p>
+          ) : null}
+        </div>
+        <div className="world-teach-actions">
+          <span className="world-panel-note">
+            {s.connected
+              ? "The floor is shared with everyone in this room."
+              : "The room is offline. Scheduling and the floor need the room server."}
+          </span>
+          <div className="flex flex-wrap items-center gap-2">
+            {session ? (
+              <>
+                <Btn size="sm" variant="primary" onClick={saveChanges} disabled={!s.connected}>
+                  Save changes
+                </Btn>
+                <Btn size="sm" onClick={() => setEditing(false)}>
+                  Cancel
+                </Btn>
+              </>
+            ) : (
+              <>
+                <Btn size="sm" variant="primary" onClick={schedule} disabled={!s.connected}>
+                  <CalendarDays aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={1.8} />
+                  Schedule
+                </Btn>
+                <Btn size="sm" variant="ghost" onClick={startNow} disabled={!s.connected}>
+                  <Radio aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={1.8} />
+                  Teach now
+                </Btn>
+              </>
+            )}
+          </div>
+        </div>
+        {error ? <p className="world-form-error">{error}</p> : null}
+      </div>
+    </div>
+  );
+}
+
+function LearnPanel({ open, onClose, viewer }: { open: boolean; onClose: () => void; viewer: Viewer }) {
   const [track, setTrack] = useState<string | null>(null);
   const active = LEARNING_TRACKS.find((item) => item.id === track);
 
@@ -757,79 +1178,11 @@ function LearnPanel({ open, onClose, viewer }: { open: boolean; onClose: () => v
         </div>
       }
     >
-      <Section title="The floor" hint="A live session is visible to everyone in the world.">
-        {s.session ? (
-          <div className="world-live-card is-wide">
-            <div>
-              <p className="world-kicker">
-                <span className="world-live-dot" aria-hidden="true" />
-                live now · {s.session.host}
-              </p>
-              <p className="world-session-title">{s.session.title}</p>
-              <p className="world-session-host">
-                {s.selfId && s.session.hostId === s.selfId
-                  ? "You are holding the floor."
-                  : "Walk to the Amphitheatre, or join from here."}
-              </p>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <Btn
-                size="sm"
-                variant="primary"
-                onClick={() => {
-                  send({ type: "teleport", x: -140, z: 22, label: "The Amphitheatre" });
-                  onClose();
-                }}
-              >
-                <Play aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={1.8} />
-                Join on the floor
-              </Btn>
-              {s.selfId && s.session.hostId === s.selfId ? (
-                <Btn size="sm" variant="danger" onClick={() => send({ type: "session-end" })}>
-                  End the session
-                </Btn>
-              ) : null}
-            </div>
-          </div>
-        ) : (
-          <div className="world-session-start">
-            <div>
-              <p className="world-codex-title">Take the floor</p>
-              <p className="world-codex-note">
-                Give the room a title. Everyone here sees it, and can walk over or
-                join in one click. Five minutes on one thing you actually learned is
-                enough.
-              </p>
-            </div>
-            <div className="world-session-form">
-              <TextInput
-                value={title}
-                onChange={setTitle}
-                placeholder="What are you teaching?"
-                maxLength={80}
-                ariaLabel="Session title"
-              />
-              <Btn
-                variant="primary"
-                size="sm"
-                disabled={!title.trim() || !s.connected}
-                onClick={() => {
-                  send({ type: "session-start", title });
-                  setTitle("");
-                }}
-              >
-                <Radio aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={1.8} />
-                Go live
-              </Btn>
-            </div>
-            {!s.connected ? (
-              <p className="world-panel-note">
-                A live session needs the room server. You can still open a track and
-                walk to its place.
-              </p>
-            ) : null}
-          </div>
-        )}
+      <Section
+        title="The floor"
+        hint="A scheduled or live teaching session is visible to everyone in the world."
+      >
+        <TeachingDesk viewer={viewer} onClose={onClose} />
       </Section>
 
       <Section title="Six doors in" hint="Each track points at the full material on the 2D site.">

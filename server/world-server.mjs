@@ -212,6 +212,35 @@ function cleanNumber(value, fallback = 0) {
   return Number.isFinite(n) ? n : fallback;
 }
 
+const SLIDE_LIMIT = 8;
+const SESSION_HORIZON_MS = 365 * 24 * 60 * 60 * 1000;
+
+function cleanSlides(value) {
+  const list = Array.isArray(value) ? value.slice(0, SLIDE_LIMIT) : [];
+  const slides = [];
+  list.forEach((raw, index) => {
+    const slide = raw && typeof raw === "object" ? raw : {};
+    const title = cleanText(slide.title, 120);
+    const body = cleanText(slide.body, 700);
+    if (!title && !body) return;
+    slides.push({
+      id: cleanText(slide.id, 32) || `slide-${index + 1}`,
+      title: title || `Slide ${index + 1}`,
+      body,
+    });
+  });
+  return slides;
+}
+
+function cleanStartsAt(value, now) {
+  const n = cleanNumber(value, now + 60 * 60 * 1000);
+  return Math.max(now - 60 * 60 * 1000, Math.min(now + SESSION_HORIZON_MS, n));
+}
+
+function sessionStatus(session) {
+  return session?.status === "scheduled" ? "scheduled" : "live";
+}
+
 function rateLimit(player, key, count, windowMs) {
   const now = Date.now();
   const bucket = (player.limits[key] ??= []);
@@ -268,8 +297,13 @@ wss.on("connection", (ws, request) => {
     return;
   }
 
+  const requestedId = url.searchParams.get("id") || "";
+  const stableId =
+    /^w-[a-z0-9-]{6,40}$/.test(requestedId) && !room.players.has(requestedId)
+      ? requestedId
+      : newPlayerId();
   const player = {
-    id: newPlayerId(),
+    id: stableId,
     name: "A traveller",
     color: "#d4ff3f",
     form: "cloak",
@@ -513,21 +547,125 @@ wss.on("connection", (ws, request) => {
         break;
       }
 
-      case "session:start": {
-        if (!rateLimit(player, "session", 4, 60000)) return;
+      case "session:schedule": {
+        if (!rateLimit(player, "session", 6, 60000)) return;
+        const existing = state.session;
+        if (existing && existing.hostId !== player.id) {
+          send(ws, { t: "error", message: `${existing.host} is already holding this session.` });
+          return;
+        }
+        if (existing && sessionStatus(existing) === "live") {
+          send(ws, { t: "error", message: "End the live session before scheduling another." });
+          return;
+        }
         const title = cleanText(msg.title, 80);
         if (!title) return;
         const session = {
-          id: `s-${now.toString(36)}`,
+          id: existing?.id ?? `s-${now.toString(36)}`,
           title,
           hostId: player.id,
           host: player.name,
           at: now,
+          status: "scheduled",
+          startsAt: cleanStartsAt(msg.startsAt, now),
+          agenda: cleanText(msg.agenda, 400),
+          slides: cleanSlides(msg.slides),
+          slide: 0,
+          callId: cleanText(msg.callId, 64) || undefined,
+          callTitle: cleanText(msg.callTitle, 100) || undefined,
         };
         state.session = session;
         state.updatedAt = now;
         saveSoon();
         broadcast(roomName, { t: "session", session });
+        break;
+      }
+
+      case "session:update": {
+        if (!rateLimit(player, "sessionUpdate", 20, 60000)) return;
+        const session = state.session;
+        if (!session) return;
+        if (session.hostId !== player.id) {
+          send(ws, { t: "error", message: "Only the host can edit this session." });
+          return;
+        }
+        const status = sessionStatus(session);
+        const slides =
+          msg.slides === undefined ? session.slides ?? [] : cleanSlides(msg.slides);
+        const startsAt =
+          msg.startsAt === undefined
+            ? session.startsAt ?? now
+            : cleanStartsAt(msg.startsAt, now);
+        state.session = {
+          ...session,
+          title: cleanText(msg.title, 80) || session.title,
+          agenda:
+            msg.agenda === undefined ? session.agenda : cleanText(msg.agenda, 400),
+          status,
+          startsAt,
+          slides,
+          slide:
+            status === "live" && slides.length > 0
+              ? Math.max(0, Math.min(slides.length - 1, Math.round(cleanNumber(session.slide))))
+              : 0,
+          callId: cleanText(msg.callId, 64) || undefined,
+          callTitle: cleanText(msg.callTitle, 100) || undefined,
+        };
+        state.updatedAt = now;
+        saveSoon();
+        broadcast(roomName, { t: "session", session: state.session });
+        break;
+      }
+
+      case "session:start": {
+        if (!rateLimit(player, "session", 6, 60000)) return;
+        const existing = state.session;
+        if (existing) {
+          if (existing.hostId !== player.id) {
+            send(ws, { t: "error", message: `${existing.host} already has the floor.` });
+            return;
+          }
+          if (sessionStatus(existing) === "live") return;
+          state.session = { ...existing, status: "live", at: now, slide: 0 };
+        } else {
+          const title = cleanText(msg.title, 80) || "An open session";
+          state.session = {
+            id: `s-${now.toString(36)}`,
+            title,
+            hostId: player.id,
+            host: player.name,
+            at: now,
+            status: "live",
+            startsAt: now,
+            agenda: cleanText(msg.agenda, 400),
+            slides: cleanSlides(msg.slides),
+            slide: 0,
+            callId: cleanText(msg.callId, 64) || undefined,
+            callTitle: cleanText(msg.callTitle, 100) || undefined,
+            };
+        }
+        state.updatedAt = now;
+        saveSoon();
+        broadcast(roomName, { t: "session", session: state.session });
+        break;
+      }
+
+      case "session:slide": {
+        if (!rateLimit(player, "sessionSlide", 40, 10000)) return;
+        const session = state.session;
+        if (!session || sessionStatus(session) !== "live") return;
+        if (session.hostId !== player.id) {
+          send(ws, { t: "error", message: "Only the host can advance the notes." });
+          return;
+        }
+        const slides = session.slides ?? [];
+        const index = Math.round(cleanNumber(msg.index, Number.NaN));
+        if (!Number.isFinite(index) || index < 0 || index >= slides.length) return;
+        if (session.slide === index) return;
+        state.session = { ...session, slide: index };
+        state.updatedAt = now;
+        saveSoon();
+        broadcast(roomName, { t: "session", session: state.session });
         break;
       }
 

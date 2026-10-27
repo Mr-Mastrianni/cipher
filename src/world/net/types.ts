@@ -7,7 +7,7 @@
  * is underneath.
  */
 
-import type { AvatarForm, BuildPiece } from "../state";
+import type { AvatarForm, BuildPiece, SessionInput } from "../state";
 
 export interface RoomTransport {
   connect(): void;
@@ -45,7 +45,10 @@ export interface RoomTransport {
     motto: string,
   ): void;
   releasePlot(index: number): void;
-  startSession(title: string): void;
+  scheduleSession(input: SessionInput): void;
+  updateSession(input: SessionInput): void;
+  startSession(input?: SessionInput): void;
+  setSessionSlide(index: number): void;
   endSession(): void;
   setIdentity(name: string, color: string, form: AvatarForm, crest: string): void;
 }
