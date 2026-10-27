@@ -15,7 +15,7 @@ and every in-world panel links back to the page that owns the data.
 | | |
 |---|---|
 | ![The landing screen](screenshots/world-landing.png) | ![The Axis at spawn](screenshots/world-axis.png) |
-| ![The chart panel](screenshots/world-chart.png) | ![A live session on the HUD](screenshots/world-session.png) |
+| ![The chart panel](screenshots/world-chart.png) | ![A live teaching session](screenshots/world-session.png) |
 | ![The world on a phone](screenshots/world-mobile.png) | ![The Observatory](../public/world-preview.jpg) |
 
 ---
@@ -26,7 +26,7 @@ and every in-world panel links back to the page that owns the data.
 |---|---|
 | **The Axis** | The centre: a 27-mansion engraved plaza, nine graha stones, nine Human Design centre stelae, the Meridian obelisk, four braziers and the southern gate. |
 | **The Observatory** | A domed hall over a still basin. The member's natal KP chart hangs as an astrolabe of light; one screen carries the graha table and lagna, the other the bodygraph. Press **E** for the full chart panel. |
-| **The Amphitheatre** | Tiered stone around a speaking floor. A member can **take the floor** with a title; everyone in the room sees a LIVE card and can walk over or join. |
+| **The Amphitheatre** | Tiered stone around a speaking floor. A member can schedule or **take the floor** with a title, an opening note and up to eight slide notes; everyone sees the same session on the screen. |
 | **The Studio** | The shared build bench: ten pieces, eight materials, a live ghost, and a grid that belongs to everyone. |
 | **The Sanctuary** | A ring of nine graha stones, each with a resonant tone. The procedural formant choir sings the Sanskrit name as you approach. The words and meanings appear as subtitles. |
 | **The Terraces** | Twelve claimable plots around a western terrace. A member names one, colours its banner, and builds inside it, up to 24 pieces. |
@@ -79,6 +79,7 @@ unreachable.
 | **V** | first / third person |
 | **T** | talk |
 | **J** | the Codex |
+| **L** | the Learn and teaching desk |
 | **C** | the chart |
 | **Tab** | the Atlas |
 | **P** | photo mode |
@@ -204,6 +205,7 @@ https://your-site/world?room=our-private-room
 | Pieces per terrace | 24 | 24 |
 | Presence | ~10 Hz | ~1.2 s |
 | Chat | 400 chars, 3 / 3 s | 400 chars, 3 / 3 s |
+| Teaching notes | 8 slides; 120-char title, 700-char body | same |
 | Build rate | 14 / 10 s | optimistic version retry |
 | Persistence | `data/world.json` | Neon |
 | Accounts | link + optional key | Clerk in production, demo otherwise |
@@ -218,8 +220,10 @@ Neither transport trusts the client for shared state:
 - piece removal by its owner only;
 - terrace edits by the plot owner only;
 - one session at a time, and only its host can close it;
-- sanitised names, messages and room slugs; rate limits on chat, movement,
-  signals, sessions and placement.
+- session scheduling, edits and slide changes by the host only;
+- one scheduled or live session at a time;
+- sanitised names, messages, session notes, call labels and room slugs; rate
+  limits on chat, movement, signals, sessions and placement.
 
 The **client** simulates its own body. The server is authoritative only about
 things everybody shares. The HTTP transport adds optimistic concurrency: a
@@ -258,10 +262,21 @@ has: KP foundations, the bodygraph, Prashna, astrocartography, the Starseed
 archive and the Signal Studio. The world does not re-teach them; it gives a body
 somewhere to stand while it does.
 
-The Amphitheatre adds the part the 2D site cannot: a live floor. A member gives a
-session a title, and everyone in the room gets a LIVE card with a one-click join
-(which walks them to the Amphitheatre). The session is a signal to gather, not a
-streaming platform; voice and video stay wherever the group already meets.
+The Amphitheatre adds the part the 2D site cannot: a shared teaching floor. The
+host can **schedule** a session or **take the floor** now. A session carries a
+title, an opening note and up to eight slide notes. Everyone in the room sees
+the same scheduled card or live slide; only the host can edit the notes, advance
+the slide, go live or close the floor.
+
+A session can be attached to an **upcoming 2D call**. The 2D call stays the
+calendar and the voice/video room; the world is where the notes are kept and
+where the room gathers. The **Gather in the world** link on `/dashboard/calls`
+opens `/world?teach=<callId>` and preselects the call in the desk. If the call's
+join link is available to the member, the desk links to it; otherwise it links
+back to the call on the 2D site.
+
+The session is a signal to gather, not a streaming platform. Voice and video
+stay wherever the group already meets.
 
 ## Chart data flow
 
@@ -327,8 +342,12 @@ tradition, labelled as tradition; the longitudes are astronomy and can be checke
 - **Preview and production share the project's `DATABASE_URL`.** The preview
   creates test rooms and the demo member in the same Neon database. Use a Neon
   branch (or a separate preview database) if you want preview data isolated.
-- **No voice or video inside the world.** The floor is a live presence signal;
-  the actual call stays in the 2D site's call links or your own room.
+- **Teaching notes live in the room, not in the 2D call record.** The call is the
+  anchor and the link; the slides are room state (JSON on the WebSocket server,
+  `session` on Postgres). They are not a recording, a transcript or a course
+  lesson.
+- **No voice or video inside the world.** The floor is a presence signal; the
+  actual call stays in the 2D site's call links or your own room.
 - **The astrolabe and the wheel are representations.** The positions are real and
   computed; the sky does not move for drama.
 - **Audio is a courtesy.** Browsers can refuse the audio context; movement never
@@ -373,14 +392,18 @@ src/world/
     bus.ts                React → engine commands
   net/client.ts           transport choice, WebSocket client, reconnect and solo fallback
   net/http.ts             the HTTP/Postgres room for Vercel
+  net/ids.ts              the stable browser id shared by both room transports
   net/types.ts            the transport contract the realm talks to
   state.ts                the throttled store shared by the engine and React
-  ui/                     landing, HUD, panels, touch controls, CSS
+  ui/                     landing, HUD, panels, teaching desk, touch controls, CSS
+  ui/session-time.ts      local-time formatting for the teaching desk
 server/world-server.mjs   the WebSocket room and its JSON persistence
 src/app/api/world/room/   the HTTP/Postgres room route (GET/POST/HEAD)
 src/lib/world/room.ts     shared player, validation and world transitions
+src/lib/world/__tests__/  the session and world transition tests
 src/lib/db/schema.ts      cipher_world_presence, cipher_world_state, cipher_world_chat
-src/app/world/page.tsx    the server route: auth, chart, live sky, render
+src/app/world/page.tsx    the server route: auth, chart, live sky, upcoming calls
+src/app/dashboard/calls/  the 2D call calendar and the Gather in the world links
 docs/world.md             this file
 ```
 

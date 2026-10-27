@@ -12,6 +12,7 @@
  */
 
 import { HttpRoomNet } from "./http";
+import { readWorldPlayerId } from "./ids";
 import type { RoomTransport } from "./types";
 import {
   getStore,
@@ -22,6 +23,7 @@ import {
   type BuildPiece,
   type PlotState,
   type RemotePlayer,
+  type SessionInput,
   type SessionState,
 } from "../state";
 
@@ -31,7 +33,7 @@ const MOVE_HZ = 12;
 const MAX_SILENT_ATTEMPTS = 3;
 
 /** Resolve the room server. Explicit env wins; otherwise sensible local paths. */
-export function worldServerUrl(room: string): string {
+export function worldServerUrl(room: string, playerId?: string): string {
   const explicit = process.env.NEXT_PUBLIC_WORLD_WS_URL;
   const base = (() => {
     if (explicit) return explicit;
@@ -47,6 +49,9 @@ export function worldServerUrl(room: string): string {
   url.searchParams.set("room", room);
   const key = process.env.NEXT_PUBLIC_WORLD_ROOM_KEY;
   if (key) url.searchParams.set("key", key);
+  if (playerId && /^w-[a-z0-9-]{6,40}$/.test(playerId)) {
+    url.searchParams.set("id", playerId);
+  }
   return url.toString();
 }
 
@@ -61,9 +66,11 @@ export class WorldNet implements RoomTransport {
   private moveTimer: number | null = null;
   private pingAt = 0;
   private pingTimer: number | null = null;
+  private playerId: string;
 
   constructor(room: string) {
     this.room = room;
+    this.playerId = readWorldPlayerId();
   }
 
   connect() {
@@ -72,7 +79,7 @@ export class WorldNet implements RoomTransport {
     store.set({ connecting: true });
     let ws: WebSocket;
     try {
-      ws = new WebSocket(worldServerUrl(this.room));
+      ws = new WebSocket(worldServerUrl(this.room, this.playerId));
     } catch {
       this.fallback("The room server address is not usable.");
       return;
@@ -224,7 +231,10 @@ export class WorldNet implements RoomTransport {
       store.set({
         builds,
         plots: (msg.plots as PlotState[]) ?? store.get().plots,
-        session: (msg.session as SessionState | null) ?? store.get().session,
+        session:
+          "session" in msg
+            ? ((msg.session as SessionState | null) ?? null)
+            : store.get().session,
       });
       return;
     }
@@ -284,8 +294,22 @@ export class WorldNet implements RoomTransport {
       const session = (msg.session as SessionState | null) ?? null;
       store.set({ session });
       if (session) {
-        pushSystem(`${session.host} took the floor: “${session.title}”.`, "world");
-        toast("A session is live", `${session.title} — ${session.host}. Press Tab → Join.`, "gold");
+        if (session.status === "scheduled") {
+          const when = session.startsAt
+            ? new Date(session.startsAt).toLocaleString(undefined, {
+                weekday: "short",
+                month: "short",
+                day: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+              })
+            : "soon";
+          pushSystem(`${session.host} scheduled “${session.title}” for ${when}.`, "world");
+          toast("A session is scheduled", `${session.title} — ${when}. Tab → Learn.`, "gold");
+        } else {
+          pushSystem(`${session.host} took the floor: “${session.title}”.`, "world");
+          toast("A session is live", `${session.title} — ${session.host}. Press Tab → Join.`, "gold");
+        }
       } else {
         pushSystem("The floor is clear.", "world");
       }
@@ -381,8 +405,20 @@ export class WorldNet implements RoomTransport {
     this.send({ t: "plot:release", index });
   }
 
-  startSession(title: string) {
-    this.send({ t: "session:start", title });
+  scheduleSession(input: SessionInput) {
+    this.send({ t: "session:schedule", ...input });
+  }
+
+  updateSession(input: SessionInput) {
+    this.send({ t: "session:update", ...input });
+  }
+
+  startSession(input?: SessionInput) {
+    this.send(input ? { t: "session:start", ...input } : { t: "session:start" });
+  }
+
+  setSessionSlide(index: number) {
+    this.send({ t: "session:slide", index });
   }
 
   endSession() {

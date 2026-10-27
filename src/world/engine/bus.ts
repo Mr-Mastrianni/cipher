@@ -5,7 +5,7 @@
  * intent, and the realm decides what that means for a body in a place.
  */
 
-import type { AvatarForm } from "../state";
+import type { AvatarForm, SessionInput } from "../state";
 import type { PlaceId } from "../content/world";
 
 export type RealmCommand =
@@ -25,7 +25,10 @@ export type RealmCommand =
   | { type: "fly-toggle"; on?: boolean }
   | { type: "use" }
   | { type: "third-person"; on?: boolean }
-  | { type: "session-start"; title: string }
+  | { type: "session-start"; title?: string; session?: SessionInput }
+  | { type: "session-schedule"; session: SessionInput }
+  | { type: "session-update"; session: SessionInput }
+  | { type: "session-slide"; index: number }
   | { type: "session-end" }
   | { type: "chat"; text: string; where: string }
   | { type: "identity"; name: string; color: string; form: AvatarForm; crest: string }

@@ -2169,31 +2169,118 @@ function makeMotes(count: number): THREE.Points {
 function drawSessionScreen(ctx: CanvasRenderingContext2D, session: SessionState | null) {
   const w = 1024;
   const h = 420;
+  const scheduled = session?.status === "scheduled";
+  const live = Boolean(session) && !scheduled;
+  const slides = session?.slides ?? [];
+  const slide = live ? slides[session?.slide ?? 0] : undefined;
+  const accent = scheduled ? "#d4b25e" : live ? "#d4ff3f" : "#5ce1e6";
   ctx.clearRect(0, 0, w, h);
   ctx.fillStyle = "rgba(6,4,14,0.94)";
   ctx.fillRect(0, 0, w, h);
-  ctx.strokeStyle = session ? "#d4ff3f" : "#5ce1e6";
+  ctx.strokeStyle = accent;
   ctx.globalAlpha = 0.5;
   ctx.lineWidth = 3;
   ctx.strokeRect(14, 14, w - 28, h - 28);
   ctx.globalAlpha = 1;
   ctx.font = "500 24px ui-monospace, monospace";
-  ctx.fillStyle = session ? "#d4ff3f" : "#5ce1e6";
-  ctx.fillText(session ? "LIVE · THE FLOOR IS TAKEN" : "THE FLOOR IS OPEN", 44, 74);
+  ctx.fillStyle = accent;
+  ctx.fillText(
+    scheduled
+      ? "SCHEDULED \u00b7 THE FLOOR IS CALLED"
+      : live
+        ? slide
+          ? `LIVE \u00b7 SLIDE ${(session?.slide ?? 0) + 1} OF ${slides.length}`
+          : "LIVE \u00b7 THE FLOOR IS TAKEN"
+        : "THE FLOOR IS OPEN",
+    44,
+    74,
+  );
   ctx.font = "700 58px Syne, ui-sans-serif, sans-serif";
   ctx.fillStyle = "#f4f1ff";
-  ctx.fillText(session ? trim(session.title, 30) : "Take the floor", 44, 158);
+  ctx.fillText(session ? trim(session.title, 30) : "Take the floor", 44, 150);
   ctx.font = "400 28px ui-sans-serif, sans-serif";
-  ctx.fillStyle = "rgba(244,241,255,0.68)";
+  ctx.fillStyle = "rgba(244,241,255,0.72)";
   ctx.fillText(
-    session ? `${session.host} · teaching the room` : "Press E at the lectern to begin. Everyone here will see it.",
+    session
+      ? scheduled
+        ? `${session.host} \u00b7 ${screenWhen(session.startsAt)}`
+        : `${session.host}${slide ? ` \u00b7 ${trim(slide.title, 44)}` : " \u00b7 teaching the room"}`
+      : "Press E at the lectern to begin. Everyone here will see it.",
     44,
-    212,
+    202,
   );
+  ctx.font = "400 24px ui-sans-serif, sans-serif";
+  ctx.fillStyle = "rgba(244,241,255,0.56)";
+  if (scheduled) {
+    wrapCanvasText(
+      ctx,
+      session?.agenda || `${slides.length} slides prepared. The floor opens at the time above.`,
+      44,
+      252,
+      920,
+      31,
+      2,
+    );
+  } else if (live && slide) {
+    wrapCanvasText(ctx, slide.body, 44, 252, 920, 31, 3);
+  } else if (live) {
+    ctx.fillText("The host is teaching from the room. The notes live in the Learn panel.", 44, 252);
+  } else {
+    ctx.fillText("A title, a few notes, and the room is yours.", 44, 252);
+  }
   ctx.font = "400 22px ui-monospace, monospace";
   ctx.fillStyle = "rgba(244,241,255,0.42)";
-  ctx.fillText("KP · HUMAN DESIGN · ASTROCARTOGRAPHY · THE COLLECTIVE", 44, 300);
-  ctx.fillText("ONE WORLD · MANY ROOMS", 44, 336);
+  ctx.fillText(
+    scheduled
+      ? "THE 2D CALL \u00b7 THE NOTES \u00b7 THE FLOOR"
+      : live && slides.length
+        ? `SLIDE ${(session?.slide ?? 0) + 1} OF ${slides.length} \u00b7 THE FLOOR IS YOURS`
+        : "KP \u00b7 HUMAN DESIGN \u00b7 ASTROCARTOGRAPHY \u00b7 THE COLLECTIVE",
+    44,
+    360,
+  );
+  ctx.fillText(scheduled ? "ONE WORLD \u00b7 MANY ROOMS" : "ONE WORLD \u00b7 MANY ROOMS", 44, 392);
+}
+
+function screenWhen(value: number | null | undefined): string {
+  if (!value || !Number.isFinite(value)) return "time to be set";
+  return new Intl.DateTimeFormat(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value));
+}
+
+function wrapCanvasText(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  x: number,
+  y: number,
+  maxWidth: number,
+  lineHeight: number,
+  maxLines: number,
+) {
+  const words = text.trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return;
+  const lines: string[] = [];
+  let line = "";
+  for (const word of words) {
+    const next = line ? `${line} ${word}` : word;
+    if (ctx.measureText(next).width > maxWidth && line) {
+      lines.push(line);
+      line = word;
+    } else {
+      line = next;
+    }
+    if (lines.length === maxLines) break;
+  }
+  if (lines.length < maxLines && line) lines.push(line);
+  if (lines.length === maxLines && words.length > lines.join(" ").split(/\s+/).length) {
+    lines[lines.length - 1] = `${lines[lines.length - 1].slice(0, -1)}\u2026`;
+  }
+  lines.forEach((entry, index) => ctx.fillText(entry, x, y + index * lineHeight));
 }
 
 function drawChartScreen(ctx: CanvasRenderingContext2D, chart: MemberChart | null) {

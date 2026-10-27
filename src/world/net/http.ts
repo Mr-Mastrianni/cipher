@@ -19,11 +19,12 @@ import {
   type BuildPiece,
   type PlotState,
   type RemotePlayer,
+  type SessionInput,
   type SessionState,
 } from "../state";
+import { readWorldPlayerId, rememberWorldPlayerId } from "./ids";
 import type { RoomTransport } from "./types";
 
-const PLAYER_KEY = "cipher:world:player";
 const POLL_MS = 1150;
 const MOVE_MS = 500;
 
@@ -70,25 +71,6 @@ interface PlayerPayload {
   region: string;
 }
 
-function readPlayerId(): string {
-  try {
-    const stored = window.localStorage.getItem(PLAYER_KEY);
-    if (stored && /^[mw]-[a-z0-9-]{6,40}$/.test(stored)) return stored;
-  } catch {
-    /* storage may be blocked */
-  }
-  const random =
-    typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
-      ? crypto.randomUUID().replace(/-/g, "")
-      : Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
-  const id = `w-${random.slice(0, 20)}`;
-  try {
-    window.localStorage.setItem(PLAYER_KEY, id);
-  } catch {
-    /* storage may be blocked; the id survives for this session */
-  }
-  return id;
-}
 
 export class HttpRoomNet implements RoomTransport {
   private room: string;
@@ -109,7 +91,7 @@ export class HttpRoomNet implements RoomTransport {
 
   constructor(room: string) {
     this.room = room;
-    this.playerId = readPlayerId();
+    this.playerId = readWorldPlayerId();
   }
 
   connect() {
@@ -156,11 +138,7 @@ export class HttpRoomNet implements RoomTransport {
       }
       if (data.you?.id) {
         this.playerId = data.you.id;
-        try {
-          window.localStorage.setItem(PLAYER_KEY, this.playerId);
-        } catch {
-          /* storage may be blocked */
-        }
+        rememberWorldPlayerId(this.playerId);
       }
       this.apply(data as Snapshot, true);
       this.connecting = false;
@@ -319,7 +297,7 @@ export class HttpRoomNet implements RoomTransport {
     }
   }
 
-  private async post(action: string, extra: Record<string, unknown>, chatSince = this.chatSince) {
+  private async post(action: string, extra: object, chatSince = this.chatSince) {
     const body = {
       room: this.room,
       action,
@@ -343,7 +321,7 @@ export class HttpRoomNet implements RoomTransport {
     return data as unknown as Snapshot;
   }
 
-  private async worldAction(action: string, extra: Record<string, unknown>) {
+  private async worldAction(action: string, extra: object) {
     if (this.closedByUs) return;
     try {
       const data = await this.post(action, extra);
@@ -473,8 +451,20 @@ export class HttpRoomNet implements RoomTransport {
     void this.worldAction("plot:release", { index });
   }
 
-  startSession(title: string) {
-    void this.worldAction("session:start", { title });
+  scheduleSession(input: SessionInput) {
+    void this.worldAction("session:schedule", input);
+  }
+
+  updateSession(input: SessionInput) {
+    void this.worldAction("session:update", input);
+  }
+
+  startSession(input?: SessionInput) {
+    void this.worldAction("session:start", input ?? {});
+  }
+
+  setSessionSlide(index: number) {
+    void this.worldAction("session:slide", { index });
   }
 
   endSession() {

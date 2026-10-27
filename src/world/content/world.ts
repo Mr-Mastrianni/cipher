@@ -754,6 +754,7 @@ export const CONTROLS: readonly { keys: string; what: string }[] = [
   { keys: "V", what: "first / third person" },
   { keys: "T", what: "talk" },
   { keys: "J", what: "the Codex" },
+  { keys: "L", what: "the Learn desk" },
   { keys: "Tab", what: "the Atlas" },
   { keys: "P", what: "photo mode" },
   { keys: "Esc", what: "close a panel, or pause" },

@@ -82,14 +82,15 @@ HTML: no pre-paint script, nothing to flash.
 `/world` is a navigable, first-person 3D valley: the Axis with its 27 nakshatra
 markers, nine graha stones and nine Human Design centre stelae; the Observatory,
 where the member's KP chart hangs as an astrolabe and the bodygraph stands on a
-screen; the Amphitheatre, where a member can take the floor and teach the room;
-the Studio's shared build bench; twelve claimable member terraces; a pavilion for
+screen; the Amphitheatre, where a member can schedule or take the floor with an
+opening note and up to eight slide notes, optionally attached to an upcoming 2D
+call; the Studio's shared build bench; twelve claimable member terraces; a pavilion for
 every Collective room; the Lake, the Sky Gate and the flown Sky Wheel at 1,800 m.
 
 Members join from anywhere through a realtime room — a small WebSocket server on a
 long-lived host, or an HTTP/Postgres room that works on Vercel — appear to each
 other as customisable avatars, chat, build together, claim a place of their own,
-and see a live session the moment someone starts one. The movement is Shep's
+and see a scheduled or live session the moment someone opens one. The movement is Shep's
 Circle's: walk, sprint, four air jumps, flight, a real height function under every
 prop, and pointer-capture that is opt-in so the interface stays usable.
 
@@ -354,8 +355,9 @@ llvmpipe under Xvfb) at 1440×900 and 390×844:
   it.
 - A terrace claim made by one member is visible to the other with its title and
   colour.
-- A live session started on the Amphitheatre floor produces a LIVE card on the
-  second client.
+- A scheduled teaching session appears on the second client with its time and
+  notes; the host goes live, advances a slide, and the second client sees the new
+  slide. The session can be attached to a 2D call and links back to it.
 - Mobile: the hero CTA is above the fold, the touch controls appear, and the
   Atlas opens from the touch cluster.
 - On the deployed Vercel preview, two browsers met over HTTPS through the
@@ -382,6 +384,9 @@ Honest limits:
   large public audience.
 - **Software WebGL loses the context** in some environments. The quality control
   and `?post=0` reduce the load; the flat map is always available.
+- **Teaching notes are room state, not a recording.** The 2D call is the anchor
+  and the link; slides live in the room (JSON or Postgres), not in the call record
+  or a course lesson.
 - **No voice or video.** The Amphitheatre floor is a presence signal; the call
   stays in the 2D site or your own room.
 

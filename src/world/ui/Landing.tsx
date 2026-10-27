@@ -20,7 +20,7 @@ import {
   AVATAR_CRESTS,
   AVATAR_FORMS,
 } from "../content/world";
-import { getStore, useRealm } from "../state";
+import { getStore, useRealm, type TeachingCall } from "../state";
 import { send } from "../engine/bus";
 import { worldServerUrl } from "../net/client";
 import { cn } from "@/lib/utils";
@@ -33,6 +33,10 @@ export interface Viewer {
   twoDeeHref: string;
   chartHref: string;
   hasChart: boolean;
+  /** Upcoming 2D calls a teaching session can be attached to. */
+  calls: TeachingCall[];
+  /** A call the member arrived from, so the teaching desk can select it. */
+  teachCallId?: string;
 }
 
 /**

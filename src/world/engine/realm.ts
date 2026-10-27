@@ -458,6 +458,14 @@ export class Realm {
       document.exitPointerLock();
       return;
     }
+    if (event.code === "KeyL" && !event.repeat) {
+      getStore().set({
+        panel: getStore().get().panel === "learn" ? null : "learn",
+        chatOpen: false,
+      });
+      document.exitPointerLock();
+      return;
+    }
     if (event.code === "KeyC" && !event.repeat) {
       getStore().set({
         panel: getStore().get().panel === "chart" ? null : "chart",
@@ -695,7 +703,26 @@ export class Realm {
         });
         break;
       case "session-start":
-        this.net?.startSession(cmd.title.trim().slice(0, 80) || "An open session");
+        this.net?.startSession(
+          cmd.session ??
+            (cmd.title
+              ? {
+                  title: cmd.title.trim().slice(0, 80) || "An open session",
+                  agenda: "",
+                  startsAt: Date.now(),
+                  slides: [],
+                }
+              : undefined),
+        );
+        break;
+      case "session-schedule":
+        this.net?.scheduleSession(cmd.session);
+        break;
+      case "session-update":
+        this.net?.updateSession(cmd.session);
+        break;
+      case "session-slide":
+        this.net?.setSessionSlide(cmd.index);
         break;
       case "session-end":
         this.net?.endSession();
@@ -1445,7 +1472,13 @@ export class Realm {
       this.world.setPlots(state.plots as PlotState[]);
     }
     const session = state.session;
-    const sessionKey = session ? `${session.id}:${session.title}:${session.host}` : "";
+    const sessionKey = session
+      ? `${session.id}:${session.status ?? "live"}:${session.title}:${session.host}:${
+          session.slide ?? 0
+        }:${session.startsAt ?? 0}:${(session.slides ?? [])
+          .map((slide) => `${slide.title}\u0001${slide.body}`)
+          .join("\u0002")}`
+      : "";
     if (sessionKey !== this.lastSessionKey) {
       this.lastSessionKey = sessionKey;
       this.world.setSession(session as SessionState | null);

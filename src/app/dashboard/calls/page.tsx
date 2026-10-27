@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { CalendarDays, Clock, Download, Repeat, Timer, Users, Video } from "lucide-react";
+import { CalendarDays, Clock, Download, Orbit, Repeat, Timer, Users, Video } from "lucide-react";
 import { clerkConfigured, getCurrentUser, userHasTier } from "@/lib/auth";
 import { getStore } from "@/lib/db/store";
 import type { LiveCall, User } from "@/lib/db/schema";
@@ -179,7 +179,7 @@ export default async function CallsPage() {
         <Section
           eyebrow="Upcoming"
           title="What is next"
-          description="RSVP to hold your place. The join link appears here when you are approved."
+          description="RSVP to hold your place. Open a call in the world to prepare its notes and slides."
         >
           {upcomingDetails.length === 0 ? (
             <EmptyState
@@ -190,7 +190,7 @@ export default async function CallsPage() {
           ) : (
             <ul className="flex flex-col gap-4">
               {upcomingDetails.map(({ call, hostName, going, mine, canJoin }) => (
-                <li key={call.id}>
+                <li key={call.id} id={`call-${call.id}`}>
                   <Card>
                     <CardHeader>
                       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -257,6 +257,12 @@ export default async function CallsPage() {
                                 : "Join link unlocks on approval"}
                           </span>
                         )}
+                        <Button asChild variant="secondary" size="sm">
+                          <Link href={`/world?teach=${call.id}`}>
+                            <Orbit aria-hidden="true" className="h-4 w-4" />
+                            Gather in the world
+                          </Link>
+                        </Button>
                       </div>
                     </CardFooter>
                   </Card>
@@ -280,7 +286,7 @@ export default async function CallsPage() {
           ) : (
             <ul className="grid gap-4 sm:grid-cols-2">
               {pastDetails.map(({ call, hostName, mine, canJoin }) => (
-                <li key={call.id}>
+                <li key={call.id} id={`call-${call.id}`}>
                   <Card className="h-full">
                     <CardHeader>
                       <CardTitle className="text-base">{call.title}</CardTitle>
