@@ -20,6 +20,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Input, Textarea } from "@/components/ui/input";
 import { useSound } from "@/components/providers/sound-provider";
 import { cn, timeAgo, uid } from "@/lib/utils";
+import { dmReadKey, markCommunityRead } from "@/lib/community/read-state";
 
 /**
  * Direct messages.
@@ -147,7 +148,14 @@ export default function MessagesPage() {
         const rows = data.threads ?? [];
         setThreads(rows);
         if (selectFirst && rows.length > 0 && activeIdRef.current === null) {
-          selectThread(rows[0].id);
+          const requested =
+            typeof window !== "undefined"
+              ? new URLSearchParams(window.location.search).get("thread")
+              : null;
+          const wanted = requested && rows.some((thread) => thread.id === requested)
+            ? requested
+            : rows[0].id;
+          selectThread(wanted);
         }
       } catch {
         setError("Conversations could not be loaded.");
@@ -221,6 +229,15 @@ export default function MessagesPage() {
     },
     [applyIncoming],
   );
+
+  useEffect(() => {
+    if (!activeId || messages.length === 0) return;
+    const latest = messages.reduce(
+      (max, message) => Math.max(max, Date.parse(message.createdAt) || 0),
+      0,
+    );
+    if (latest > 0) markCommunityRead(dmReadKey(activeId), latest);
+  }, [activeId, messages]);
 
   useEffect(() => {
     if (!activeId) return;

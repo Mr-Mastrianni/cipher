@@ -19,6 +19,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/input";
 import { useSound } from "@/components/providers/sound-provider";
 import { cn, timeAgo, uid } from "@/lib/utils";
+import { channelReadKey, markCommunityRead } from "@/lib/community/read-state";
 
 /**
  * A single community channel.
@@ -206,6 +207,17 @@ export default function ChannelPage() {
       window.clearInterval(id);
     };
   }, [slug, status, handlePayload]);
+
+  /* ── Read continuity ───────────────────────────────────────────────────── */
+
+  useEffect(() => {
+    if (messages.length === 0) return;
+    const latest = messages.reduce(
+      (max, message) => Math.max(max, Date.parse(message.createdAt) || 0),
+      0,
+    );
+    if (latest > 0) markCommunityRead(channelReadKey(slug), latest);
+  }, [messages, slug]);
 
   /* ── Scroll management ─────────────────────────────────────────────────── */
 

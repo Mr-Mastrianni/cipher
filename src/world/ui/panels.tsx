@@ -50,6 +50,7 @@ import {
   useRealm,
   type AvatarForm,
   type PlotState,
+  type ChatMessage,
   type SessionInput,
   type SessionState,
   type TeachingSlide,
@@ -69,7 +70,21 @@ import {
   Toggle,
 } from "./common";
 import { AvatarPreview, type Viewer } from "./Landing";
-import { formatSessionTime, fromDateTimeLocal, suggestedStart, toDateTimeLocal } from "./session-time";
+import {
+  channelReadKey,
+  isChannelUnread,
+  isDmUnread,
+  markCommunityRead,
+  readCommunityReads,
+} from "@/lib/community/read-state";
+import { recomputeCommunityUnread } from "../net/community";
+import {
+  formatAgo,
+  formatSessionTime,
+  fromDateTimeLocal,
+  suggestedStart,
+  toDateTimeLocal,
+} from "./session-time";
 
 const CHAT_CHANNELS = [
   { id: "world", label: "The world" },
@@ -102,6 +117,9 @@ export function Panels({ viewer }: { viewer: Viewer }) {
 function AtlasPanel({ open, onClose, viewer }: { open: boolean; onClose: () => void; viewer: Viewer }) {
   const s = useRealm();
   const others = s.players.filter((player) => player.id !== s.selfId);
+  const reads = readCommunityReads();
+  const dmUnread =
+    s.community?.dms.filter((dm) => isDmUnread(dm.id, s.community, reads)).length ?? 0;
 
   return (
     <Panel
@@ -201,6 +219,69 @@ function AtlasPanel({ open, onClose, viewer }: { open: boolean; onClose: () => v
             </ul>
           </Section>
 
+          <Section
+            title="Recent in the Collective"
+            hint="The 2D rooms are the record. Unread follows you in this browser."
+          >
+            {s.community ? (
+              <div className="world-recent">
+                <ul className="world-recent-list">
+                  {s.community.channels.slice(0, 5).map((channel) => {
+                    const unread = isChannelUnread(channel.slug, s.community, reads);
+                    return (
+                      <li key={channel.slug}>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            getStore().set({ panel: "chat", chatRoom: channel.slug, chatOpen: true })
+                          }
+                        >
+                          <span className="world-recent-line">
+                            <strong>{channel.name}</strong>
+                            {unread ? <span className="world-recent-dot" aria-label="unread" /> : null}
+                          </span>
+                          <span className="world-recent-body">
+                            {channel.latest
+                              ? `${channel.latest.authorName}: ${channel.latest.body}`
+                              : "No messages yet"}
+                          </span>
+                          {channel.latest ? (
+                            <span className="world-recent-time">{formatAgo(channel.latest.createdAt)}</span>
+                          ) : null}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+                {s.community.dms.length > 0 ? (
+                  <div className="world-recent-dms">
+                    {s.community.dms.slice(0, 2).map((dm) => (
+                      <Link key={dm.id} href={dm.href} className="world-recent-dm">
+                        <span>
+                          <strong>{dm.otherName}</strong>
+                          <span>{dm.latest?.body ?? "No messages yet"}</span>
+                        </span>
+                        {isDmUnread(dm.id, s.community, reads) ? (
+                          <span className="world-recent-dot" aria-label="unread" />
+                        ) : null}
+                      </Link>
+                    ))}
+                  </div>
+                ) : null}
+                <Link href="/dashboard/messages" className="world-recent-all">
+                  <MessageCircle aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={1.8} />
+                  All direct messages
+                  {dmUnread > 0 ? <span className="world-channel-badge is-unread">{dmUnread}</span> : null}
+                </Link>
+              </div>
+            ) : (
+              <p className="world-panel-note">
+                The Collective summary is loading. The 2D rooms are always available from
+                the community page.
+              </p>
+            )}
+          </Section>
+
           <Section title="The floor" hint="The Amphitheatre is where a member teaches the room.">
             {s.session ? (
               <div className="world-live-card">
@@ -263,31 +344,146 @@ function AtlasPanel({ open, onClose, viewer }: { open: boolean; onClose: () => v
  * Chat
  * ──────────────────────────────────────────────────────────────────────────── */
 
+interface WireCommunityMessage {
+  id: string;
+  body: string;
+  createdAt: string;
+  author: { id: string; name: string };
+}
+
+interface CommunityMessagePayload {
+  ok?: boolean;
+  error?: string;
+  messages?: WireCommunityMessage[];
+  message?: WireCommunityMessage;
+}
+
+function wireToChat(message: WireCommunityMessage, where: string): ChatMessage {
+  return {
+    id: `community-${message.id}`,
+    kind: "chat",
+    from: message.author.name || "Member",
+    color: "#b9a7e6",
+    text: message.body,
+    at: Date.parse(message.createdAt) || Date.now(),
+    where,
+  };
+}
+
+function mergeCommunityMessages(current: ChatMessage[], incoming: ChatMessage[]): ChatMessage[] {
+  const byId = new Map(current.map((message) => [message.id, message]));
+  for (const message of incoming) byId.set(message.id, message);
+  return [...byId.values()].sort((a, b) => a.at - b.at).slice(-80);
+}
+
 function ChatPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
   const s = useRealm();
   const [text, setText] = useState("");
+  const [communityMessages, setCommunityMessages] = useState<ChatMessage[]>([]);
+  const [communityStatus, setCommunityStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [communityError, setCommunityError] = useState("");
+  const [communitySending, setCommunitySending] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
   const channel = s.chatRoom || "world";
-  const messages = s.chat.filter((message) => message.where === channel || (channel === "world" && message.where === "world"));
+  const pavilion = PAVILIONS.find((p) => p.slug === channel);
+  const isPavilion = channel !== "world";
+  const messages = isPavilion
+    ? communityMessages
+    : s.chat.filter((message) => message.where === "world" || message.where === channel);
 
   useEffect(() => {
     if (open) endRef.current?.scrollIntoView({ block: "end" });
   }, [open, messages.length, channel]);
 
-  function submit() {
+  useEffect(() => {
+    if (!open || !isPavilion) {
+      const reset = window.setTimeout(() => {
+        setCommunityMessages([]);
+        setCommunityError("");
+        setCommunityStatus("idle");
+      }, 0);
+      return () => window.clearTimeout(reset);
+    }
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const response = await fetch(`/api/community/${channel}/messages`, { cache: "no-store" });
+        const data = (await response.json()) as CommunityMessagePayload;
+        if (cancelled) return;
+        if (!response.ok || !data.ok) {
+          setCommunityError(data.error ?? "This Collective room could not be opened.");
+          setCommunityStatus("error");
+          return;
+        }
+        const mapped = (data.messages ?? []).map((message) => wireToChat(message, channel));
+        setCommunityMessages((current) => mergeCommunityMessages(current, mapped));
+        setCommunityError("");
+        setCommunityStatus("ready");
+        const latest = mapped.at(-1);
+        if (latest) {
+          markCommunityRead(channelReadKey(channel), latest.at);
+          recomputeCommunityUnread();
+        }
+      } catch {
+        if (!cancelled) {
+          setCommunityError("This Collective room is unreachable. The 2D site still has the history.");
+          setCommunityStatus("error");
+        }
+      }
+    };
+    void load();
+    const timer = window.setInterval(() => {
+      if (document.visibilityState !== "hidden") void load();
+    }, 4000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [open, channel, isPavilion]);
+
+  async function submit() {
     const clean = text.trim();
     if (!clean) return;
-    if (!s.connected) {
-      getStore().set({
-        serverNote: "The room server is offline, so the message was not sent. Reconnect from the Atlas.",
-      });
+    if (!isPavilion) {
+      if (!s.connected) {
+        getStore().set({
+          serverNote: "The room server is offline, so the message was not sent. Reconnect from the Atlas.",
+        });
+        return;
+      }
+      send({ type: "chat", text: clean, where: channel });
+      setText("");
       return;
     }
-    send({ type: "chat", text: clean, where: channel });
-    setText("");
+    if (communitySending) return;
+    setCommunitySending(true);
+    setCommunityError("");
+    try {
+      const response = await fetch(`/api/community/${channel}/messages`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ body: clean }),
+      });
+      const data = (await response.json()) as CommunityMessagePayload;
+      if (!response.ok || !data.ok || !data.message) {
+        setCommunityError(data.error ?? "The message could not be posted.");
+        return;
+      }
+      const message = wireToChat(data.message, channel);
+      setCommunityMessages((current) => mergeCommunityMessages(current, [message]));
+      markCommunityRead(channelReadKey(channel), message.at);
+      recomputeCommunityUnread();
+      setText("");
+    } catch {
+      setCommunityError("The message could not be posted. Try again in a moment.");
+    } finally {
+      setCommunitySending(false);
+    }
   }
 
-  const pavilion = PAVILIONS.find((p) => p.slug === channel);
+  const reads = readCommunityReads();
+  const dmUnread = s.community?.dms.filter((dm) => isDmUnread(dm.id, s.community, reads)).length ?? 0;
+  const composerDisabled = !text.trim() || (isPavilion && communitySending);
 
   return (
     <Panel
@@ -304,14 +500,20 @@ function ChatPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
             onKeyDown={(event) => {
               if (event.key === "Enter" && !event.shiftKey) {
                 event.preventDefault();
-                submit();
+                void submit();
               }
             }}
-            placeholder={s.connected ? "Say something to the room…" : "The room server is offline…"}
+            placeholder={
+              isPavilion
+                ? `Message the ${pavilion?.name ?? "Collective"} room…`
+                : s.connected
+                  ? "Say something to the room…"
+                  : "The room server is offline…"
+            }
             maxLength={400}
             aria-label="Message"
           />
-          <Btn variant="primary" onClick={submit} disabled={!text.trim()}>
+          <Btn variant="primary" onClick={() => void submit()} disabled={composerDisabled}>
             <Send aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={1.8} />
             Send
           </Btn>
@@ -319,29 +521,55 @@ function ChatPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
       }
     >
       <div className="world-channel-tabs" role="tablist" aria-label="Conversation">
-        {CHAT_CHANNELS.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            role="tab"
-            aria-selected={channel === item.id}
-            onClick={() => getStore().set({ chatRoom: item.id, unread: 0 })}
-            className={cn("world-channel", channel === item.id && "is-active")}
-          >
-            {item.label}
-            {item.id === "world" ? <span className="world-channel-badge">all</span> : null}
-          </button>
-        ))}
+        {CHAT_CHANNELS.map((item) => {
+          const unread = item.id !== "world" && isChannelUnread(item.id, s.community, reads);
+          return (
+            <button
+              key={item.id}
+              type="button"
+              role="tab"
+              aria-selected={channel === item.id}
+              onClick={() => getStore().set({ chatRoom: item.id, unread: 0 })}
+              className={cn("world-channel", channel === item.id && "is-active")}
+            >
+              {item.label}
+              {item.id === "world" ? (
+                <span className="world-channel-badge">all</span>
+              ) : unread ? (
+                <span className="world-channel-badge is-unread">new</span>
+              ) : null}
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="world-dm-bar">
+        <Link href="/dashboard/messages" className="world-dm-link">
+          <MessageCircle aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={1.8} />
+          Direct messages
+          {dmUnread > 0 ? <span className="world-channel-badge is-unread">{dmUnread}</span> : null}
+        </Link>
+        <span>stays in the 2D site</span>
       </div>
 
       {pavilion ? <p className="world-channel-note">{pavilion.description}</p> : null}
 
+      {isPavilion && communityError ? (
+        <div className="world-chat-error" role="alert">
+          <p>{communityError}</p>
+          <Link href={`/dashboard/community/${channel}`}>
+            Open the 2D room
+            <ArrowUpRight aria-hidden="true" className="inline h-3 w-3" strokeWidth={1.8} />
+          </Link>
+        </div>
+      ) : null}
+
       <div className="world-chat-log">
         {messages.length === 0 ? (
-          <Empty title="Quiet for now">
-            {channel === "world"
-              ? "Messages here reach everyone in the world. Pavilion channels are for the room named on the tab."
-              : "This pavilion's conversation is empty. The 2D room is still there, with its full history."}
+          <Empty title={communityStatus === "loading" ? "Opening the room" : "Quiet for now"}>
+            {isPavilion
+              ? "Nothing in this Collective room yet. What you write here persists to the 2D room."
+              : "Messages here reach everyone in the world. Pavilion channels carry the persistent Collective conversation."}
           </Empty>
         ) : (
           messages.map((message) => (
@@ -366,8 +594,17 @@ function ChatPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
       </div>
 
       <p className="world-panel-note">
-        A pavilion channel is the world&apos;s edge of a Collective room. The full,
-        persistent conversation stays on the 2D site.{" "}
+        {isPavilion ? (
+          <>
+            This is the same conversation as the 2D Collective room. Messages persist;
+            replies from the 2D site arrive within a few seconds.{" "}
+          </>
+        ) : (
+          <>
+            The world tab is live and ephemeral. The pavilion tabs are the persistent
+            Collective rooms.{" "}
+          </>
+        )}
         <Link href={`/dashboard/community/${channel === "world" ? "general" : channel}`}>
           Open the room in 2D
           <ArrowUpRight aria-hidden="true" className="inline h-3 w-3" strokeWidth={1.8} />

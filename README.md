@@ -90,7 +90,10 @@ every Collective room; the Lake, the Sky Gate and the flown Sky Wheel at 1,800 m
 Members join from anywhere through a realtime room — a small WebSocket server on a
 long-lived host, or an HTTP/Postgres room that works on Vercel — appear to each
 other as customisable avatars, chat, build together, claim a place of their own,
-and see a scheduled or live session the moment someone opens one. The movement is Shep's
+and see a scheduled or live session the moment someone opens one. The pavilion
+tabs read and write the same persistent Collective rooms as the 2D site; the
+Atlas carries recent activity and unread, and direct messages link to the right
+2D thread. The movement is Shep's
 Circle's: walk, sprint, four air jumps, flight, a real height function under every
 prop, and pointer-capture that is opt-in so the interface stays usable.
 
@@ -358,6 +361,10 @@ llvmpipe under Xvfb) at 1440×900 and 390×844:
 - A scheduled teaching session appears on the second client with its time and
   notes; the host goes live, advances a slide, and the second client sees the new
   slide. The session can be attached to a 2D call and links back to it.
+- A pavilion message written in the world appears on the 2D Collective page; a
+  reply there returns to the open pavilion. The Atlas shows the room as unread
+  until it is opened, then clears it. A DM thread links to the right 2D
+  conversation.
 - Mobile: the hero CTA is above the fold, the touch controls appear, and the
   Atlas opens from the touch cluster.
 - On the deployed Vercel preview, two browsers met over HTTPS through the
@@ -388,6 +395,11 @@ Honest limits:
 - **Teaching notes are room state, not a recording.** The 2D call is the anchor
   and the link; slides live in the room (JSON or Postgres), not in the call record
   or a course lesson.
+- **Read markers are per browser.** World and 2D unread agree in the same browser,
+  not across devices. Durable per-member read state would need the existing
+  `channel_members` table to be wired up.
+- **Direct messages are linked, not embedded.** The world shows recent threads
+  and unread and opens the right 2D conversation; it has no in-world DM composer.
 - **No voice or video.** The Amphitheatre floor is a presence signal; the call
   stays in the 2D site or your own room.
 

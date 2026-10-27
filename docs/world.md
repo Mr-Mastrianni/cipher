@@ -30,7 +30,7 @@ and every in-world panel links back to the page that owns the data.
 | **The Studio** | The shared build bench: ten pieces, eight materials, a live ghost, and a grid that belongs to everyone. |
 | **The Sanctuary** | A ring of nine graha stones, each with a resonant tone. The procedural formant choir sings the Sanskrit name as you approach. The words and meanings appear as subtitles. |
 | **The Terraces** | Twelve claimable plots around a western terrace. A member names one, colours its banner, and builds inside it, up to 24 pieces. |
-| **The Commons** | Eight pavilions, one for each Collective room. Walk up to a banner to open that room's conversation beside you. |
+| **The Commons** | Eight pavilions, one for each Collective room. Walk up to a banner to open that room's persistent conversation beside you; the same messages are on `/dashboard/community/<slug>`. |
 | **The Lake of Mirrors** | A real basin in the terrain, with one sounding stone on the far shore. |
 | **The Sky Gate** | A ringed gate on the north rise. Use it to open the body into flight and climb toward the wheel. |
 | **The Sky Wheel** | At 1,800 m: the nine grahas on the 27-nakshatra ring at their **live** sidereal longitudes, with no floor. The longitudes are computed server-side by the KP engine. |
@@ -281,6 +281,31 @@ back to the call on the 2D site.
 The session is a signal to gather, not a streaming platform. Voice and video
 stay wherever the group already meets.
 
+### Community continuity
+
+The pavilion tabs in the world's chat are no longer a separate, ephemeral
+conversation. They read and post to the same Collective channel as the 2D site:
+`/api/community/[slug]/messages` is the single transport. A message written at
+the Starseed Origins pavilion appears on `/dashboard/community/starseed-origins`,
+and a reply there reaches the open pavilion within a few seconds.
+
+Unread is a notification surface rather than a second inbox:
+
+- the Atlas has a **Recent in the Collective** section with the newest room and
+  direct-thread activity;
+- pavilion tabs show a **new** badge, and the HUD's Talk button carries the total;
+- opening a pavilion clears its badge; opening the 2D room does the same through
+  the shared read marker.
+
+Read markers are deliberately local (`cipher:community:read:v1`), so the world
+and the 2D site agree in the same browser without a migration. They are not
+cross-device. Durable per-member unread counts belong in `channel_members` when
+that is worth the schema work.
+
+Direct messages keep their home on the 2D site. The Atlas shows recent threads
+and unread, and links to `/dashboard/messages?thread=<id>`, which opens the right
+conversation. There is no in-world DM composer yet.
+
 ## Chart data flow
 
 `src/app/world/page.tsx` is the only place the server computes the sky:
@@ -351,8 +376,14 @@ tradition, labelled as tradition; the longitudes are astronomy and can be checke
   anchor and the link; the slides are room state (JSON on the WebSocket server,
   `session` on Postgres). They are not a recording, a transcript or a course
   lesson.
+- **Read markers are per browser.** The world and the 2D site share unread in the
+  same browser; a phone and a laptop do not. The read state is a convenience, not
+  an account-level inbox.
 - **No voice or video inside the world.** The floor is a presence signal; the
   actual call stays in the 2D site's call links or your own room.
+- **Direct messages are linked, not embedded.** The world shows recent threads
+  and unread and opens the right 2D conversation; it does not have an in-world DM
+  composer.
 - **The astrolabe and the wheel are representations.** The positions are real and
   computed; the sky does not move for drama.
 - **Audio is a courtesy.** Browsers can refuse the audio context; movement never
