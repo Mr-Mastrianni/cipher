@@ -372,10 +372,11 @@ Honest limits:
   poll. The WebSocket room is the low-latency option and needs a long-lived
   process and a persistent volume.
 - **The WebSocket room has no accounts.** The link is the invitation; names are
-  not unique and a plot reconnects by name. The HTTP transport is Clerk-
-  authenticated in production and uses an opaque member hash, but the WebSocket
-  server remains link-keyed. Add token verification before opening it to
-  strangers.
+  not unique. The client presents a stable browser id, so a plot and a scheduled
+  session reconnect to the same member, with a name fallback. It is not an
+  account. The HTTP transport is Clerk-authenticated in production and uses an
+  opaque member hash, but the WebSocket server remains link-keyed. Add token
+  verification before opening it to strangers.
 - **The WebSocket bench is a JSON file.** One process is assumed. The HTTP room is
   already Postgres-backed with optimistic version retries.
 - **There is no moderation console or reporting flow in the world yet.** Chat is

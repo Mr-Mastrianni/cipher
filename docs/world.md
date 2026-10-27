@@ -127,8 +127,11 @@ Persistence is `data/world.json`, written atomically and debounced.
 
 The room name is the only key. There are **no accounts inside the WebSocket
 room**: it accepts anyone with the link and, optionally, a shared
-`WORLD_ROOM_SECRET` (plus `NEXT_PUBLIC_WORLD_ROOM_KEY` for the browser). Treat a
-room as an invitation, not a security boundary.
+`WORLD_ROOM_SECRET` (plus `NEXT_PUBLIC_WORLD_ROOM_KEY` for the browser). The
+client presents a stable browser id (`w-…`) in the socket URL, so a plot and a
+scheduled session reconnect to the same member, with a name fallback; it is not
+an account and can be spoofed by anyone with the link. Treat a room as an
+invitation, not a security boundary.
 
 ### The HTTP/Postgres room (works on Vercel)
 
@@ -323,9 +326,11 @@ tradition, labelled as tradition; the longitudes are astronomy and can be checke
   no extra host, but presence is ~1.2 s and signals arrive on the next poll. The
   WebSocket room is the low-latency option and needs a long-lived process.
 - **The WebSocket room has no accounts.** The link is the invitation; names are
-  not unique, and a plot reconnects by name. The HTTP room is Clerk-authenticated
-  in production and uses an opaque member hash, but the WebSocket server remains
-  link-keyed. Add token verification before opening a WebSocket room to strangers.
+  not unique. A stable browser id lets a plot and a scheduled session reconnect,
+  but it is not an account and can be spoofed. The HTTP room is Clerk-
+  authenticated in production and uses an opaque member hash, but the WebSocket
+  server remains link-keyed. Add token verification before opening a WebSocket
+  room to strangers.
 - **The world is client-authoritative about bodies.** Moving through a wall is a
   client decision; the server is authoritative about shared objects, claims and
   the session.
