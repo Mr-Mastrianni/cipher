@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { ArrowRight } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { CinematicHero } from "@/components/cipher/cinematic-hero";
 import type { GlobePlace } from "@/components/cipher/dot-globe";
 import { cn } from "@/lib/utils";
 
@@ -34,7 +33,7 @@ const LABEL = "font-mono text-[9px] uppercase tracking-[0.22em] text-faint";
 
 const RAIL = "font-mono text-[8.5px] uppercase tracking-[0.2em] text-faint";
 
-export function HeroIntake() {
+export function IntakeSection() {
   const router = useRouter();
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
@@ -73,9 +72,6 @@ export function HeroIntake() {
   }
 
   return (
-    <>
-      <CinematicHero />
-
       <section
         id="cast"
         className="relative z-10 scroll-mt-20 border-t border-hairline bg-void px-6 py-20 lg:px-12 lg:py-28"
@@ -175,6 +171,5 @@ export function HeroIntake() {
           </form>
         </div>
       </section>
-    </>
   );
 }

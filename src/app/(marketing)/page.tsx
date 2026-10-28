@@ -4,6 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { motion, useReducedMotion } from "motion/react";
 import {
+  ArrowDown,
   ArrowRight,
   BookOpen,
   CalendarClock,
@@ -13,7 +14,8 @@ import {
   Sparkles,
   Users,
 } from "lucide-react";
-import { HeroIntake } from "@/components/cipher/hero-intake";
+import { IntakeSection } from "@/components/cipher/hero-intake";
+import { CosmicBackdrop } from "@/components/cipher/cosmic-backdrop";
 import { Cosmogram } from "@/components/cipher/cosmogram";
 import { useSound } from "@/components/providers/sound-provider";
 import { cn } from "@/lib/utils";
@@ -194,13 +196,65 @@ const FAQ = [
    Page
    ------------------------------------------------------------------------- */
 
+const PORTAL = [
+  { id: "P.01", title: "Cast a chart", href: "/enter", body: "One confirmed instant, nine grahas, twelve cusps — no account needed." },
+  { id: "P.02", title: "Enter the world", href: "/world", body: "The valley: the Axis, the Observatory, terraces and the Sky Wheel." },
+  { id: "P.03", title: "The Collective", href: "/collective", body: "Pavilions, rooms and the record kept in common." },
+  { id: "P.04", title: "The method", href: "/method", body: "Why KP, why the true node, why the Design is 88° of solar arc." },
+  { id: "P.05", title: "Membership", href: "/membership", body: "Four tiers, read by a person. Nothing is charged before approval." },
+  { id: "P.06", title: "Sign in", href: "/sign-in", body: "Return to your chart, your courses and your seat in the room." },
+] as const;
+
 export default function LandingPage() {
   const { play } = useSound();
 
   return (
-    <main id="main" className="flex-1">
+    <>
+      <CosmicBackdrop />
+      <main id="main" className="relative z-10 flex-1">
       {/* ── The threshold ──────────────────────────────────────────────── */}
-      <HeroIntake />
+      <section className="relative flex min-h-[calc(100svh-4.5rem)] flex-col justify-end px-6 pb-10 pt-24 lg:px-12 lg:pb-14">
+        <div className="mx-auto w-full max-w-[1400px]">
+          <div className="grid items-end gap-8 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)] lg:gap-16">
+            <div>
+              <p className="intro-fade font-mono text-[9px] uppercase tracking-[0.3em] text-gold" style={{ animationDelay: "0.3s" }}>
+                KP astrology · Human Design
+              </p>
+              <h1 className="mt-5 font-sans text-[clamp(30px,6.4vw,68px)] uppercase leading-[0.94] tracking-[-0.035em] text-bone">
+                {["The sky is a record.", "We cast it to the second."].map((line, index) => (
+                  <span key={line} className="block overflow-hidden pb-[0.06em]">
+                    <span className="intro-line block" style={{ animationDelay: `${0.45 + index * 0.12}s` }}>
+                      {line}
+                    </span>
+                  </span>
+                ))}
+              </h1>
+              <div className="intro-rise mt-8 flex flex-wrap items-center gap-4" style={{ animationDelay: "0.9s" }}>
+                <a href="#cast" className="inline-flex items-center gap-3 rounded-full bg-bone px-6 py-3.5 font-mono text-[9.5px] uppercase tracking-[0.2em] text-ink transition-colors hover:bg-gold">
+                  Cast your chart
+                  <ArrowDown aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={1.8} />
+                </a>
+                <Link href="/world" className="inline-flex items-center gap-2 font-mono text-[9.5px] uppercase tracking-[0.2em] text-muted transition-colors hover:text-bone">
+                  Enter the world ↗
+                </Link>
+              </div>
+            </div>
+            <p className="intro-fade max-w-[42ch] font-mono text-[9px] uppercase leading-[1.7] tracking-[0.12em] text-muted lg:justify-self-end" style={{ animationDelay: "1.1s" }}>
+              <span className="text-bone">+</span> KP sub-lords, Placidus cusps and a bodygraph from one confirmed instant. Nine grahas, twelve cusps, twenty-six activations. No account needed to read it.
+            </p>
+          </div>
+          <div className="intro-fade mt-8 flex flex-wrap items-center justify-between gap-x-5 gap-y-2 border-t border-hairline pt-4" style={{ animationDelay: "1.25s" }}>
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5">
+              <Link href="/method" className="font-mono text-[8.5px] uppercase tracking-[0.2em] text-muted transition-colors hover:text-bone"><span className="text-gold">S.01</span> The chart ↘</Link>
+              <Link href="/world" className="font-mono text-[8.5px] uppercase tracking-[0.2em] text-muted transition-colors hover:text-bone"><span className="text-gold">S.02</span> The world ↘</Link>
+              <Link href="/collective" className="font-mono text-[8.5px] uppercase tracking-[0.2em] text-muted transition-colors hover:text-bone"><span className="text-gold">S.03</span> The Collective ↘</Link>
+            </div>
+            <span className="hidden font-mono text-[8.5px] uppercase tracking-[0.2em] text-faint sm:inline">Scroll to enter</span>
+          </div>
+        </div>
+      </section>
+
+      <IntakeSection />
 
       {/* ── The world ─────────────────────────────────────────────────── */}
       <section className="relative overflow-hidden border-t border-hairline px-6 py-24 sm:py-32">
@@ -534,30 +588,44 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── Final call ─────────────────────────────────────────────────── */}
-      <section className="relative border-t border-hairline px-6 py-28 text-center sm:py-36">
-        <Reveal>
-          <div className="mx-auto flex max-w-xl flex-col items-center">
-            <Cosmogram className="h-24 w-24" progress={0.4} animated={false} />
-            <h2 className="mt-8 font-display text-3xl leading-tight text-bone sm:text-4xl">
-              Enter your coordinates.
-            </h2>
-            <p className="mt-5 leading-relaxed text-muted">
-              It takes a minute. It costs nothing. You will see the whole
-              structure of your design before anyone asks you for anything.
-            </p>
-            <Link
-              href="/enter"
-              onMouseEnter={() => play("hover")}
-              onClick={() => play("confirm")}
-              className="mt-9 inline-flex items-center gap-2 rounded-md bg-gold px-7 py-3 text-sm font-semibold text-on-accent transition-all hover:brightness-110"
-            >
-              Compute my chart
-              <ArrowRight className="h-4 w-4" strokeWidth={1.75} />
-            </Link>
+      {/* ── The portal ─────────────────────────────────────────────────── */}
+      <section className="relative border-t border-hairline px-6 py-24 sm:py-32">
+        <div className="mx-auto max-w-5xl">
+          <Reveal>
+            <div className="flex flex-col items-start gap-6">
+              <Eyebrow index="S.07">The portal</Eyebrow>
+              <h2 className="max-w-2xl font-display text-4xl leading-[1.02] text-bone sm:text-5xl">
+                Everything is one door away.
+              </h2>
+              <p className="max-w-xl leading-relaxed text-muted">
+                The chart, the valley, the Collective, the membership. Choose
+                where you enter — nothing here is a dead end.
+              </p>
+            </div>
+          </Reveal>
+
+          <div className="mt-12 grid gap-px overflow-hidden rounded-xl border border-hairline bg-hairline sm:grid-cols-2 lg:grid-cols-3">
+            {PORTAL.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                onMouseEnter={() => play("hover")}
+                onClick={() => play("select")}
+                className="group flex flex-col gap-3 bg-void/70 p-7 backdrop-blur-sm transition-colors hover:bg-raised/70"
+              >
+                <span className="font-mono text-[8.5px] uppercase tracking-[0.22em] text-gold">{item.id}</span>
+                <span className="flex items-center justify-between gap-4 font-display text-2xl text-bone">
+                  {item.title}
+                  <ArrowRight aria-hidden="true" className="h-4 w-4 shrink-0 text-faint transition-transform group-hover:translate-x-1 group-hover:text-gold" strokeWidth={1.5} />
+                </span>
+                <span className="text-sm leading-relaxed text-muted">{item.body}</span>
+              </Link>
+            ))}
           </div>
-        </Reveal>
+        </div>
       </section>
-    </main>
+
+      </main>
+    </>
   );
 }
