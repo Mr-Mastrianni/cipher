@@ -351,6 +351,11 @@ cross-check.
 Ephemeris (AGPL/commercial) is **not** a dependency: it was used only offline
 to generate the reference values in `src/lib/kp/__tests__/`.
 
+The planet and Earth textures in `public/textures/planets/` and
+`public/textures/earth/` are from [Solar System Scope](https://www.solarsystemscope.com/textures/),
+CC BY 4.0, based on NASA imagery. GSAP (with ScrollTrigger and SplitText) is
+under the GSAP Standard License; Lenis is MIT.
+
 
 ---
 
