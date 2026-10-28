@@ -60,16 +60,15 @@ export function CinematicHero() {
     }
   }, []);
 
-  // The camera: the horizon grows and drops as the page leaves the hero.
-  const { scrollYProgress } = useScroll({
-    target: sceneRef,
-    offset: ["start start", "end start"],
-  });
-  const cameraScale = useTransform(scrollYProgress, [0, 1], [1, 1.38]);
-  const cameraY = useTransform(scrollYProgress, [0, 1], ["0%", "22%"]);
-  const titleY = useTransform(scrollYProgress, [0, 0.6], [0, -120]);
-  const titleFade = useTransform(scrollYProgress, [0, 0.5], [1, 0]);
-  const haze = useTransform(scrollYProgress, [0.5, 1], [0, 1]);
+  // The camera is the whole page's scroll, because the sky is pinned: it stays
+  // while the content rides over it, then dissolves as the instrument arrives.
+  const { scrollY } = useScroll();
+  const cameraScale = useTransform(scrollY, [0, 900], [1, 1.42]);
+  const cameraDrop = useTransform(scrollY, [0, 900], ["0%", "16%"]);
+  const skyFade = useTransform(scrollY, [0, 620, 1150], [1, 0.85, 0]);
+  const titleY = useTransform(scrollY, [0, 620], [0, -140]);
+  const titleFade = useTransform(scrollY, [0, 420], [1, 0]);
+  const haze = useTransform(scrollY, [420, 1000], [0, 1]);
 
   // Pointer parallax, spring-damped, a few degrees at most.
   const px = useMotionValue(0);
@@ -80,7 +79,7 @@ export function CinematicHero() {
   return (
     <section
       ref={sceneRef}
-      className="relative isolate flex min-h-[calc(100svh-4.5rem)] flex-col overflow-hidden border-b border-hairline bg-void"
+      className="relative isolate flex min-h-[130svh] flex-col border-b border-hairline"
       onPointerMove={(event) => {
         if (reduced) return;
         const rect = event.currentTarget.getBoundingClientRect();
@@ -92,15 +91,15 @@ export function CinematicHero() {
         py.set(0);
       }}
     >
-      {/* Stars come up first. */}
-      <div className="intro-fade absolute inset-0" style={{ animationDelay: "0.25s" }}>
-        <Starfield />
-      </div>
+      {/* The sky is pinned to the viewport; the page scrolls across it. */}
+      <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden bg-void">
+        <div className="intro-fade absolute inset-0" style={{ animationDelay: "0.25s" }}>
+          <Starfield />
+        </div>
 
-      {/* The camera wrapper holds the planet for the whole scroll. */}
       <motion.div
         aria-hidden="true"
-        style={reduced ? undefined : { y: cameraY, scale: cameraScale }}
+        style={{ y: cameraDrop, scale: cameraScale, opacity: skyFade }}
         className="absolute inset-0"
       >
         <div className="pointer-events-none absolute left-1/2 top-[52%] aspect-square w-[230vw] max-w-[2800px] -translate-x-1/2 lg:top-[48%] lg:w-[155vw]">
@@ -122,21 +121,25 @@ export function CinematicHero() {
         </div>
       </motion.div>
 
-      {/* Air, thickening as the camera passes through it. */}
-      <motion.div
-        aria-hidden="true"
-        style={reduced ? undefined : { opacity: haze }}
-        className="pointer-events-none absolute inset-0 z-20 bg-[radial-gradient(120%_70%_at_50%_120%,rgba(124,180,255,0.10),transparent_60%)]"
-      />
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-[62%] bg-gradient-to-t from-void via-void/88 to-transparent"
-      />
+        {/* Air, thickening as the camera passes through it. */}
+        <motion.div
+          aria-hidden="true"
+          style={{ opacity: haze }}
+          className="pointer-events-none absolute inset-0 z-20 bg-[radial-gradient(120%_70%_at_50%_120%,rgba(124,180,255,0.10),transparent_60%)]"
+        />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-[62%] bg-gradient-to-t from-void via-void/88 to-transparent"
+        />
+      </div>
+
+      {/* The title card rides over the pinned sky. */}
+      <div className="relative z-10 flex min-h-[calc(100svh-4.5rem)] flex-col justify-end">
 
       {/* Type. */}
       <motion.div
         style={reduced ? undefined : { y: titleY, opacity: titleFade }}
-        className="relative z-40 mx-auto flex w-full max-w-[1400px] flex-1 flex-col justify-end px-6 pb-5 pt-6 lg:px-12"
+        className="mx-auto flex w-full max-w-[1400px] flex-1 flex-col justify-end px-6 pb-5 pt-6 lg:px-12"
       >
         <div className="grid items-end gap-8 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)] lg:gap-16">
           <div>
@@ -214,6 +217,7 @@ export function CinematicHero() {
           </div>
         </div>
       </motion.div>
+      </div>
     </section>
   );
 }

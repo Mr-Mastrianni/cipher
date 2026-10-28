@@ -78,7 +78,7 @@ export function HeroIntake() {
 
       <section
         id="cast"
-        className="relative scroll-mt-20 border-t border-hairline px-6 py-20 lg:px-12 lg:py-28"
+        className="relative z-10 scroll-mt-20 border-t border-hairline bg-void px-6 py-20 lg:px-12 lg:py-28"
       >
         <div className="mx-auto grid w-full max-w-[1400px] gap-12 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:gap-20">
           <div>
