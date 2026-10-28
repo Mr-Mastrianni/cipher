@@ -58,6 +58,12 @@ first. All four are saved to the member's profile in `cipher_member_avatars`
 no image is uploaded — and they follow the member across devices. The room still
 receives them as presence, never as trusted state.
 
+The HUD carries three doors, not nine buttons: **Atlas** (places, the Codex,
+the terraces), **Room** (talk, teaching, the build bench) and **Chart** (your
+chart, your avatar, your settings). A door opens on its first page; the tab
+strip inside the sheet moves between the rest, and the shortcuts below still
+land on the screen you asked for.
+
 **Pointer capture is opt-in.** The interface is clickable until you click the
 view. Once the mouse is captured, press **Esc** to release it and use the HUD
 again. This is deliberate: auto-capturing the cursor makes the visible interface
@@ -80,10 +86,10 @@ unreachable.
 | **LMB / RMB** | place / remove a piece |
 | **Q** | send a signal |
 | **V** | first / third person |
-| **T** | talk |
-| **J** | the Codex |
-| **L** | the Learn and teaching desk |
-| **C** | the chart |
+| **T** | the Room, on Talk |
+| **J** | the Atlas, on the Codex |
+| **L** | the Room, on the teaching desk |
+| **C** | the Chart |
 | **Tab** | the Atlas |
 | **P** | photo mode |
 | **Esc** | close a panel, release the mouse, or pause |

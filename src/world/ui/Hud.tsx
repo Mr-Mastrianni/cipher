@@ -3,17 +3,13 @@
 import Link from "next/link";
 import { useEffect } from "react";
 import {
-  BookOpen,
   Compass,
-  GraduationCap,
   Hammer,
   LogOut,
   MessageCircle,
   Orbit,
   Radio,
-  Settings,
   Sparkles,
-  UserRound,
   Users,
   Wind,
 } from "lucide-react";
@@ -24,6 +20,7 @@ import { recomputeCommunityUnread, refreshCommunity } from "../net/community";
 import { send } from "../engine/bus";
 import { cn } from "@/lib/utils";
 import type { Viewer } from "./Landing";
+import { defaultPanel, groupOf, PANEL_GROUPS, type PanelGroup } from "./groups";
 
 function heading(yaw: number) {
   const degrees = ((-yaw * 180) / Math.PI + 360) % 360;
@@ -64,9 +61,18 @@ export function Hud({ viewer }: { viewer: Viewer }) {
   const liveSlide =
     s.session && !sessionScheduled ? s.session.slides?.[s.session.slide ?? 0] : undefined;
 
-  function open(panel: NonNullable<typeof s.panel>) {
+  function open(panel: typeof s.panel) {
     getStore().set({ panel, chatOpen: panel === "chat", unread: panel === "chat" ? 0 : s.unread });
     if (typeof document !== "undefined" && document.pointerLockElement) document.exitPointerLock();
+  }
+
+  /**
+   * A door, not a switchboard: pressing the group's own tab again closes it,
+   * pressing it from a sibling tab returns to that group's first page.
+   */
+  function openGroup(group: PanelGroup) {
+    const target = defaultPanel(group);
+    open(s.panel === target ? null : target);
   }
 
   return (
@@ -101,22 +107,29 @@ export function Hud({ viewer }: { viewer: Viewer }) {
         </div>
 
         <nav className="world-hud-actions" aria-label="World interface">
-          <HudButton label="Atlas (Tab)" onClick={() => open("atlas")} icon={Compass} />
-          <HudButton label="Talk (T)" onClick={() => open("chat")} icon={MessageCircle} badge={Math.min(99, s.unread + s.communityUnread)} />
-          <HudButton label="Codex (J)" onClick={() => open("codex")} icon={BookOpen} />
-          <HudButton label="Chart (C)" onClick={() => open("chart")} icon={Sparkles} />
-          <HudButton label="Learn (L)" onClick={() => open("learn")} icon={GraduationCap} />
-          <HudButton
-            label="Build (B)"
-            onClick={() => {
-              getStore().set({ buildMode: true });
-              open("build");
-            }}
-            icon={Hammer}
-            active={s.buildMode}
-          />
-          <HudButton label="Avatar" onClick={() => open("avatar")} icon={UserRound} />
-          <HudButton label="Settings" onClick={() => open("settings")} icon={Settings} />
+          {PANEL_GROUPS.map((group) => {
+            const Icon =
+              group.id === "atlas" ? Compass : group.id === "room" ? MessageCircle : Sparkles;
+            const active = groupOf(s.panel)?.id === group.id;
+            const badge =
+              group.id === "room" ? Math.min(99, s.unread + s.communityUnread) : 0;
+            const keys: Record<PanelGroup["id"], string> = {
+              atlas: "Tab",
+              room: "T",
+              chart: "C",
+            };
+            return (
+              <HudButton
+                key={group.id}
+                label={`${group.label} (${keys[group.id]})`}
+                title={group.hint}
+                onClick={() => openGroup(group)}
+                icon={Icon}
+                badge={badge}
+                active={active || (group.id === "room" && s.buildMode)}
+              />
+            );
+          })}
           <Link href={viewer.twoDeeHref} className="world-hud-btn world-hud-exit" aria-label="Exit to the 2D site">
             <LogOut aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={1.6} />
             <span>2D site</span>
@@ -261,10 +274,12 @@ export function Hud({ viewer }: { viewer: Viewer }) {
 function HudButton({
   icon: Icon,
   label,
+  title,
   onClick,
   active,
   badge,
 }: {
+  title?: string;
   icon: typeof Compass;
   label: string;
   onClick: () => void;
@@ -277,7 +292,7 @@ function HudButton({
       onClick={onClick}
       className={cn("world-hud-btn", active && "is-active")}
       aria-label={label}
-      title={label}
+      title={title ?? label}
     >
       <Icon aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={1.6} />
       {badge ? <span className="world-hud-badge">{badge > 9 ? "9+" : badge}</span> : null}

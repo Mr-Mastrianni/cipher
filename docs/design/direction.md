@@ -233,3 +233,23 @@ Not done, deliberately:
 - **The nine HUD panels are still nine.** Collapsing them to Atlas / Room /
   Chart changes navigation, not colour, and it wants a browser with a working
   WebGL context to evaluate — which this environment does not have.
+
+**Phase 3, the doors.** The nine HUD buttons became three: **Atlas** (Places,
+Codex, Terraces), **Room** (Talk, Teaching, Build) and **Chart** (Your chart,
+Avatar, Settings). Nothing was rewritten — each tab renders the panel it always
+did — but the HUD now reads as three questions instead of a switchboard, and
+the shortcuts land in the right group (T → Talk, J → Codex, L → teaching,
+C → the chart, Tab → the Atlas).
+
+- `src/world/ui/groups.ts` holds the grouping as data.
+- `Panel` renders the tab strip itself, so none of the nine panel components
+  needed to know it was grouped.
+- The place and beacon colours in `content/world.ts` moved to the same muted
+  palette, css string and three.js integer together, so the swatch in the Atlas
+  matches the stone in the valley.
+
+Verified over CDP: the HUD exposes exactly three buttons; the Atlas opens on
+Places with Places/Codex/Terraces; selecting Codex switches the panel and the
+active tab. Not verified: how it looks over the running valley — this
+environment's Chromium stopped creating a WebGL2 context partway through the
+session, so the last captures show the "WebGL2 is required" fallback.

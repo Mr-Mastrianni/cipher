@@ -1521,7 +1521,7 @@ body[data-world="true"] .route-in {
   border: 1px solid var(--w-line-strong);
   background:
     radial-gradient(ellipse 80% 40% at 50% 0%, rgba(142, 147, 184, 0.08), transparent 70%),
-    linear-gradient(160deg, rgba(14, 9, 32, 0.98), rgba(8, 8, 10, 0.99));
+    linear-gradient(160deg, rgba(18, 18, 22, 0.98), rgba(8, 8, 10, 0.99));
   box-shadow: var(--w-shadow);
   outline: none;
   animation: world-panel-in 0.24s cubic-bezier(0.22, 1, 0.36, 1);
@@ -1542,6 +1542,48 @@ body[data-world="true"] .route-in {
   gap: 14px;
   padding: 16px 18px 13px;
   border-bottom: 1px solid var(--w-line);
+}
+
+.world-panel-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 0 18px;
+  border-bottom: 1px solid var(--w-line);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.world-panel-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.world-panel-tab {
+  flex: 0 0 auto;
+  padding: 11px 12px 10px;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  background: none;
+  color: var(--w-faint);
+  font-family: var(--w-mono);
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: color 160ms ease, border-color 160ms ease;
+}
+
+.world-panel-tab:hover {
+  color: var(--w-bone);
+}
+
+.world-panel-tab.is-active {
+  color: var(--w-bone);
+  border-bottom-color: var(--w-brass);
+}
+
+.world-panel-tab:focus-visible {
+  outline: 1px solid var(--w-brass);
+  outline-offset: -1px;
 }
 
 .world-panel-title {

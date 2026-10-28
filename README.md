@@ -362,7 +362,8 @@ llvmpipe under Xvfb) at 1440×900 and 390×844:
   entry is queued if the valley is still loading.
 - Walk, sprint, four air jumps, flight and the return to walking change the player
   state and the HUD.
-- All nine panels open from the HUD: Atlas, chat, Codex, chart, build, avatar,
+- All three HUD doors open (Atlas, Room, Chart) and every tab inside them
+  renders its panel: Atlas, chat, Codex, chart, build, avatar,
   learning, terraces and settings.
 - Two members in one room see each other's presence; a chat message sent by one is
   read by the other.

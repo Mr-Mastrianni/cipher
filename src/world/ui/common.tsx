@@ -3,6 +3,8 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getStore } from "../state";
+import { groupOf } from "./groups";
 
 /**
  * Shared furniture for the world's panels.
@@ -31,6 +33,10 @@ export function Panel({
   footer?: ReactNode;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  // The parent re-renders whenever the panel changes, so reading the store here
+  // is enough to know which tab is current; no second subscription is needed.
+  const active = getStore().get().panel;
+  const group = open ? groupOf(active) : null;
 
   useEffect(() => {
     if (!open) return;
@@ -66,6 +72,27 @@ export function Panel({
             <X aria-hidden="true" className="h-4 w-4" strokeWidth={1.6} />
           </button>
         </header>
+        {group && group.tabs.length > 1 ? (
+          <nav className="world-panel-tabs" aria-label={`${group.label} sections`}>
+            {group.tabs.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                className={cn("world-panel-tab", tab.id === active && "is-active")}
+                aria-current={tab.id === active ? "page" : undefined}
+                onClick={() =>
+                  getStore().set({
+                    panel: tab.id,
+                    chatOpen: tab.id === "chat",
+                    unread: tab.id === "chat" ? 0 : getStore().get().unread,
+                  })
+                }
+              >
+                {tab.label}
+              </button>
+            ))}
+          </nav>
+        ) : null}
         <div className="world-panel-body">{children}</div>
         {footer ? <footer className="world-panel-foot">{footer}</footer> : null}
       </section>
