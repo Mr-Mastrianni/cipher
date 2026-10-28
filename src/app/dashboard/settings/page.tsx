@@ -195,8 +195,8 @@ export default async function SettingsPage({
               <span
                 className="grid h-14 w-14 place-items-center rounded-full border-2 text-xl"
                 style={{
-                  borderColor: avatar?.color ?? "#d4ff3f",
-                  color: avatar?.color ?? "#d4ff3f",
+                  borderColor: avatar?.color ?? "#bfa273",
+                  color: avatar?.color ?? "#bfa273",
                 }}
                 aria-hidden="true"
               >

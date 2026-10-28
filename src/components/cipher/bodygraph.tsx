@@ -269,7 +269,7 @@ export function Bodygraph({
       {/* ── Gates ────────────────────────────────────────────────────── */}
       {showGates && (
         <g
-          fontFamily="var(--font-jetbrains), monospace"
+          fontFamily="var(--font-space-mono), monospace"
           fontSize={13}
           textAnchor="middle"
           dominantBaseline="central"

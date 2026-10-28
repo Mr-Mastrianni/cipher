@@ -22,9 +22,9 @@
   --w-gold: #d4b25e;
   --w-danger: #ff5c8a;
   --w-shadow: 0 30px 90px rgba(0, 0, 0, 0.7);
-  --w-display: var(--font-cinzel), "Syne", ui-sans-serif, system-ui, sans-serif;
-  --w-body: var(--font-montserrat), ui-monospace, monospace;
-  --w-mono: var(--font-jetbrains), ui-monospace, monospace;
+  --w-display: var(--font-instrument), "Instrument Serif", ui-serif, Georgia, serif;
+  --w-body: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --w-mono: var(--font-space-mono), ui-monospace, SFMono-Regular, monospace;
 
   position: fixed;
   inset: 0;
@@ -3230,7 +3230,7 @@ body[data-world="true"] .route-in {
   gap: 14px;
   background: #04010a;
   color: var(--w-bone, #f4f1ff);
-  font-family: var(--font-montserrat), ui-monospace, monospace;
+  font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
 }
 
 .world-boot-mark {
@@ -3264,7 +3264,7 @@ body[data-world="true"] .route-in {
 }
 
 .world-boot p {
-  font-family: var(--font-cinzel), Syne, sans-serif;
+  font-family: var(--font-instrument), "Instrument Serif", Georgia, serif;
   font-size: 13px;
   letter-spacing: 0.24em;
   text-transform: uppercase;

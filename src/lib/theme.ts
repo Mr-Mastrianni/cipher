@@ -12,7 +12,7 @@
  * remains the last-resort fallback on the client.
  */
 
-export const THEMES = ["dark", "light", "plum", "moss"] as const;
+export const THEMES = ["dark", "light"] as const;
 
 export type Theme = (typeof THEMES)[number];
 

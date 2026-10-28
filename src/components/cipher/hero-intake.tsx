@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { ArrowRight } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { DotGlobe, type GlobePlace } from "@/components/cipher/dot-globe";
+import { cn } from "@/lib/utils";
 
 /**
  * The hero.
@@ -23,9 +25,21 @@ import { Button } from "@/components/ui/button";
  * there — guessing a zone silently would move the Ascendant.
  */
 
-const MARKS = [
-  "Ar", "Ta", "Ge", "Cn", "Le", "Vi", "Li", "Sc", "Sg", "Cp", "Aq", "Pi",
-] as const;
+/**
+ * The pins on the globe.
+ *
+ * Six, not six hundred: the point is to answer "where am I casting from" in one
+ * gesture, not to be a gazetteer. Each one writes a city the geocoder already
+ * resolves, so choosing Paris or Osaka is still a matter of typing.
+ *
+ * `note` is only read by the list under the globe; the canvas label is the name.
+ */
+const PLACES: readonly GlobePlace[] = [
+  { id: "ujjain", name: "Ujjain", note: "The KP meridian", city: "Ujjain, India", lat: 23.18, lon: 75.78 },
+  { id: "london", name: "London", note: "Greenwich", city: "London, England", lat: 51.51, lon: -0.13 },
+  { id: "new-york", name: "New York", note: "West gate", city: "New York, USA", lat: 40.71, lon: -74.01 },
+  { id: "tokyo", name: "Tokyo", note: "First light", city: "Tokyo, Japan", lat: 35.68, lon: 139.69 },
+];
 
 const GLASS =
   "w-full rounded-md border border-hairline bg-ink/60 px-3 py-2.5 text-sm text-bone placeholder:text-faint focus-visible:border-gold/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/30";
@@ -35,6 +49,7 @@ export function HeroIntake() {
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
   const [place, setPlace] = useState("");
+  const [chosenPlace, setChosenPlace] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   function submit(event: React.FormEvent) {
@@ -58,24 +73,24 @@ export function HeroIntake() {
 
   return (
     <section className="relative overflow-hidden border-b border-hairline">
-      <div className="mx-auto grid w-full max-w-6xl items-center gap-12 px-6 pb-20 pt-14 lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)] lg:gap-16 lg:pb-28 lg:pt-24">
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-6 pb-16 pt-10 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)] lg:items-center lg:gap-16 lg:pb-28 lg:pt-24">
         {/* ── The intake ─────────────────────────────────────────────── */}
-        <div className="flex flex-col">
-          <p className="font-mono text-[10px] uppercase tracking-[0.32em] text-gold">
-            KP · Human Design · one verified instant
+        <div className="contents lg:flex lg:flex-col">
+          <p className="order-1 font-mono text-[10px] uppercase tracking-[0.2em] text-gold">
+            KP astrology · Human Design
           </p>
 
-          <h1 className="mt-5 max-w-xl font-display text-4xl leading-[1.05] text-bone text-balance sm:text-5xl lg:text-6xl">
+          <h1 className="order-2 mt-4 max-w-xl font-display text-3xl leading-[1.06] text-bone text-balance sm:text-4xl lg:mt-5 lg:text-6xl">
             Your birth moment,{" "}
             <span className="text-gold">read to the second.</span>
           </h1>
 
-          <p className="mt-5 max-w-xl text-sm leading-relaxed text-muted text-pretty sm:text-base">
-            KP sub-lords, Placidus cusps and the bodygraph, computed from one
-            birth instant you confirm. No account needed to see the chart.
+          <p className="order-3 mt-4 max-w-xl text-sm leading-relaxed text-muted text-pretty lg:mt-5 lg:text-base">
+            One confirmed instant, cast into a KP chart and a bodygraph — no
+            account needed to read it.
           </p>
 
-          <form onSubmit={submit} className="mt-8 flex max-w-xl flex-col gap-3">
+          <form onSubmit={submit} className="order-6 mt-6 flex max-w-xl flex-col gap-3 lg:mt-8">
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="flex flex-col gap-1.5">
                 <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-faint">
@@ -120,7 +135,7 @@ export function HeroIntake() {
               />
             </label>
 
-            <div className="mt-1 flex flex-wrap items-center gap-4">
+            <div className="order-5 mt-1 flex flex-wrap items-center gap-4">
               <Button type="submit" size="lg">
                 Read my chart
                 <ArrowRight aria-hidden="true" className="h-4 w-4" strokeWidth={1.5} />
@@ -140,51 +155,54 @@ export function HeroIntake() {
           </form>
         </div>
 
-        {/* ── The ring ───────────────────────────────────────────────── */}
-        <div
-          aria-hidden="true"
-          className="relative mx-auto aspect-square w-full max-w-[26rem] justify-self-center [perspective:1000px]"
-        >
-          {/* Ground glow */}
-          <div className="absolute inset-0 rounded-full bg-[radial-gradient(circle_at_50%_50%,color-mix(in_srgb,var(--c-gold)_22%,transparent),transparent_62%)] blur-2xl" />
+        {/* ── The globe ──────────────────────────────────────────────── */}
+        <div className="order-4 relative mx-auto w-full max-w-[19rem] justify-self-center lg:max-w-[26rem]">
+          <DotGlobe
+            places={PLACES}
+            activeId={chosenPlace}
+            onSelect={(chosen) => {
+              setPlace(chosen.city);
+              setChosenPlace(chosen.id);
+              setError(null);
+            }}
+            className="-mx-2 w-[calc(100%+1rem)]"
+          />
 
-          {/* Tilted zodiac band */}
-          <div className="absolute inset-0 [transform-style:preserve-3d]">
-            <div className="absolute inset-0 [transform:rotateX(62deg)] [transform-style:preserve-3d]">
-              <div className="ring-spin absolute inset-0 [transform-style:preserve-3d]">
-                <div className="absolute inset-[6%] rounded-full border border-gold/30" />
-                <div className="absolute inset-[18%] rounded-full border border-line/70" />
-                <div className="absolute inset-[34%] rounded-full border border-purple/40" />
-
-                {MARKS.map((mark, index) => (
-                  <div
-                    key={mark}
-                    className="absolute left-1/2 top-1/2 h-1/2 w-px origin-top"
-                    style={{ transform: `rotate(${index * 30}deg)` }}
-                  >
-                    <span className="absolute bottom-0 left-1/2 h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-gold" />
-                    <span className="absolute bottom-3 left-1/2 -translate-x-1/2 font-mono text-[9px] uppercase tracking-[0.12em] text-muted">
-                      {mark}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
+          <div
+            role="group"
+            aria-label="Choose a place"
+            className="mt-1 flex flex-wrap items-center justify-center gap-x-2 gap-y-1.5"
+          >
+            {PLACES.map((option) => {
+              const active = option.id === chosenPlace;
+              return (
+                <button
+                  key={option.id}
+                  type="button"
+                  aria-pressed={active}
+                  title={option.note}
+                  onClick={() => {
+                    setPlace(option.city);
+                    setChosenPlace(option.id);
+                    setError(null);
+                  }}
+                  className={cn(
+                    "rounded-full border px-2.5 py-1.5 font-mono text-[9px] uppercase tracking-[0.16em] transition-colors",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/40",
+                    active
+                      ? "border-gold/60 bg-gold/5 text-gold"
+                      : "border-hairline text-muted hover:border-gold/40 hover:text-bone",
+                  )}
+                >
+                  {option.name}
+                </button>
+              );
+            })}
           </div>
 
-          {/* Still core + slow counter-orbit */}
-          <div className="absolute inset-0 grid place-items-center">
-            <div className="relative h-24 w-24 rounded-full border border-gold/40">
-              <div className="absolute inset-3 rounded-full border border-purple/40" />
-              <div className="absolute inset-0 grid place-items-center">
-                <span className="h-2 w-2 rounded-full bg-gold shadow-[0_0_18px_4px_color-mix(in_srgb,var(--c-gold)_55%,transparent)]" />
-              </div>
-            </div>
-          </div>
-
-          <div className="orbit-spin absolute inset-[12%] rounded-full border border-line/60">
-            <span className="absolute left-1/2 top-0 h-2 w-2 -translate-x-1/2 rounded-full bg-teal" />
-          </div>
+          <p className="mt-3 text-center font-mono text-[9px] uppercase tracking-[0.18em] text-faint">
+            Drag to spin · tap a pin
+          </p>
         </div>
       </div>
     </section>

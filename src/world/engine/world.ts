@@ -351,7 +351,7 @@ function drawBanner(
   ctx.globalAlpha = 0.85;
   ctx.fillText(opts.kicker.toUpperCase(), left, 54);
   ctx.globalAlpha = 1;
-  ctx.font = "700 54px Syne, ui-sans-serif, sans-serif";
+  ctx.font = "700 54px Instrument Serif, ui-serif, Georgia, serif";
   ctx.fillStyle = "#f4f1ff";
   ctx.fillText(opts.title, left, 118);
   ctx.font = "400 26px ui-sans-serif, sans-serif";
@@ -2195,7 +2195,7 @@ function drawSessionScreen(ctx: CanvasRenderingContext2D, session: SessionState 
     44,
     74,
   );
-  ctx.font = "700 58px Syne, ui-sans-serif, sans-serif";
+  ctx.font = "700 58px Instrument Serif, ui-serif, Georgia, serif";
   ctx.fillStyle = "#f4f1ff";
   ctx.fillText(session ? trim(session.title, 30) : "Take the floor", 44, 150);
   ctx.font = "400 28px ui-sans-serif, sans-serif";
@@ -2297,7 +2297,7 @@ function drawChartScreen(ctx: CanvasRenderingContext2D, chart: MemberChart | nul
   ctx.font = "500 20px ui-monospace, monospace";
   ctx.fillStyle = "#5ce1e6";
   ctx.fillText("THE NINE GRAHAS", 36, 54);
-  ctx.font = "700 34px Syne, ui-sans-serif, sans-serif";
+  ctx.font = "700 34px Instrument Serif, ui-serif, Georgia, serif";
   ctx.fillStyle = "#f4f1ff";
   ctx.fillText(chart?.lagnaName ? `Lagna ${chart.lagnaName}` : "The sidereal sky", 36, 100);
   ctx.font = "400 19px ui-monospace, monospace";
@@ -2309,7 +2309,7 @@ function drawChartScreen(ctx: CanvasRenderingContext2D, chart: MemberChart | nul
     ctx.font = "400 26px ui-serif, Georgia, serif";
     ctx.fillText(graha.glyph, x, y);
     ctx.fillStyle = "#f4f1ff";
-    ctx.font = "600 18px Syne, ui-sans-serif, sans-serif";
+    ctx.font = "600 18px Instrument Serif, ui-serif, Georgia, serif";
     ctx.fillText(graha.name, x + 34, y - 2);
     ctx.fillStyle = "rgba(244,241,255,0.6)";
     ctx.font = "400 15px ui-monospace, monospace";
@@ -2339,7 +2339,7 @@ function drawBodygraphScreen(ctx: CanvasRenderingContext2D, chart: MemberChart |
   ctx.font = "500 20px ui-monospace, monospace";
   ctx.fillStyle = "#b45cff";
   ctx.fillText("THE BODYGRAPH", 36, 58);
-  ctx.font = "700 42px Syne, ui-sans-serif, sans-serif";
+  ctx.font = "700 42px Instrument Serif, ui-serif, Georgia, serif";
   ctx.fillStyle = "#f4f1ff";
   ctx.fillText(chart?.bodygraphType ?? "Add your birth data", 36, 116);
   ctx.font = "400 22px ui-sans-serif, sans-serif";

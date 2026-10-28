@@ -64,20 +64,31 @@ Here the reading is computed from a URL-safe code that packs the birth data, so
 anyone can compute and share a reading **without an account and without the
 server storing anything**. See `src/lib/cipher/share-code.ts`.
 
-### 3. Every room has a route
+### 3. The door is a place, not a form
+
+The landing page opens on a dot-matrix Earth: drag to spin it, pinch to zoom,
+tap a pin, and the city field fills itself. It is 6,077 points sampled on a
+Fibonacci sphere and tested against Natural Earth land once, offline
+(`pnpm geo:dots`), then drawn through an orthographic projection on a 2D canvas:
+no WebGL, no three.js, ~32KB packed, still sharp on a phone that refuses a
+second GL context. Positions, not pixels: selecting a place is the first half of
+the intake, and the same component will drive relocation on the cosmic map.
+
+### 4. Every room has a route
 
 The reference hides six "rooms" in client state, so nothing is linkable or
 indexable. Everything here is a real route with its own metadata, plus a
 `sitemap.xml` and `robots.txt`.
 
-### 4. One design system
+### 5. One design system
 
-A single token family with four themes (Void, Bone, Plum, Moss) rather than two
-parallel sets, one theme choice rather than three, and no dead themes. The choice
+A single token family with two themes — **Noir** and **Ivory** — rather than
+four. The palette is ink, paper and one metal (brass); there is no neon and no
+second accent, so colour is spent only where data needs it: the chart. The choice
 is mirrored into a cookie so the server renders the right `data-theme` in the
 HTML: no pre-paint script, nothing to flash.
 
-### 5. The Cipher is also a world
+### 6. The Cipher is also a world
 
 `/world` is a navigable, first-person 3D valley: the Axis with its 27 nakshatra
 markers, nine graha stones and nine Human Design centre stelae; the Observatory,

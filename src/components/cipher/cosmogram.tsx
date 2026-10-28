@@ -13,6 +13,24 @@ interface CosmogramProps {
   activatedGates?: readonly number[];
 }
 
+/**
+ * Round an SVG coordinate to three decimals.
+ *
+ * Node and the browser are allowed to disagree in the last bits of `Math.sin`
+ * and `Math.cos`. React serialises both render passes, sees `22.057713659400548`
+ * against `"22.057713659400534"`, and reports a hydration mismatch on every page
+ * this ornament appears on. Three decimals is a thousandth of a unit in a 200
+ * unit box — far below a pixel — so rounding costs nothing visually and makes
+ * the markup deterministic.
+ */
+const round = (value: number) => Math.round(value * 1000) / 1000;
+
+/** A point on a circle centred at (100, 100), in the 200×200 viewBox. */
+const polar = (angle: number, radius: number) => ({
+  x: round(100 + Math.cos(angle) * radius),
+  y: round(100 + Math.sin(angle) * radius),
+});
+
 /** The 64 gate positions around the wheel, evenly spaced. */
 const GATE_ANGLES = Array.from({ length: 64 }, (_, i) => (i * 360) / 64 - 90);
 
@@ -93,17 +111,15 @@ export function Cosmogram({
       <g opacity={0.5 + p * 0.4}>
         {Array.from({ length: 12 }, (_, i) => {
           const angle = (i * 30 - 90) * (Math.PI / 180);
-          const x1 = 100 + Math.cos(angle) * 90;
-          const y1 = 100 + Math.sin(angle) * 90;
-          const x2 = 100 + Math.cos(angle) * 82;
-          const y2 = 100 + Math.sin(angle) * 82;
+          const outer = polar(angle, 90);
+          const inner = polar(angle, 82);
           return (
             <line
               key={i}
-              x1={x1}
-              y1={y1}
-              x2={x2}
-              y2={y2}
+              x1={outer.x}
+              y1={outer.y}
+              x2={inner.x}
+              y2={inner.y}
               stroke="var(--c-gold)"
               strokeWidth="0.6"
               opacity="0.65"
@@ -119,11 +135,12 @@ export function Cosmogram({
           const gate = i + 1;
           const isActive = activatedGates?.includes(gate) ?? false;
           const reveal = p > i / 64;
+          const point = polar(angle, 78);
           return (
             <circle
               key={gate}
-              cx={100 + Math.cos(angle) * 78}
-              cy={100 + Math.sin(angle) * 78}
+              cx={point.x}
+              cy={point.y}
               r={isActive ? 2.2 : 1.1}
               fill={isActive ? "var(--c-gold)" : "var(--c-open-stroke)"}
               opacity={isActive ? 1 : reveal ? 0.55 : 0.18}
@@ -135,31 +152,16 @@ export function Cosmogram({
       {/* six bodygate dots on the outer ring, as on the reference cosmogram */}
       <g fill="var(--c-gold)" opacity={0.4 + p * 0.6}>
         {[0, 60, 120, 180, 240, 300].map((deg) => {
-          const angle = (deg - 90) * (Math.PI / 180);
-          return (
-            <circle
-              key={deg}
-              cx={100 + Math.cos(angle) * 90}
-              cy={100 + Math.sin(angle) * 90}
-              r="2.5"
-            />
-          );
+          const point = polar((deg - 90) * (Math.PI / 180), 90);
+          return <circle key={deg} cx={point.x} cy={point.y} r="2.5" />;
         })}
       </g>
 
       {/* inner spokes, revealed with progress */}
       <g opacity={p * 0.5} stroke="var(--c-hairline)" strokeWidth="0.5">
         {Array.from({ length: 6 }, (_, i) => {
-          const angle = ((i * 60 - 90) * Math.PI) / 180;
-          return (
-            <line
-              key={i}
-              x1="100"
-              y1="100"
-              x2={100 + Math.cos(angle) * 42}
-              y2={100 + Math.sin(angle) * 42}
-            />
-          );
+          const point = polar(((i * 60 - 90) * Math.PI) / 180, 42);
+          return <line key={i} x1="100" y1="100" x2={point.x} y2={point.y} />;
         })}
       </g>
 

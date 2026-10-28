@@ -21,10 +21,8 @@ export { THEMES };
 export type { Theme };
 
 export const THEME_LABEL: Record<Theme, string> = {
-  dark: "Void",
-  light: "Bone",
-  plum: "Plum",
-  moss: "Moss",
+  dark: "Noir",
+  light: "Ivory",
 };
 
 interface ThemeContextValue {
@@ -83,7 +81,7 @@ export function ThemeProvider({
     if (meta) {
       meta.setAttribute(
         "content",
-        next === "light" ? "#fbfaf7" : next === "plum" ? "#2c2733" : next === "moss" ? "#131a16" : "#0b0b11",
+        next === "light" ? "#faf8f4" : "#0a0a0c",
       );
     }
   }, []);

@@ -15,6 +15,7 @@
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
     "db:seed": "node --import tsx scripts/seed.mts",
+    "geo:dots": "node --import tsx scripts/land-dots.mts",
     "db:studio": "drizzle-kit studio",
     "dev:world": "node server/world-server.mjs",
     "dev:realm": "concurrently -k -n web,world -c cyan,magenta \"next dev\" \"node server/world-server.mjs\"",

@@ -10,7 +10,7 @@ import {
 import "./globals.css";
 
 /**
- * Self-hosted variable fonts.
+ * Self-hosted fonts.
  *
  * These were previously loaded with `next/font/google`, which fetches the font
  * files from Google during `next build`. That makes every deploy depend on a
@@ -19,18 +19,28 @@ import "./globals.css";
  * inside `@next/font/dist/google/loader.js`. Serving the files from the repo
  * removes the failure mode entirely and cuts two round-trips at runtime.
  *
- * The faces are Syne (a geometric display grotesque) and Space Mono, matching
- * the neon research-lab reference. The CSS variable names are unchanged —
- * `--font-cinzel` is still the display family, `--font-montserrat` the body and
- * `--font-jetbrains` the mono — so every existing `font-display` / `font-sans` /
- * `font-mono` utility keeps working and only the faces moved.
+ * The pairing is deliberate: Instrument Serif (a high-contrast display serif)
+ * for headings and the wordmark, Inter (a neutral grotesque) for everything
+ * read at length, and Space Mono demoted to labels, coordinates and keys. Body
+ * copy was previously set in Space Mono, which is what made the site read as a
+ * terminal rather than a publication.
  */
-const syne = localFont({
-  src: "./fonts/Syne-Variable.woff2",
-  variable: "--font-cinzel",
-  weight: "400 800",
+const instrument = localFont({
+  src: [
+    { path: "./fonts/InstrumentSerif-Regular.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/InstrumentSerif-Italic.woff2", weight: "400", style: "italic" },
+  ],
+  variable: "--font-instrument",
   display: "swap",
-  fallback: ["ui-sans-serif", "system-ui", "sans-serif"],
+  fallback: ["ui-serif", "Georgia", "Times New Roman", "serif"],
+});
+
+const inter = localFont({
+  src: "./fonts/Inter-Variable.woff2",
+  variable: "--font-inter",
+  weight: "100 900",
+  display: "swap",
+  fallback: ["ui-sans-serif", "system-ui", "Helvetica", "Arial", "sans-serif"],
 });
 
 const spaceMono = localFont({
@@ -38,17 +48,7 @@ const spaceMono = localFont({
     { path: "./fonts/SpaceMono-Regular.woff2", weight: "400" },
     { path: "./fonts/SpaceMono-Bold.woff2", weight: "700" },
   ],
-  variable: "--font-montserrat",
-  display: "swap",
-  fallback: ["ui-monospace", "SFMono-Regular", "monospace"],
-});
-
-const spaceMonoCode = localFont({
-  src: [
-    { path: "./fonts/SpaceMono-Regular.woff2", weight: "400" },
-    { path: "./fonts/SpaceMono-Bold.woff2", weight: "700" },
-  ],
-  variable: "--font-jetbrains",
+  variable: "--font-space-mono",
   display: "swap",
   fallback: ["ui-monospace", "SFMono-Regular", "monospace"],
 });
@@ -97,8 +97,8 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: dark)", color: "#0b0b11" },
-    { media: "(prefers-color-scheme: light)", color: "#fbfaf7" },
+    { media: "(prefers-color-scheme: dark)", color: "#0a0a0c" },
+    { media: "(prefers-color-scheme: light)", color: "#faf8f4" },
   ],
   width: "device-width",
   initialScale: 1,
@@ -128,8 +128,9 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
     <html
       lang="en"
       data-theme={theme}
+      data-scroll-behavior="smooth"
       suppressHydrationWarning
-      className={`${syne.variable} ${spaceMono.variable} ${spaceMonoCode.variable} h-full`}
+      className={`${instrument.variable} ${inter.variable} ${spaceMono.variable} h-full`}
     >
       <body className="min-h-full flex flex-col bg-void text-bone font-sans antialiased">
         <a

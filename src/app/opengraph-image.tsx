@@ -9,11 +9,11 @@ export const alt =
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
-const GOLD = "#c8912f";
-const BONE = "#ede6d0";
-const VOID = "#0b0b11";
-const MUTED = "#8a8a9a";
-const LINE = "#3a3a48";
+const GOLD = "#bfa273";
+const BONE = "#ece6da";
+const VOID = "#0a0a0c";
+const MUTED = "#a49e95";
+const LINE = "#26262c";
 
 export default function OpengraphImage() {
   return new ImageResponse(
@@ -26,7 +26,7 @@ export default function OpengraphImage() {
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          background: `radial-gradient(circle at 50% 12%, #161622 0%, ${VOID} 62%)`,
+          background: `radial-gradient(circle at 50% 12%, #131318 0%, ${VOID} 62%)`,
           color: BONE,
           fontFamily: "serif",
           position: "relative",
@@ -42,7 +42,7 @@ export default function OpengraphImage() {
               height: r * 2,
               borderRadius: 9999,
               border: `1px solid ${
-                [GOLD, "#7b61ff", "#2dd4bf"][i]
+                [GOLD, "#8e93b8", "#7e9e93"][i]
               }`,
               opacity: 0.35,
             }}

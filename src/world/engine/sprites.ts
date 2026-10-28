@@ -2,7 +2,7 @@
  * Text and glow in the world, drawn on canvases and billboarded.
  *
  * Canvas text keeps the realm free of a texture atlas and lets the labels use the
- * Syne / Space Mono pairing as the interface. Every sprite here is created once
+ * Instrument Serif / Inter pairing as the interface. Every sprite here is created once
  * and shared; nothing is redrawn per frame.
  */
 import * as THREE from 'three';
@@ -19,25 +19,25 @@ const cache = new Map<string, THREE.Texture>();
 function displayFont(): string {
   try {
     const value = getComputedStyle(document.documentElement)
-      .getPropertyValue("--font-cinzel")
+      .getPropertyValue("--font-instrument")
       .trim();
-    if (value) return `${value}, 'Syne', Georgia, serif`;
+    if (value) return `${value}, 'Instrument Serif', Georgia, serif`;
   } catch {
     /* not in a browser context */
   }
-  return "'Syne', Georgia, serif";
+  return "'Instrument Serif', Georgia, serif";
 }
 
 function italicFont(): string {
   try {
     const value = getComputedStyle(document.documentElement)
-      .getPropertyValue("--font-cinzel")
+      .getPropertyValue("--font-instrument")
       .trim();
-    if (value) return `${value}, 'Syne', Georgia, serif`;
+    if (value) return `${value}, 'Instrument Serif', Georgia, serif`;
   } catch {
     /* not in a browser context */
   }
-  return "'Syne', Georgia, serif";
+  return "'Instrument Serif', Georgia, serif";
 }
 
 function canvasTexture(key: string, draw: (g: CanvasRenderingContext2D, w: number, h: number) => void, w = 512, h = 256): THREE.Texture {
