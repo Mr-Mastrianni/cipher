@@ -297,3 +297,18 @@ with `both` fill over the existing planet canvas:
   haze, and a pointer parallax on a spring.
 - The planet gained weather (a procedural band/storm texture that turns with the
   longitude), a terminator, an inner air band and a two-pass atmospheric bloom.
+
+**The journey (page-level sky).** Verified against the reference: dark-moon's
+sky is `position: fixed` at page level — the image stays at `top: 0` while the
+page scrolls over it. The landing now does the same.
+
+- `CosmicBackdrop` is one fixed layer behind the whole page: starfield, the
+  planet, and a veil. It never scrolls away, so every chapter is set against
+  the same horizon.
+- The planet **turns with the page** (`spinRef`, 0.045° per pixel), grows to
+  2.15× and drifts, driven by page scroll rather than by a section's progress.
+- Chapters sit above it in normal flow; the journey ends at `S.07 · The portal`,
+  a grid of six destinations (chart, world, Collective, method, membership,
+  sign in).
+- The horizon canvas now derives a viewport size when its first measurement is
+  zero, which is what a pinned/transformed ancestor can produce.

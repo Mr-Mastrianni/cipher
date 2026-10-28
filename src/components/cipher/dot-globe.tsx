@@ -58,6 +58,12 @@ interface DotGlobeProps {
    * the world by the edge and turn it.
    */
   variant?: "globe" | "horizon";
+  /**
+   * An external spin, in degrees, sampled every frame. The backdrop uses it to
+   * turn the planet with the page scroll — the canvas reads it through a ref so
+   * scrolling never re-renders React.
+   */
+  spinRef?: { current: number };
   className?: string;
 }
 
@@ -103,6 +109,7 @@ export function DotGlobe({
   initialLon = 24,
   initialLat = 18,
   variant = "globe",
+  spinRef,
   className,
 }: DotGlobeProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -201,8 +208,17 @@ export function DotGlobe({
     const resize = () => {
       const rect = wrap.getBoundingClientRect();
       // CSS pixels; the canvas backing store is scaled by the device ratio.
+      // The horizon can live inside a pinned, transformed or fixed ancestor
+      // whose first measurement is zero. It is scenery the size of the screen,
+      // so a viewport-derived size is always correct and never collapses.
       width = Math.max(1, rect.width);
       height = Math.max(1, rect.height);
+      if (horizon && (width < 2 || height < 2)) {
+        width = Math.round(Math.max(window.innerWidth, window.innerHeight) * 1.35);
+        height = width;
+        canvas.style.width = `${width}px`;
+        canvas.style.height = `${height}px`;
+      }
       dpr = Math.min(window.devicePixelRatio || 1, 2.5);
       canvas.width = Math.round(width * dpr);
       canvas.height = Math.round(height * dpr);
@@ -219,7 +235,7 @@ export function DotGlobe({
     const project = (lon: number, lat: number) => {
       const state = motion.current;
       const phi = lat * RAD;
-      const lambda = (lon - state.lon) * RAD;
+      const lambda = (lon - (state.lon + (spinRef?.current ?? 0))) * RAD;
       const phi0 = state.lat * RAD;
       const cosc =
         Math.sin(phi0) * Math.sin(phi) +

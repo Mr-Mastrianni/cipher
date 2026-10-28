@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { motion, useReducedMotion, useScroll, useTransform } from "motion/react";
 
 import { DotGlobe, type GlobePlace } from "@/components/cipher/dot-globe";
@@ -22,6 +23,16 @@ const PLACES: readonly GlobePlace[] = [
 export function CosmicBackdrop() {
   const reduced = useReducedMotion();
   const { scrollY } = useScroll();
+
+  // The planet turns with the page: the surface moves under a fixed camera,
+  // which is what makes scrolling read as travelling rather than zooming.
+  const spin = useRef(0);
+  useEffect(() => {
+    const unsubscribe = scrollY.on("change", (value) => {
+      spin.current = value * 0.045;
+    });
+    return unsubscribe;
+  }, [scrollY]);
 
   // A long, slow push: the planet grows for three screens, then holds.
   const scale = useTransform(scrollY, [0, 2600], [1, 2.15]);
@@ -66,6 +77,7 @@ export function CosmicBackdrop() {
             onSelect={() => {}}
             initialLon={18}
             initialLat={14}
+            spinRef={spin}
             className="h-full w-full"
           />
         </div>
