@@ -9,14 +9,13 @@ import type { GlobePlace } from "@/components/cipher/dot-globe";
 import { cn } from "@/lib/utils";
 
 /**
- * The landing page's first movement: the opening sequence, then the intake.
+ * The landing's intake: date, time and place, in the page's hairline language.
  *
- * The hero is a title card (`CinematicHero`); the form is the first thing it
- * hands you, one scroll down, in the page's hairline language. Submitting
- * carries date, time and place to `/enter`, because the zone and any
- * daylight-saving fold must still be confirmed there. A place chosen from the
- * list carries its coordinates and zone too, so the intake can skip its
- * geocode.
+ * It lives in a sheet the hero's "Cast your chart" opens, so the landing itself
+ * stays short. Submitting carries date, time and place to `/enter`, because
+ * the zone and any daylight-saving fold must still be confirmed there. A place
+ * chosen from the list carries its coordinates and zone too, so the intake can
+ * skip its geocode.
  */
 
 const PLACES: readonly GlobePlace[] = [
@@ -33,7 +32,7 @@ const LABEL = "font-mono text-[9px] uppercase tracking-[0.22em] text-faint";
 
 const RAIL = "font-mono text-[8.5px] uppercase tracking-[0.2em] text-faint";
 
-export function IntakeSection() {
+export function IntakeForm() {
   const router = useRouter();
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
@@ -72,104 +71,83 @@ export function IntakeSection() {
   }
 
   return (
-      <section
-        id="cast"
-        className="relative z-10 scroll-mt-20 border-t border-hairline bg-void px-6 py-20 lg:px-12 lg:py-28"
-      >
-        <div className="mx-auto grid w-full max-w-[1400px] gap-12 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:gap-20">
-          <div>
-            <span className="inline-flex items-center gap-2 rounded-full border border-gold/35 px-3 py-1 font-mono text-[8.5px] uppercase tracking-[0.22em] text-gold">
-              S.00 · Your coordinates
-            </span>
-            <h2 className="mt-6 max-w-[18ch] font-display text-3xl leading-[1.05] text-bone sm:text-4xl lg:text-5xl">
-              One instant, held to the second.
-            </h2>
-            <p className="mt-5 max-w-[40ch] text-sm leading-relaxed text-muted">
-              The date, the time and the place. Everything the chart, the map and
-              the bodygraph draw from starts here — and the time zone is
-              confirmed by you, never guessed.
-            </p>
-          </div>
+    <form onSubmit={submit} className="flex flex-col gap-7">
+      <div className="grid gap-x-8 gap-y-6 sm:grid-cols-2">
+        <label className="flex flex-col gap-2">
+          <span className={LABEL}>Date of birth</span>
+          <input
+            type="date"
+            value={date}
+            onChange={(event) => setDate(event.target.value)}
+            className={FIELD}
+            aria-label="Date of birth"
+          />
+        </label>
 
-          <form onSubmit={submit} className="flex flex-col gap-7">
-            <div className="grid gap-x-8 gap-y-6 sm:grid-cols-2">
-              <label className="flex flex-col gap-2">
-                <span className={LABEL}>Date of birth</span>
-                <input
-                  type="date"
-                  value={date}
-                  onChange={(event) => setDate(event.target.value)}
-                  className={FIELD}
-                  aria-label="Date of birth"
-                />
-              </label>
+        <label className="flex flex-col gap-2">
+          <span className={LABEL}>Time · to the second</span>
+          <input
+            type="time"
+            step={1}
+            value={time}
+            onChange={(event) => setTime(event.target.value)}
+            className={FIELD}
+            aria-label="Time of birth, to the second"
+          />
+        </label>
+      </div>
 
-              <label className="flex flex-col gap-2">
-                <span className={LABEL}>Time · to the second</span>
-                <input
-                  type="time"
-                  step={1}
-                  value={time}
-                  onChange={(event) => setTime(event.target.value)}
-                  className={FIELD}
-                  aria-label="Time of birth, to the second"
-                />
-              </label>
-            </div>
+      <label className="flex flex-col gap-2">
+        <span className={LABEL}>Nearest city</span>
+        <input
+          type="text"
+          value={place}
+          onChange={(event) => setPlace(event.target.value)}
+          placeholder="Leeds, England"
+          autoComplete="off"
+          className={FIELD}
+          aria-label="Nearest city of birth"
+        />
+      </label>
 
-            <label className="flex flex-col gap-2">
-              <span className={LABEL}>Nearest city</span>
-              <input
-                type="text"
-                value={place}
-                onChange={(event) => setPlace(event.target.value)}
-                placeholder="Leeds, England"
-                autoComplete="off"
-                className={FIELD}
-                aria-label="Nearest city of birth"
-              />
-            </label>
+      <div className="flex flex-wrap items-baseline gap-x-4 gap-y-2">
+        <span className={cn(LABEL, "mr-1")}>Places</span>
+        {PLACES.map((option) => {
+          const active = option.id === chosenPlace;
+          return (
+            <button
+              key={option.id}
+              type="button"
+              aria-pressed={active}
+              title={option.note}
+              onClick={() => {
+                setPlace(option.city);
+                setChosenPlace(option.id);
+                setError(null);
+              }}
+              className={cn(
+                "font-mono text-[9px] uppercase tracking-[0.18em] transition-colors",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/40",
+                active ? "text-gold" : "text-muted hover:text-bone",
+              )}
+            >
+              {option.name}
+            </button>
+          );
+        })}
+      </div>
 
-            <div className="flex flex-wrap items-baseline gap-x-4 gap-y-2">
-              <span className={cn(LABEL, "mr-1")}>Places</span>
-              {PLACES.map((option) => {
-                const active = option.id === chosenPlace;
-                return (
-                  <button
-                    key={option.id}
-                    type="button"
-                    aria-pressed={active}
-                    title={option.note}
-                    onClick={() => {
-                      setPlace(option.city);
-                      setChosenPlace(option.id);
-                      setError(null);
-                    }}
-                    className={cn(
-                      "font-mono text-[9px] uppercase tracking-[0.18em] transition-colors",
-                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/40",
-                      active ? "text-gold" : "text-muted hover:text-bone",
-                    )}
-                  >
-                    {option.name}
-                  </button>
-                );
-              })}
-            </div>
+      <div className="flex flex-wrap items-center gap-5 pt-1">
+        <Button type="submit" size="lg">
+          Read my chart
+          <ArrowRight aria-hidden="true" className="h-4 w-4" strokeWidth={1.5} />
+        </Button>
+        <span className={RAIL}>Then confirm the time zone</span>
+      </div>
 
-            <div className="flex flex-wrap items-center gap-5 pt-1">
-              <Button type="submit" size="lg">
-                Read my chart
-                <ArrowRight aria-hidden="true" className="h-4 w-4" strokeWidth={1.5} />
-              </Button>
-              <span className={RAIL}>Then confirm the time zone</span>
-            </div>
-
-            <p role="alert" aria-live="polite" className="min-h-4 text-sm text-danger">
-              {error ?? ""}
-            </p>
-          </form>
-        </div>
-      </section>
+      <p role="alert" aria-live="polite" className="min-h-4 text-sm text-danger">
+        {error ?? ""}
+      </p>
+    </form>
   );
 }

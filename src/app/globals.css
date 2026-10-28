@@ -552,8 +552,11 @@
   }
 }
 
+/* `backwards`, not `both`: a transform left on this wrapper after the entrance
+   would make it the containing block for every `position: fixed` inside it —
+   the page's sky and any pinned section would scroll away with the content. */
 .route-in {
-  animation: route-in 380ms var(--ease-out-quint) both;
+  animation: route-in 380ms var(--ease-out-quint) backwards;
 }
 
 @keyframes ring-spin {

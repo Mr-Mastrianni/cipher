@@ -156,8 +156,12 @@ const FAQ = [
     a: "One hour, once a week, recorded and archived. We read charts live, take questions in the order they were asked, and work through whatever the room is stuck on. Nothing is sold from the stage.",
   },
   {
-    q: "Do I need to know my birth time?",
-    a: "It helps enormously, and the intake is honest about what changes if you do not. The Sun and the outer planets barely move in a day; the Moon and the Ascendant move a great deal. Without a time we compute at noon and label the parts that are placeholders.",
+    q: "Do I need to know my exact birth time?",
+    a: "Yes — to the second. KP judges every house by the sub lord of its cusp, and a cusp moves about fifteen arcseconds per second of clock time, so a sub lord can change within a minute. We ask for hours, minutes and seconds, show you the resolved time zone, UTC offset and daylight saving, and cast nothing until you confirm it. Every cusp is labelled with how many seconds of error it can absorb.",
+  },
+  {
+    q: "Where does the calculation come from?",
+    a: "The KP chart uses the full VSOP87 planetary theory and the ELP/MPP02 lunar theory, with the KP (Krishnamurti) ayanamsa and Placidus cusps, tested against the Swiss Ephemeris to within half an arcsecond for the grahas and a tenth of an arcsecond for the cusps. There is no Western or tropical chart and no fallback to one. The Human Design layer solves the Design side as exactly eighty-eight degrees of solar arc, not eighty-eight days.",
   },
 ] as const;
 

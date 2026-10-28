@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, Moon, Palette, Sun, Volume2, VolumeX } from "lucide-react";
@@ -68,10 +68,26 @@ export function SiteHeader({
 
   const ThemeIcon = theme === "dark" ? Moon : theme === "light" ? Sun : Palette;
 
+  // On a phone the header steps aside while you read down the page and comes
+  // back the moment you scroll up. Desktop keeps it fixed in place.
+  const [tucked, setTucked] = useState(false);
+  useEffect(() => {
+    let last = window.scrollY;
+    const onScroll = () => {
+      const y = window.scrollY;
+      if (Math.abs(y - last) < 6) return;
+      setTucked(y > 120 && y > last);
+      last = y;
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
   return (
     <header
       className={cn(
-        "surface sticky top-0 z-40 rounded-none border-x-0 border-t-0 backdrop-blur-xl",
+        "surface sticky top-0 z-40 rounded-none border-x-0 border-t-0 backdrop-blur-xl transition-transform duration-300 ease-out motion-reduce:transition-none md:translate-y-0",
+        tucked && !menuOpen && "-translate-y-full",
         className,
       )}
     >
