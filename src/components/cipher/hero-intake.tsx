@@ -1,39 +1,29 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { DotGlobe, type GlobePlace } from "@/components/cipher/dot-globe";
+import { Starfield } from "@/components/cipher/starfield";
 import { cn } from "@/lib/utils";
 
 /**
  * The hero.
  *
- * Replaces the old threshold gesture (drag the wheel upward to enter). That
- * gesture was memorable but it was also the reason a first-time visitor had to
- * scroll and interact before seeing a single field. Here the intake *is* the
- * hero: three fields, one action, always above the fold.
+ * A page rather than a form: one statement, one line of proof, the intake in a
+ * hairline band, and the planet's limb along the bottom — drawn from the same
+ * land data as the Atlas, in brass instead of ice. The form is still the
+ * action; it has simply stopped being the whole composition.
  *
- * The ring is decorative CSS 3D — a tilted, slowly rotating zodiac band with
- * pointer parallax. No WebGL and no three.js: it costs no dependency, runs on
- * the compositor, and degrades to a static ring under reduced motion.
- *
- * Submitting hands off to `/enter` with the date, time and place prefilled,
- * because the timezone and daylight-saving confirmation must still happen
- * there — guessing a zone silently would move the Ascendant.
+ * Submitting hands off to `/enter` with date, time and place, because the time
+ * zone and any daylight-saving fold must still be confirmed there. A place
+ * chosen from the list hands over its coordinates and zone too, so the intake
+ * can skip its geocode.
  */
 
-/**
- * The pins on the globe.
- *
- * Six, not six hundred: the point is to answer "where am I casting from" in one
- * gesture, not to be a gazetteer. Each one writes a city the geocoder already
- * resolves, so choosing Paris or Osaka is still a matter of typing.
- *
- * `note` is only read by the list under the globe; the canvas label is the name.
- */
 const PLACES: readonly GlobePlace[] = [
   { id: "ujjain", name: "Ujjain", note: "The KP meridian", city: "Ujjain, India", lat: 23.18, lon: 75.78, timeZone: "Asia/Kolkata" },
   { id: "london", name: "London", note: "Greenwich", city: "London, England", lat: 51.51, lon: -0.13, timeZone: "Europe/London" },
@@ -41,8 +31,31 @@ const PLACES: readonly GlobePlace[] = [
   { id: "tokyo", name: "Tokyo", note: "First light", city: "Tokyo, Japan", lat: 35.68, lon: 139.69, timeZone: "Asia/Tokyo" },
 ];
 
-const GLASS =
-  "w-full rounded-md border border-hairline bg-ink/60 px-3 py-2.5 text-sm text-bone placeholder:text-faint focus-visible:border-gold/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/30";
+const FIELD =
+  "field w-full bg-transparent pb-2 pt-1 text-base text-bone placeholder:text-faint focus-visible:outline-none";
+
+const LABEL = "font-mono text-[9px] uppercase tracking-[0.22em] text-faint";
+
+const INDEX = [
+  {
+    id: "S.01",
+    title: "The chart",
+    body: "Nine grahas, twelve cusps, sub-lords to the arcsecond.",
+    href: "/method",
+  },
+  {
+    id: "S.02",
+    title: "The world",
+    body: "A valley you walk, with your chart hanging in the Observatory.",
+    href: "/world",
+  },
+  {
+    id: "S.03",
+    title: "The Collective",
+    body: "The record kept in common, read in pavilions and rooms.",
+    href: "/collective",
+  },
+] as const;
 
 export function HeroIntake() {
   const router = useRouter();
@@ -69,9 +82,9 @@ export function HeroIntake() {
       q: place.trim(),
     });
 
-    // When the place came from a pin and the field still reads that place, hand
-    // the coordinates and the zone over too. The intake then skips its geocode
-    // and lands on the one screen that matters: confirming the instant.
+    // When the place came from the list and the field still reads that place,
+    // hand the coordinates and the zone over too. The intake then skips its
+    // geocode and lands on the one screen that matters: confirming the instant.
     const pinned = PLACES.find((candidate) => candidate.id === chosenPlace);
     if (pinned && place.trim() === pinned.city) {
       params.set("lat", String(pinned.lat));
@@ -84,107 +97,92 @@ export function HeroIntake() {
   }
 
   return (
-    <section className="relative overflow-hidden border-b border-hairline">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-6 pb-16 pt-10 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)] lg:items-center lg:gap-16 lg:pb-28 lg:pt-24">
-        {/* ── The intake ─────────────────────────────────────────────── */}
-        <div className="contents lg:flex lg:flex-col">
-          <p className="order-1 font-mono text-[10px] uppercase tracking-[0.2em] text-gold">
-            KP astrology · Human Design
-          </p>
+    <section className="relative isolate flex min-h-[92vh] flex-col overflow-hidden border-b border-hairline">
+      {/* ── Sky ─────────────────────────────────────────────────────── */}
+      <Starfield />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute left-1/2 top-[58%] aspect-square w-[210vw] max-w-[2600px] -translate-x-1/2 lg:top-[54%] lg:w-[150vw]"
+      >
+        <DotGlobe
+          places={PLACES}
+          variant="horizon"
+          onSelect={() => {}}
+          initialLon={18}
+          initialLat={14}
+          className="h-full w-full cursor-grab active:cursor-grabbing"
+        />
+      </div>
+      {/* The ground rises to meet the limb, so type never sits on a lit edge. */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 bottom-0 h-[46%] bg-gradient-to-t from-void via-void/85 to-transparent"
+      />
 
-          <h1 className="order-2 mt-4 max-w-xl font-display text-3xl leading-[1.06] text-bone text-balance sm:text-4xl lg:mt-5 lg:text-6xl">
-            Your birth moment,{" "}
-            <span className="text-gold">read to the second.</span>
-          </h1>
+      {/* ── Page ────────────────────────────────────────────────────── */}
+      <div className="relative z-10 mx-auto flex w-full max-w-[1400px] flex-1 flex-col px-6 pb-8 pt-14 sm:pt-20 lg:px-12">
+        <p className="font-mono text-[9px] uppercase tracking-[0.3em] text-gold">
+          KP astrology · Human Design
+        </p>
 
-          <p className="order-3 mt-4 max-w-xl text-sm leading-relaxed text-muted text-pretty lg:mt-5 lg:text-base">
-            One confirmed instant, cast into a KP chart and a bodygraph — no
-            account needed to read it.
-          </p>
+        <h1 className="mt-6 max-w-[14ch] font-display text-[13vw] leading-[0.94] tracking-[-0.02em] text-bone sm:text-6xl lg:mt-7 lg:text-[76px]">
+          Where you stand changes <em className="italic text-gold">the sky.</em>
+        </h1>
 
-          <form onSubmit={submit} className="order-6 mt-6 flex max-w-xl flex-col gap-3 lg:mt-8">
-            <div className="grid gap-3 sm:grid-cols-2">
-              <label className="flex flex-col gap-1.5">
-                <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-faint">
-                  Date of birth
-                </span>
-                <input
-                  type="date"
-                  value={date}
-                  onChange={(event) => setDate(event.target.value)}
-                  className={GLASS}
-                  aria-label="Date of birth"
-                />
-              </label>
+        <p className="mt-6 max-w-[38ch] text-sm leading-relaxed text-muted text-pretty sm:text-[15px]">
+          One confirmed instant — to the second — cast into a KP chart and a
+          bodygraph. No account needed to read it.
+        </p>
 
-              <label className="flex flex-col gap-1.5">
-                <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-faint">
-                  Time · to the second
-                </span>
-                <input
-                  type="time"
-                  step={1}
-                  value={time}
-                  onChange={(event) => setTime(event.target.value)}
-                  className={GLASS}
-                  aria-label="Time of birth, to the second"
-                />
-              </label>
-            </div>
+        <form
+          onSubmit={submit}
+          className="mt-10 border-t border-hairline pt-6 lg:max-w-4xl"
+        >
+          <div className="grid gap-x-8 gap-y-6 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.5fr)_auto] lg:items-end">
+            <label className="flex flex-col gap-2">
+              <span className={LABEL}>Date of birth</span>
+              <input
+                type="date"
+                value={date}
+                onChange={(event) => setDate(event.target.value)}
+                className={FIELD}
+                aria-label="Date of birth"
+              />
+            </label>
 
-            <label className="flex flex-col gap-1.5">
-              <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-faint">
-                Nearest city
-              </span>
+            <label className="flex flex-col gap-2">
+              <span className={LABEL}>Time · to the second</span>
+              <input
+                type="time"
+                step={1}
+                value={time}
+                onChange={(event) => setTime(event.target.value)}
+                className={FIELD}
+                aria-label="Time of birth, to the second"
+              />
+            </label>
+
+            <label className="flex flex-col gap-2">
+              <span className={LABEL}>Nearest city</span>
               <input
                 type="text"
                 value={place}
                 onChange={(event) => setPlace(event.target.value)}
                 placeholder="Leeds, England"
                 autoComplete="off"
-                className={GLASS}
+                className={FIELD}
                 aria-label="Nearest city of birth"
               />
             </label>
 
-            <div className="order-5 mt-1 flex flex-wrap items-center gap-4">
-              <Button type="submit" size="lg">
-                Read my chart
-                <ArrowRight aria-hidden="true" className="h-4 w-4" strokeWidth={1.5} />
-              </Button>
-              <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-faint">
-                then confirm the time zone
-              </span>
-            </div>
+            <Button type="submit" className="lg:mb-0.5">
+              Read my chart
+              <ArrowRight aria-hidden="true" className="h-4 w-4" strokeWidth={1.5} />
+            </Button>
+          </div>
 
-            <p
-              role="alert"
-              aria-live="polite"
-              className="min-h-4 text-sm text-danger"
-            >
-              {error ?? ""}
-            </p>
-          </form>
-        </div>
-
-        {/* ── The globe ──────────────────────────────────────────────── */}
-        <div className="order-4 relative mx-auto w-full max-w-[19rem] justify-self-center lg:max-w-[26rem]">
-          <DotGlobe
-            places={PLACES}
-            activeId={chosenPlace}
-            onSelect={(chosen) => {
-              setPlace(chosen.city);
-              setChosenPlace(chosen.id);
-              setError(null);
-            }}
-            className="-mx-2 w-[calc(100%+1rem)]"
-          />
-
-          <div
-            role="group"
-            aria-label="Choose a place"
-            className="mt-1 flex flex-wrap items-center justify-center gap-x-2 gap-y-1.5"
-          >
+          <div className="mt-5 flex flex-wrap items-baseline gap-x-3 gap-y-2">
+            <span className={cn(LABEL, "mr-1")}>Places</span>
             {PLACES.map((option) => {
               const active = option.id === chosenPlace;
               return (
@@ -199,22 +197,59 @@ export function HeroIntake() {
                     setError(null);
                   }}
                   className={cn(
-                    "rounded-full border px-2.5 py-1.5 font-mono text-[9px] uppercase tracking-[0.16em] transition-colors",
+                    "font-mono text-[9px] uppercase tracking-[0.18em] transition-colors",
                     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/40",
-                    active
-                      ? "border-gold/60 bg-gold/5 text-gold"
-                      : "border-hairline text-muted hover:border-gold/40 hover:text-bone",
+                    active ? "text-gold" : "text-muted hover:text-bone",
                   )}
                 >
                   {option.name}
                 </button>
               );
             })}
+            <span className="font-mono text-[9px] uppercase tracking-[0.16em] text-faint sm:ml-auto">
+              then confirm the time zone
+            </span>
           </div>
 
-          <p className="mt-3 text-center font-mono text-[9px] uppercase tracking-[0.18em] text-faint">
-            Drag to spin · tap a pin
+          <p
+            role="alert"
+            aria-live="polite"
+            className="mt-2 min-h-4 text-sm text-danger"
+          >
+            {error ?? ""}
           </p>
+        </form>
+
+        {/* ── Contents ───────────────────────────────────────────────── */}
+        <div className="mt-auto pt-16">
+          <div className="grid border-t border-hairline sm:grid-cols-3">
+            {INDEX.map((item) => (
+              <Link
+                key={item.id}
+                href={item.href}
+                className="group border-b border-hairline py-5 pr-6 transition-colors hover:bg-raised/30 sm:border-b-0 sm:border-r sm:pl-6 sm:first:pl-0 sm:last:border-r-0"
+              >
+                <span className="block font-mono text-[8.5px] uppercase tracking-[0.22em] text-gold">
+                  {item.id}
+                </span>
+                <span className="mt-2 block font-display text-xl text-bone">
+                  {item.title}
+                </span>
+                <span className="mt-1 block max-w-[30ch] text-xs leading-relaxed text-muted">
+                  {item.body}
+                </span>
+              </Link>
+            ))}
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-hairline py-4">
+            <span className="font-mono text-[8.5px] uppercase tracking-[0.22em] text-faint">
+              Drag the planet
+            </span>
+            <span className="font-mono text-[8.5px] uppercase tracking-[0.22em] text-faint">
+              23.18° N &nbsp; 75.78° E
+            </span>
+          </div>
         </div>
       </div>
     </section>

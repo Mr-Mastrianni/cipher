@@ -253,3 +253,21 @@ Places with Places/Codex/Terraces; selecting Codex switches the panel and the
 active tab. Not verified: how it looks over the running valley — this
 environment's Chromium stopped creating a WebGL2 context partway through the
 session, so the last captures show the "WebGL2 is required" fallback.
+
+**The chosen direction, applied: Brass Nocturne with a rendered planet.** The
+landing hero is now a page, not a form: one statement in Instrument Serif, the
+intake in a hairline band, a numbered contents list (`S.01 The chart`,
+`S.02 The world`, `S.03 The Collective`) and the planet's limb along the bottom.
+
+- The planet is **the data we already had**: `DotGlobe` gained a `horizon`
+  variant — no pins, no labels, no zoom, a slower turn, a brass rim and a bloom.
+  It is still draggable. No photograph, no licence, nothing to load.
+- `Starfield` is one seeded SVG data URI: identical on the server and the
+  browser, no canvas, no hydration mismatch, no loop.
+- Sections below the fold carry `S.0x` badges, so the page reads as a sequence
+  rather than a pile.
+- The archived world screenshot is tinted at the image level
+  (`saturate(.62) sepia(.12)`) until the valley itself is re-graded.
+
+Remaining: the rest of the landing page still wears the phase-0 card layout,
+and the `/world` scene still has its indigo grade. Both are Phase 4.

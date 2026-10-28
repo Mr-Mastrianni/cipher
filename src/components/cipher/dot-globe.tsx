@@ -51,6 +51,13 @@ interface DotGlobeProps {
   /** Where the globe rests when nothing is selected. */
   initialLon?: number;
   initialLat?: number;
+  /**
+   * `globe` is the instrument: pins, labels, zoom, a slow drift.
+   * `horizon` is the same planet used as landscape — no pins, no labels, no
+   * zoom, a slower drift, and a warm rim. It is still draggable: you can take
+   * the world by the edge and turn it.
+   */
+  variant?: "globe" | "horizon";
   className?: string;
 }
 
@@ -95,6 +102,7 @@ export function DotGlobe({
   onSelect,
   initialLon = 24,
   initialLat = 18,
+  variant = "globe",
   className,
 }: DotGlobeProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -149,6 +157,8 @@ export function DotGlobe({
 
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
+
+    const horizon = variant === "horizon";
 
     const dots = landDots();
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -240,11 +250,24 @@ export function DotGlobe({
       ctx.arc(cx, cy, r, 0, Math.PI * 2);
       ctx.fill();
 
-      ctx.strokeStyle = `rgba(${ink.r},${ink.g},${ink.b},0.14)`;
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.arc(cx, cy, r, 0, Math.PI * 2);
-      ctx.stroke();
+      if (horizon) {
+        // The limb is the whole picture: one bright line and a warm bloom.
+        ctx.save();
+        ctx.shadowColor = `rgba(${brass.r},${brass.g},${brass.b},0.55)`;
+        ctx.shadowBlur = Math.max(18, r * 0.06);
+        ctx.strokeStyle = `rgba(${brass.r},${brass.g},${brass.b},0.95)`;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      } else {
+        ctx.strokeStyle = `rgba(${ink.r},${ink.g},${ink.b},0.14)`;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.stroke();
+      }
 
       ctx.strokeStyle = `rgba(${ink.r},${ink.g},${ink.b},0.05)`;
       ctx.beginPath();
@@ -266,7 +289,7 @@ export function DotGlobe({
 
     const drawGraticule = () => {
       ctx.lineWidth = 1;
-      ctx.strokeStyle = `rgba(${ink.r},${ink.g},${ink.b},0.052)`;
+      ctx.strokeStyle = `rgba(${ink.r},${ink.g},${ink.b},${horizon ? 0.035 : 0.052})`;
       for (let lat = -75; lat <= 75; lat += 15) {
         ctx.beginPath();
         let started = false;
@@ -319,6 +342,10 @@ export function DotGlobe({
 
     const drawPins = (now: number) => {
       const next: typeof hits = [];
+      if (horizon) {
+        hits = next;
+        return;
+      }
       ctx.textAlign = "left";
       const spacing = ctx as CanvasRenderingContext2D & { letterSpacing?: string };
       if ("letterSpacing" in ctx) spacing.letterSpacing = "1.6px";
@@ -402,12 +429,13 @@ export function DotGlobe({
         state.idle += 1;
         if (
           !reduced.matches &&
-          state.idle > 50 &&
+          state.idle > (horizon ? 160 : 50) &&
           !state.activeId &&
           Math.abs(state.targetLon - state.lon) < 0.05
         ) {
-          // A very slow drift: the instrument is awake, not spinning.
-          state.targetLon += 0.018;
+          // A very slow drift: the instrument is awake, not spinning. The
+          // horizon turns even more slowly; it is scenery, not a control.
+          state.targetLon += horizon ? 0.006 : 0.018;
         }
       }
       state.zoom += (state.targetZoom - state.zoom) * 0.12;
@@ -456,7 +484,7 @@ export function DotGlobe({
       if (!pointers.has(event.pointerId)) return;
       pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
 
-      if (pointers.size >= 2) {
+      if (pointers.size >= 2 && !horizon) {
         const [a, b] = [...pointers.values()];
         const distance = Math.hypot(a.x - b.x, a.y - b.y);
         if (pinchDistance > 0) {
@@ -519,6 +547,7 @@ export function DotGlobe({
     };
 
     const onWheel = (event: WheelEvent) => {
+      if (horizon) return;
       event.preventDefault();
       const state = motion.current;
       state.targetZoom = clamp(
@@ -583,9 +612,9 @@ export function DotGlobe({
       canvas.removeEventListener("pointercancel", endPointer);
       canvas.removeEventListener("wheel", onWheel);
     };
-    // Bound once: places and selection are read through refs, so a re-render
-    // never restarts the renderer.
-  }, []);
+    // Places and selection are read through refs, so a re-render never
+    // restarts the renderer; the variant is fixed for the life of the mount.
+  }, [variant]);
 
   return (
     <div

@@ -66,13 +66,14 @@ server storing anything**. See `src/lib/cipher/share-code.ts`.
 
 ### 3. The door is a place, not a form
 
-The landing page opens on a dot-matrix Earth: drag to spin it, pinch to zoom,
-tap a pin, and the city field fills itself. It is 6,077 points sampled on a
+The landing page opens on a planet limb — a brass horizon made of 6,077 land
+points, the same data the Atlas draws. Drag it and the world turns under your
+hand; a place chosen from the list fills the city field and hands its
+coordinates and zone straight to the intake. The points are sampled on a
 Fibonacci sphere and tested against Natural Earth land once, offline
 (`pnpm geo:dots`), then drawn through an orthographic projection on a 2D canvas:
 no WebGL, no three.js, ~32KB packed, still sharp on a phone that refuses a
-second GL context. Positions, not pixels: selecting a place is the first half of
-the intake, and the same component will drive relocation on the cosmic map.
+second GL context.
 
 ### 4. Every room has a route
 

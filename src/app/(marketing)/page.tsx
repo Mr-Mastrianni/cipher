@@ -46,11 +46,30 @@ function Reveal({
   );
 }
 
-function Eyebrow({ children }: { children: React.ReactNode }) {
+/**
+ * The section marker: a numbered badge in the programme's voice — `S.01 · The
+ * world` — rather than a floating label. It is the same device the pages use
+ * for their contents list, so a section reads as part of a sequence.
+ */
+function Eyebrow({
+  children,
+  index,
+}: {
+  children: React.ReactNode;
+  index?: string;
+}) {
   return (
-    <p className="font-mono text-[10px] uppercase tracking-[0.32em] text-gold">
+    <span className="inline-flex items-center gap-2 rounded-full border border-gold/35 px-3 py-1 font-mono text-[8.5px] uppercase tracking-[0.22em] text-gold">
+      {index ? (
+        <>
+          <span className="text-gold-hi">{index}</span>
+          <span aria-hidden="true" className="text-gold/40">
+            ·
+          </span>
+        </>
+      ) : null}
       {children}
-    </p>
+    </span>
   );
 }
 
@@ -187,7 +206,7 @@ export default function LandingPage() {
       <section className="relative overflow-hidden border-t border-hairline px-6 py-24 sm:py-32">
         <div className="mx-auto grid max-w-6xl items-center gap-14 lg:grid-cols-[1fr_1.12fr]">
           <Reveal>
-            <Eyebrow>The world</Eyebrow>
+            <Eyebrow index="S.01">The world</Eyebrow>
             <h2 className="mt-4 max-w-xl font-display text-3xl leading-tight text-bone sm:text-4xl">
               The Cipher is also a place.
             </h2>
@@ -241,6 +260,7 @@ export default function LandingPage() {
             <figure className="relative overflow-hidden rounded-xl border border-hairline bg-abyss">
               <Image
                 src="/world-preview.jpg"
+                style={{ filter: "saturate(0.62) sepia(0.12) contrast(1.04)" }}
                 alt="Inside the Observatory: a glowing astrolabe of the zodiac above a still basin, with the member's KP chart and Human Design bodygraph on two screens."
                 width={1600}
                 height={900}
@@ -261,7 +281,7 @@ export default function LandingPage() {
       <section className="relative border-t border-hairline px-6 py-24 sm:py-32">
         <div className="mx-auto max-w-5xl">
           <Reveal>
-            <Eyebrow>The reading</Eyebrow>
+            <Eyebrow index="S.02">The reading</Eyebrow>
             <h2 className="mt-4 max-w-2xl font-display text-3xl leading-tight text-bone sm:text-4xl">
               Your chart is not a personality. It is a set of instructions.
             </h2>
@@ -298,7 +318,7 @@ export default function LandingPage() {
       <section className="relative overflow-hidden border-t border-hairline px-6 py-24 sm:py-32">
         <div className="mx-auto grid max-w-5xl items-center gap-16 lg:grid-cols-[1.1fr_0.9fr]">
           <Reveal>
-            <Eyebrow>Two words</Eyebrow>
+            <Eyebrow index="S.03">Two words</Eyebrow>
             <h2 className="mt-4 font-display text-3xl leading-tight text-bone sm:text-4xl">
               Your Aura Avatar
             </h2>
@@ -361,7 +381,7 @@ export default function LandingPage() {
       <section className="relative border-t border-hairline px-6 py-24 sm:py-32">
         <div className="mx-auto max-w-5xl">
           <Reveal>
-            <Eyebrow>The collective</Eyebrow>
+            <Eyebrow index="S.04">The collective</Eyebrow>
             <h2 className="mt-4 max-w-2xl font-display text-3xl leading-tight text-bone sm:text-4xl">
               You cannot run an experiment alone in a room.
             </h2>
@@ -411,7 +431,7 @@ export default function LandingPage() {
       >
         <div className="mx-auto max-w-6xl">
           <Reveal>
-            <Eyebrow>Membership</Eyebrow>
+            <Eyebrow index="S.05">Membership</Eyebrow>
             <h2 className="mt-4 max-w-2xl font-display text-3xl leading-tight text-bone sm:text-4xl">
               Four tiers. The first one is free forever.
             </h2>
@@ -484,7 +504,7 @@ export default function LandingPage() {
       <section className="relative border-t border-hairline px-6 py-24 sm:py-32">
         <div className="mx-auto max-w-3xl">
           <Reveal>
-            <Eyebrow>Questions</Eyebrow>
+            <Eyebrow index="S.06">Questions</Eyebrow>
             <h2 className="mt-4 font-display text-3xl leading-tight text-bone sm:text-4xl">
               The things people ask first.
             </h2>
