@@ -271,3 +271,16 @@ intake in a hairline band, a numbered contents list (`S.01 The chart`,
 
 Remaining: the rest of the landing page still wears the phase-0 card layout,
 and the `/world` scene still has its indigo grade. Both are Phase 4.
+
+**Revised after review: the hero now opens like the reference.** The statement
+is full-bleed and set at the bottom edge in tight uppercase Inter, the planet
+limb is the sky's own ice-blue, and the page moves:
+
+- **Entrance** — title, call to action, caption and rails arrive once, staggered.
+- **Pointer** — the planet parallaxes a few degrees on a spring; drag it and the
+  sphere itself turns.
+- **Scroll** — the planet sinks and grows, the title lifts and fades, the sky
+  dims, and every section below reveals on entry.
+- The intake moved one scroll down (`S.00 · Your coordinates`), so the first
+  screen is a statement, not a form.
+- `--c-ice` / `--c-ice-hi` are the sky's colours; brass stays the interface's.

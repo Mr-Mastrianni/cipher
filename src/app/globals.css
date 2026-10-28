@@ -38,6 +38,9 @@
   --c-purple-hi: #b0b4d4;
   --c-teal: #7e9e93;
   --c-rose: #b07a6a;
+  /* the sky's own colour: used by the hero planet's atmosphere, not by chrome */
+  --c-ice: #7cb4ff;
+  --c-ice-hi: #d6e8ff;
 
   /* human design semantics — muted so the chart reads as a plate, not a game */
   --c-defined: #6e7391;
@@ -119,6 +122,8 @@
   --c-purple-hi: #7c80a8;
   --c-teal: #4f7369;
   --c-rose: #9c5c48;
+  --c-ice: #3f6ea8;
+  --c-ice-hi: #24466e;
 
   --c-defined: #4e5273;
   --c-defined-hi: #7f83a6;

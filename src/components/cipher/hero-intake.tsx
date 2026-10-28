@@ -1,9 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight } from "lucide-react";
+import {
+  motion,
+  useMotionValue,
+  useReducedMotion,
+  useScroll,
+  useSpring,
+  useTransform,
+} from "motion/react";
+import { ArrowDown, ArrowRight } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { DotGlobe, type GlobePlace } from "@/components/cipher/dot-globe";
@@ -11,17 +19,17 @@ import { Starfield } from "@/components/cipher/starfield";
 import { cn } from "@/lib/utils";
 
 /**
- * The hero.
+ * The threshold.
  *
- * A page rather than a form: one statement, one line of proof, the intake in a
- * hairline band, and the planet's limb along the bottom — drawn from the same
- * land data as the Atlas, in brass instead of ice. The form is still the
- * action; it has simply stopped being the whole composition.
+ * The first screen is a statement, not a form: a full-bleed sky, the planet's
+ * limb turning under the pointer, and the claim set at the bottom edge the way
+ * a title card is set. The intake follows one scroll below, in the page's own
+ * hairline language — the hero earns the attention, the section spends it.
  *
- * Submitting hands off to `/enter` with date, time and place, because the time
- * zone and any daylight-saving fold must still be confirmed there. A place
- * chosen from the list hands over its coordinates and zone too, so the intake
- * can skip its geocode.
+ * Motion is deliberate and cheap: the planet parallaxes to the pointer and
+ * drifts under the scroll, the title lifts away as you leave, and every line
+ * arrives once on load. Under `prefers-reduced-motion` all of it resolves to
+ * the final state immediately.
  */
 
 const PLACES: readonly GlobePlace[] = [
@@ -36,34 +44,47 @@ const FIELD =
 
 const LABEL = "font-mono text-[9px] uppercase tracking-[0.22em] text-faint";
 
-const INDEX = [
-  {
-    id: "S.01",
-    title: "The chart",
-    body: "Nine grahas, twelve cusps, sub-lords to the arcsecond.",
-    href: "/method",
-  },
-  {
-    id: "S.02",
-    title: "The world",
-    body: "A valley you walk, with your chart hanging in the Observatory.",
-    href: "/world",
-  },
-  {
-    id: "S.03",
-    title: "The Collective",
-    body: "The record kept in common, read in pavilions and rooms.",
-    href: "/collective",
-  },
+const RAIL = "font-mono text-[8.5px] uppercase tracking-[0.22em] text-faint";
+
+const CONTENTS = [
+  { id: "S.01", label: "The chart", href: "/method" },
+  { id: "S.02", label: "The world", href: "/world" },
+  { id: "S.03", label: "The Collective", href: "/collective" },
 ] as const;
 
 export function HeroIntake() {
   const router = useRouter();
+  const heroRef = useRef<HTMLElement | null>(null);
+  const reduced = useReducedMotion();
+
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
   const [place, setPlace] = useState("");
   const [chosenPlace, setChosenPlace] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Pointer parallax: a few degrees, spring-damped, never in the way.
+  const pointerX = useMotionValue(0);
+  const pointerY = useMotionValue(0);
+  const rotateY = useSpring(useTransform(pointerX, [-0.5, 0.5], [-5, 5]), {
+    stiffness: 50,
+    damping: 18,
+  });
+  const rotateX = useSpring(useTransform(pointerY, [-0.5, 0.5], [4, -4]), {
+    stiffness: 50,
+    damping: 18,
+  });
+
+  // Scroll: the planet sinks and grows, the title leaves.
+  const { scrollYProgress } = useScroll({
+    target: heroRef,
+    offset: ["start start", "end start"],
+  });
+  const planetY = useTransform(scrollYProgress, [0, 1], ["0%", "14%"]);
+  const planetScale = useTransform(scrollYProgress, [0, 1], [1, 1.08]);
+  const titleY = useTransform(scrollYProgress, [0, 1], [0, -80]);
+  const titleOpacity = useTransform(scrollYProgress, [0, 0.6], [1, 0]);
+  const skyOpacity = useTransform(scrollYProgress, [0, 1], [1, 0.55]);
 
   function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -97,70 +118,167 @@ export function HeroIntake() {
   }
 
   return (
-    <section className="relative isolate flex min-h-[92vh] flex-col overflow-hidden border-b border-hairline">
-      {/* ── Sky ─────────────────────────────────────────────────────── */}
-      <Starfield />
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute left-1/2 top-[58%] aspect-square w-[210vw] max-w-[2600px] -translate-x-1/2 lg:top-[54%] lg:w-[150vw]"
+    <>
+      {/* ── The threshold ──────────────────────────────────────────────── */}
+      <section
+        ref={heroRef}
+        onPointerMove={(event) => {
+          if (reduced) return;
+          const rect = event.currentTarget.getBoundingClientRect();
+          pointerX.set((event.clientX - rect.left) / rect.width - 0.5);
+          pointerY.set((event.clientY - rect.top) / rect.height - 0.5);
+        }}
+        onPointerLeave={() => {
+          pointerX.set(0);
+          pointerY.set(0);
+        }}
+        className="relative isolate flex min-h-[calc(100svh-4.5rem)] flex-col overflow-hidden border-b border-hairline bg-void"
       >
-        <DotGlobe
-          places={PLACES}
-          variant="horizon"
-          onSelect={() => {}}
-          initialLon={18}
-          initialLat={14}
-          className="h-full w-full cursor-grab active:cursor-grabbing"
-        />
-      </div>
-      {/* The ground rises to meet the limb, so type never sits on a lit edge. */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 bottom-0 h-[46%] bg-gradient-to-t from-void via-void/85 to-transparent"
-      />
+        <Starfield className="opacity-90" />
 
-      {/* ── Page ────────────────────────────────────────────────────── */}
-      <div className="relative z-10 mx-auto flex w-full max-w-[1400px] flex-1 flex-col px-6 pb-8 pt-14 sm:pt-20 lg:px-12">
-        <p className="font-mono text-[9px] uppercase tracking-[0.3em] text-gold">
-          KP astrology · Human Design
-        </p>
-
-        <h1 className="mt-6 max-w-[14ch] font-display text-[13vw] leading-[0.94] tracking-[-0.02em] text-bone sm:text-6xl lg:mt-7 lg:text-[76px]">
-          Where you stand changes <em className="italic text-gold">the sky.</em>
-        </h1>
-
-        <p className="mt-6 max-w-[38ch] text-sm leading-relaxed text-muted text-pretty sm:text-[15px]">
-          One confirmed instant — to the second — cast into a KP chart and a
-          bodygraph. No account needed to read it.
-        </p>
-
-        <form
-          onSubmit={submit}
-          className="mt-10 border-t border-hairline pt-6 lg:max-w-4xl"
+        {/* The planet: sky-coloured, pointer-parallaxed, scroll-sunk. */}
+        <motion.div
+          aria-hidden="true"
+          style={
+            reduced
+              ? undefined
+              : { y: planetY, scale: planetScale, rotateX, rotateY, opacity: skyOpacity }
+          }
+          className="pointer-events-none absolute left-1/2 top-[54%] aspect-square w-[220vw] max-w-[2600px] -translate-x-1/2 lg:top-[50%] lg:w-[150vw]"
         >
-          <div className="grid gap-x-8 gap-y-6 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.5fr)_auto] lg:items-end">
-            <label className="flex flex-col gap-2">
-              <span className={LABEL}>Date of birth</span>
-              <input
-                type="date"
-                value={date}
-                onChange={(event) => setDate(event.target.value)}
-                className={FIELD}
-                aria-label="Date of birth"
-              />
-            </label>
+          <DotGlobe
+            places={PLACES}
+            variant="horizon"
+            onSelect={() => {}}
+            initialLon={18}
+            initialLat={14}
+            className="h-full w-full cursor-grab active:cursor-grabbing"
+          />
+        </motion.div>
 
-            <label className="flex flex-col gap-2">
-              <span className={LABEL}>Time · to the second</span>
-              <input
-                type="time"
-                step={1}
-                value={time}
-                onChange={(event) => setTime(event.target.value)}
-                className={FIELD}
-                aria-label="Time of birth, to the second"
-              />
-            </label>
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-[52%] bg-gradient-to-t from-void via-void/85 to-transparent"
+        />
+
+        <div className="relative z-10 mx-auto flex w-full max-w-[1400px] flex-1 flex-col justify-end gap-6 px-6 pb-5 pt-6 sm:pt-8 lg:px-12">
+          <div className="grid items-end gap-8 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)] lg:gap-16">
+            <div>
+              <motion.h1
+                initial={reduced ? false : { opacity: 0, y: 26 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1], delay: 0.15 }}
+                style={reduced ? undefined : { y: titleY, opacity: titleOpacity }}
+                className="max-w-[16ch] font-sans text-[clamp(28px,8.6vw,54px)] uppercase leading-[0.94] tracking-[-0.035em] text-bone"
+              >
+                The sky is a record. We cast it to the second.
+              </motion.h1>
+
+              <motion.div
+                initial={reduced ? false : { opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1], delay: 0.5 }}
+                className="mt-7 flex flex-wrap items-center gap-4"
+              >
+                <a
+                  href="#cast"
+                  className="inline-flex items-center gap-3 rounded-full bg-bone px-6 py-3.5 font-mono text-[9.5px] uppercase tracking-[0.2em] text-ink transition-colors hover:bg-gold"
+                >
+                  Cast your chart
+                  <ArrowDown aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={1.8} />
+                </a>
+                <Link
+                  href="/method"
+                  className="font-mono text-[9.5px] uppercase tracking-[0.2em] text-muted transition-colors hover:text-bone"
+                >
+                  Read the method ↗
+                </Link>
+              </motion.div>
+            </div>
+
+            <motion.p
+              initial={reduced ? false : { opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 1, delay: 0.65 }}
+              className="max-w-[42ch] font-mono text-[9px] uppercase leading-[1.7] tracking-[0.12em] text-muted lg:justify-self-end"
+            >
+              <span className="text-bone">+</span> KP sub-lords, Placidus cusps and a
+              bodygraph from one confirmed instant. Nine grahas, twelve cusps,
+              twenty-six activations. No account needed to read it.
+            </motion.p>
+          </div>
+
+          <motion.div
+            initial={reduced ? false : { opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 1, delay: 0.8 }}
+            className="flex shrink-0 flex-wrap items-center justify-between gap-4 border-t border-hairline pt-4"
+          >
+            <div className="flex flex-wrap items-center gap-x-7 gap-y-2">
+              {CONTENTS.map((item) => (
+                <Link
+                  key={item.id}
+                  href={item.href}
+                  className="group inline-flex items-baseline gap-2 font-mono text-[8px] uppercase tracking-[0.2em] text-muted transition-colors hover:text-bone sm:text-[8.5px]"
+                >
+                  <span className="text-gold">{item.id}</span>
+                  <span>{item.label}</span>
+                  <span aria-hidden="true" className="text-faint">
+                    ↘
+                  </span>
+                </Link>
+              ))}
+            </div>
+            <div className="hidden items-center gap-6 sm:flex">
+              <span className={RAIL}>Drag the planet</span>
+              <span className={cn(RAIL, "hidden sm:inline")}>23.18° N · 75.78° E</span>
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* ── The intake ─────────────────────────────────────────────────── */}
+      <section id="cast" className="relative border-t border-hairline px-6 py-20 lg:px-12 lg:py-28">
+        <div className="mx-auto grid w-full max-w-[1400px] gap-12 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:gap-20">
+          <div>
+            <span className="inline-flex items-center gap-2 rounded-full border border-gold/35 px-3 py-1 font-mono text-[8.5px] uppercase tracking-[0.22em] text-gold">
+              S.00 · Your coordinates
+            </span>
+            <h2 className="mt-6 max-w-[18ch] font-display text-3xl leading-[1.05] text-bone sm:text-4xl lg:text-5xl">
+              One instant, held to the second.
+            </h2>
+            <p className="mt-5 max-w-[40ch] text-sm leading-relaxed text-muted">
+              The date, the time and the place. Everything the chart, the map and
+              the bodygraph draw from starts here — and the time zone is
+              confirmed by you, never guessed.
+            </p>
+          </div>
+
+          <form onSubmit={submit} className="flex flex-col gap-7">
+            <div className="grid gap-x-8 gap-y-6 sm:grid-cols-2">
+              <label className="flex flex-col gap-2">
+                <span className={LABEL}>Date of birth</span>
+                <input
+                  type="date"
+                  value={date}
+                  onChange={(event) => setDate(event.target.value)}
+                  className={FIELD}
+                  aria-label="Date of birth"
+                />
+              </label>
+
+              <label className="flex flex-col gap-2">
+                <span className={LABEL}>Time · to the second</span>
+                <input
+                  type="time"
+                  step={1}
+                  value={time}
+                  onChange={(event) => setTime(event.target.value)}
+                  className={FIELD}
+                  aria-label="Time of birth, to the second"
+                />
+              </label>
+            </div>
 
             <label className="flex flex-col gap-2">
               <span className={LABEL}>Nearest city</span>
@@ -175,83 +293,47 @@ export function HeroIntake() {
               />
             </label>
 
-            <Button type="submit" className="lg:mb-0.5">
-              Read my chart
-              <ArrowRight aria-hidden="true" className="h-4 w-4" strokeWidth={1.5} />
-            </Button>
-          </div>
+            <div className="flex flex-wrap items-baseline gap-x-4 gap-y-2">
+              <span className={cn(LABEL, "mr-1")}>Places</span>
+              {PLACES.map((option) => {
+                const active = option.id === chosenPlace;
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    aria-pressed={active}
+                    title={option.note}
+                    onClick={() => {
+                      setPlace(option.city);
+                      setChosenPlace(option.id);
+                      setError(null);
+                    }}
+                    className={cn(
+                      "font-mono text-[9px] uppercase tracking-[0.18em] transition-colors",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/40",
+                      active ? "text-gold" : "text-muted hover:text-bone",
+                    )}
+                  >
+                    {option.name}
+                  </button>
+                );
+              })}
+            </div>
 
-          <div className="mt-5 flex flex-wrap items-baseline gap-x-3 gap-y-2">
-            <span className={cn(LABEL, "mr-1")}>Places</span>
-            {PLACES.map((option) => {
-              const active = option.id === chosenPlace;
-              return (
-                <button
-                  key={option.id}
-                  type="button"
-                  aria-pressed={active}
-                  title={option.note}
-                  onClick={() => {
-                    setPlace(option.city);
-                    setChosenPlace(option.id);
-                    setError(null);
-                  }}
-                  className={cn(
-                    "font-mono text-[9px] uppercase tracking-[0.18em] transition-colors",
-                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/40",
-                    active ? "text-gold" : "text-muted hover:text-bone",
-                  )}
-                >
-                  {option.name}
-                </button>
-              );
-            })}
-            <span className="font-mono text-[9px] uppercase tracking-[0.16em] text-faint sm:ml-auto">
-              then confirm the time zone
-            </span>
-          </div>
+            <div className="flex flex-wrap items-center gap-5 pt-1">
+              <Button type="submit" size="lg">
+                Read my chart
+                <ArrowRight aria-hidden="true" className="h-4 w-4" strokeWidth={1.5} />
+              </Button>
+              <span className={RAIL}>Then confirm the time zone</span>
+            </div>
 
-          <p
-            role="alert"
-            aria-live="polite"
-            className="mt-2 min-h-4 text-sm text-danger"
-          >
-            {error ?? ""}
-          </p>
-        </form>
-
-        {/* ── Contents ───────────────────────────────────────────────── */}
-        <div className="mt-auto pt-16">
-          <div className="grid border-t border-hairline sm:grid-cols-3">
-            {INDEX.map((item) => (
-              <Link
-                key={item.id}
-                href={item.href}
-                className="group border-b border-hairline py-5 pr-6 transition-colors hover:bg-raised/30 sm:border-b-0 sm:border-r sm:pl-6 sm:first:pl-0 sm:last:border-r-0"
-              >
-                <span className="block font-mono text-[8.5px] uppercase tracking-[0.22em] text-gold">
-                  {item.id}
-                </span>
-                <span className="mt-2 block font-display text-xl text-bone">
-                  {item.title}
-                </span>
-                <span className="mt-1 block max-w-[30ch] text-xs leading-relaxed text-muted">
-                  {item.body}
-                </span>
-              </Link>
-            ))}
-          </div>
-
-          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-hairline py-4">
-            <span className="font-mono text-[8.5px] uppercase tracking-[0.22em] text-faint">
-              Drag the planet
-            </span>
-            <span className="font-mono text-[8.5px] uppercase tracking-[0.22em] text-faint">
-              23.18° N &nbsp; 75.78° E
-            </span>
-          </div>
+            <p role="alert" aria-live="polite" className="min-h-4 text-sm text-danger">
+              {error ?? ""}
+            </p>
+          </form>
         </div>
-      </div>
-    </section>
+      </section>
+    </>
   );
 }

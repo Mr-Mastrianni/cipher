@@ -174,11 +174,13 @@ export function DotGlobe({
       ink: { r: 236, g: 230, b: 218 },
       brass: { r: 191, g: 162, b: 115 },
       line: { r: 38, g: 38, b: 44 },
+      ice: { r: 124, g: 180, b: 255 },
     };
     // Bound after the first read so the draw functions always see the palette
     // for the current theme, not the one captured at mount.
     let ink = colors.ink;
     let brass = colors.brass;
+    let ice = colors.ice;
 
     /** Screen positions of the pins from the last frame, for tap hit-testing. */
     let hits: { id: string; x: number; y: number }[] = [];
@@ -189,9 +191,11 @@ export function DotGlobe({
         ink: readColor(styles.getPropertyValue("--c-bone"), colors.ink),
         brass: readColor(styles.getPropertyValue("--c-gold"), colors.brass),
         line: readColor(styles.getPropertyValue("--c-line"), colors.line),
+        ice: readColor(styles.getPropertyValue("--c-ice"), colors.ice),
       };
       ink = colors.ink;
       brass = colors.brass;
+      ice = colors.ice;
     };
 
     const resize = () => {
@@ -253,9 +257,9 @@ export function DotGlobe({
       if (horizon) {
         // The limb is the whole picture: one bright line and a warm bloom.
         ctx.save();
-        ctx.shadowColor = `rgba(${brass.r},${brass.g},${brass.b},0.55)`;
-        ctx.shadowBlur = Math.max(18, r * 0.06);
-        ctx.strokeStyle = `rgba(${brass.r},${brass.g},${brass.b},0.95)`;
+        ctx.shadowColor = `rgba(${ice.r},${ice.g},${ice.b},0.7)`;
+        ctx.shadowBlur = Math.max(20, r * 0.07);
+        ctx.strokeStyle = `rgba(${ice.r},${ice.g},${ice.b},0.98)`;
         ctx.lineWidth = 1.5;
         ctx.beginPath();
         ctx.arc(cx, cy, r, 0, Math.PI * 2);
