@@ -561,15 +561,15 @@ export const AVATAR_FORMS: readonly AvatarFormMeta[] = [
 ] as const;
 
 export const AVATAR_COLORS: readonly { css: string; name: string }[] = [
-  { css: "#d4ff3f", name: "Signal" },
-  { css: "#5ce1e6", name: "Cyan" },
-  { css: "#b45cff", name: "Violet" },
-  { css: "#ff8fd1", name: "Rose" },
-  { css: "#dfc06a", name: "Electrum" },
-  { css: "#8fe3b0", name: "Verdant" },
-  { css: "#ff6a5c", name: "Ember" },
-  { css: "#cfd8ff", name: "Moonlight" },
-  { css: "#f0ead9", name: "Bone" },
+  { css: "#bfa273", name: "Brass" },
+  { css: "#7e9e93", name: "Sage" },
+  { css: "#8e93b8", name: "Slate" },
+  { css: "#b07a6a", name: "Clay" },
+  { css: "#d9c9a6", name: "Electrum" },
+  { css: "#8f9e7a", name: "Moss" },
+  { css: "#b4654f", name: "Ember" },
+  { css: "#cfc8bc", name: "Moonlight" },
+  { css: "#ece6da", name: "Bone" },
   { css: "#8f9bb3", name: "Steel" },
 ] as const;
 

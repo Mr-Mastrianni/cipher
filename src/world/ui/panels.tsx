@@ -365,7 +365,7 @@ function wireToChat(message: WireCommunityMessage, where: string): ChatMessage {
     id: `community-${message.id}`,
     kind: "chat",
     from: message.author.name || "Member",
-    color: "#b9a7e6",
+    color: "#8e93b8",
     text: message.body,
     at: Date.parse(message.createdAt) || Date.now(),
     where,
@@ -960,7 +960,7 @@ function NatalWheel({ chart }: { chart: NonNullable<ReturnType<typeof useRealm>[
             y1={point(chart.lagna, inner - 26).y}
             x2={point(chart.lagna, outer + 4).x}
             y2={point(chart.lagna, outer + 4).y}
-            stroke="#d4ff3f"
+            stroke="#bfa273"
             strokeWidth="1.4"
           />
           <text
@@ -968,13 +968,13 @@ function NatalWheel({ chart }: { chart: NonNullable<ReturnType<typeof useRealm>[
             y={point(chart.lagna, outer + 14).y}
             textAnchor="middle"
             fontSize="8"
-            fill="#d4ff3f"
+            fill="#bfa273"
           >
             ASC
           </text>
         </g>
       ) : null}
-      <circle cx={centre} cy={centre} r="3" fill="#d4ff3f" />
+      <circle cx={centre} cy={centre} r="3" fill="#bfa273" />
       <circle cx={centre} cy={centre} r="30" fill="none" stroke="rgba(212,255,63,0.16)" strokeWidth="0.6" />
     </svg>
   );
@@ -1698,7 +1698,7 @@ function PlotsPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
                   isYours && "is-yours",
                   claim && !isYours && "is-taken",
                 )}
-                style={{ borderColor: selected === plot.index ? (claim?.color ?? "#ff8fd1") : undefined }}
+                style={{ borderColor: selected === plot.index ? (claim?.color ?? "#d9c9a6") : undefined }}
               >
                 <span className="world-plot-number">{String(plot.index + 1).padStart(2, "0")}</span>
                 <span className="world-plot-title">{claim ? claim.title : "Unclaimed"}</span>
@@ -2194,7 +2194,7 @@ function SettingsPanel({ open, onClose, viewer }: { open: boolean; onClose: () =
               } catch {
                 /* storage may be blocked */
               }
-              getStore().setIdentity({ name: "A traveller", color: "#d4ff3f", form: "cloak", crest: "\u2726", plot: null });
+              getStore().setIdentity({ name: "A traveller", color: "#bfa273", form: "cloak", crest: "\u2726", plot: null });
               window.location.reload();
             }}
           >

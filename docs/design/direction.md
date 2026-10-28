@@ -208,3 +208,28 @@ Still to do in this phase:
   (`src/world/ui/world.css`, `--w-*`), not the app's `--c-*` family, so Phase 0
   never reached it. That is the first job of Phase 3 — with a decision to make
   about renaming `--w-lime`, which will hold brass.
+
+**Phase 3, the re-skin, applied.** The world now uses the same language as the
+2D site — and, more importantly, the same *idea*: ink behind glass, paper for
+words, brass for the one action.
+
+- `src/world/ui/world.css` carried its own palette (`--w-lime`, `--w-cyan`,
+  `--w-violet`, `--w-rose`, hardcoded indigo gradients). The tokens are renamed
+  to what they now hold — `--w-brass`, `--w-sage`, `--w-slate`, `--w-clay` — so
+  no variable lies about its colour, and every literal in 3,700 lines of
+  stylesheet was mapped onto the 2D palette.
+- The avatar palette follows: Signal/Cyan/Violet/Rose/Ember become
+  Brass/Sage/Slate/Clay/Moss/Rust, and the default avatar colour is brass.
+  Existing saved avatars keep whatever hex they already stored.
+- The landing now reads as a brass instrument over a dark valley instead of a
+  lime game overlay: one question, one action, the room name, and the state of
+  the room.
+
+Not done, deliberately:
+
+- **The valley itself is not re-graded.** Terrain, haze and lighting were tuned
+  for the indigo dusk; re-grading them is a scene problem, not a token problem,
+  and it cannot be judged in a software renderer.
+- **The nine HUD panels are still nine.** Collapsing them to Atlas / Room /
+  Chart changes navigation, not colour, and it wants a browser with a working
+  WebGL context to evaluate — which this environment does not have.

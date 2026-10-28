@@ -272,7 +272,7 @@ const SETTINGS_KEY = "cipher:world:settings";
 function readIdentity(seed: { name?: string; color?: string }): Identity {
   const fallback: Identity = {
     name: seed.name || "A traveller",
-    color: seed.color || "#d4ff3f",
+    color: seed.color || "#bfa273",
     form: "cloak",
     crest: "\u2726",
     plot: null,
