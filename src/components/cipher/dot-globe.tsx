@@ -237,6 +237,61 @@ export function DotGlobe({
       };
     };
 
+    /**
+     * A procedural surface for the horizon: soft cloud bands and blotches,
+     * generated once at 1024×512 and reused as a pattern. It is what stops the
+     * limb reading as a gradient disc — a planet has weather.
+     */
+    const surfaceTexture = (() => {
+      const W = 1024;
+      const H = 512;
+      const off = document.createElement("canvas");
+      off.width = W;
+      off.height = H;
+      const g = off.getContext("2d");
+      if (!g) return null;
+
+      let seed = 20261028;
+      const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+
+      g.fillStyle = "#000";
+      g.fillRect(0, 0, W, H);
+
+      // Latitudinal bands, like a gas giant's weather.
+      for (let i = 0; i < 26; i++) {
+        const y = rnd() * H;
+        const h = 6 + rnd() * 46;
+        const a = 0.05 + rnd() * 0.16;
+        const grad = g.createLinearGradient(0, y, 0, y + h);
+        grad.addColorStop(0, "rgba(255,255,255,0)");
+        grad.addColorStop(0.5, `rgba(255,255,255,${a.toFixed(3)})`);
+        grad.addColorStop(1, "rgba(255,255,255,0)");
+        g.fillStyle = grad;
+        g.fillRect(0, y, W, h);
+      }
+
+      // Storms and swirls.
+      for (let i = 0; i < 90; i++) {
+        const x = rnd() * W;
+        const y = rnd() * H;
+        const rx = 8 + rnd() * 90;
+        const ry = 4 + rnd() * 26;
+        const a = 0.03 + rnd() * 0.12;
+        g.save();
+        g.translate(x, y);
+        g.rotate((rnd() - 0.5) * 0.5);
+        const grad = g.createRadialGradient(0, 0, 0, 0, 0, rx);
+        grad.addColorStop(0, `rgba(255,255,255,${a.toFixed(3)})`);
+        grad.addColorStop(1, "rgba(255,255,255,0)");
+        g.fillStyle = grad;
+        g.beginPath();
+        g.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
+        g.fill();
+        g.restore();
+      }
+      return off;
+    })();
+
     const drawSphere = (r: number) => {
       const surface = ctx.createRadialGradient(
         cx - r * 0.3,
@@ -255,14 +310,81 @@ export function DotGlobe({
       ctx.fill();
 
       if (horizon) {
-        // The limb is the whole picture: one bright line and a warm bloom.
         ctx.save();
-        ctx.shadowColor = `rgba(${ice.r},${ice.g},${ice.b},0.7)`;
-        ctx.shadowBlur = Math.max(20, r * 0.07);
-        ctx.strokeStyle = `rgba(${ice.r},${ice.g},${ice.b},0.98)`;
-        ctx.lineWidth = 1.5;
         ctx.beginPath();
         ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.clip();
+
+        // Weather, turning with the planet.
+        if (surfaceTexture) {
+          const pattern = ctx.createPattern(surfaceTexture, "repeat");
+          if (pattern) {
+            const drift = -(motion.current.lon * (r / 90)) % (r * 2);
+            ctx.save();
+            ctx.globalAlpha = 0.5;
+            ctx.globalCompositeOperation = "screen";
+            ctx.translate(drift, 0);
+            ctx.fillStyle = pattern;
+            ctx.fillRect(-r * 2, cy - r, r * 4, r * 2);
+            ctx.restore();
+          }
+        }
+
+        // Terminator: the light is upper-left, the far limb falls away.
+        const night = ctx.createRadialGradient(
+          cx - r * 0.55,
+          cy - r * 0.75,
+          r * 0.1,
+          cx,
+          cy,
+          r * 1.05,
+        );
+        night.addColorStop(0, "rgba(0,0,0,0)");
+        night.addColorStop(0.55, "rgba(0,0,0,0.22)");
+        night.addColorStop(1, "rgba(0,0,0,0.72)");
+        ctx.fillStyle = night;
+        ctx.fillRect(0, 0, width, height);
+        ctx.restore();
+
+        // Inner atmosphere: a band of air just inside the edge.
+        const air = ctx.createRadialGradient(cx, cy, r * 0.86, cx, cy, r);
+        air.addColorStop(0, "rgba(0,0,0,0)");
+        air.addColorStop(0.75, `rgba(${ice.r},${ice.g},${ice.b},0.05)`);
+        air.addColorStop(0.97, `rgba(${ice.r},${ice.g},${ice.b},0.22)`);
+        air.addColorStop(1, `rgba(${ice.r},${ice.g},${ice.b},0.05)`);
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.fillStyle = air;
+        ctx.fill();
+        ctx.restore();
+
+        // Outer bloom: two soft strokes, then the hard limb line on top.
+        ctx.save();
+        ctx.strokeStyle = `rgba(${ice.r},${ice.g},${ice.b},0.16)`;
+        ctx.lineWidth = Math.max(10, r * 0.035);
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+
+        ctx.save();
+        ctx.shadowColor = `rgba(${ice.r},${ice.g},${ice.b},0.85)`;
+        ctx.shadowBlur = Math.max(26, r * 0.09);
+        ctx.strokeStyle = `rgba(${ice.r},${ice.g},${ice.b},0.98)`;
+        ctx.lineWidth = 1.4;
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+
+        ctx.save();
+        ctx.shadowColor = `rgba(${ice.r},${ice.g},${ice.b},0.9)`;
+        ctx.shadowBlur = Math.max(60, r * 0.22);
+        ctx.strokeStyle = `rgba(${ice.r},${ice.g},${ice.b},0.34)`;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(cx, cy, r * 1.004, 0, Math.PI * 2);
         ctx.stroke();
         ctx.restore();
       } else {

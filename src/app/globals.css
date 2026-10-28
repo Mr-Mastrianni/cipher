@@ -575,3 +575,47 @@
 .orbit-spin {
   animation: orbit-spin 44s linear infinite;
 }
+
+/* ============================================================================
+   THE OPENING SEQUENCE
+   CSS, not JavaScript: the reveal must not depend on a frame loop that a
+   background tab, a crawler or a low-power device may never run. Each element
+   is visible in the final state at 100%; the animation only plays it in.
+   ========================================================================== */
+@keyframes introFade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes introRise {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes introLine {
+  from { transform: translateY(118%); }
+  to { transform: none; }
+}
+@keyframes introPlanet {
+  from { opacity: 0; transform: translateY(10%) scale(1.05); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.intro-fade { animation: introFade 1.1s var(--ease-out-quint) both; }
+.intro-rise { animation: introRise 0.95s var(--ease-out-quint) both; }
+.intro-line { animation: introLine 1.2s var(--ease-out-quint) both; }
+.intro-planet { animation: introPlanet 2.4s var(--ease-out-quint) both; }
+
+html[data-intro="skip"] .intro-fade,
+html[data-intro="skip"] .intro-rise,
+html[data-intro="skip"] .intro-line,
+html[data-intro="skip"] .intro-planet {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .intro-fade,
+  .intro-rise,
+  .intro-line,
+  .intro-planet {
+    animation: none;
+  }
+}

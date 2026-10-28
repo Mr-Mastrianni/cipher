@@ -284,3 +284,16 @@ limb is the sky's own ice-blue, and the page moves:
 - The intake moved one scroll down (`S.00 · Your coordinates`), so the first
   screen is a statement, not a form.
 - `--c-ice` / `--c-ice-hi` are the sky's colours; brass stays the interface's.
+
+**The opening sequence.** The landing now plays a five-phase entrance — stars,
+planet, type, a living scene, then the scroll camera — built as CSS keyframes
+with `both` fill over the existing planet canvas:
+
+- CSS, not JS, for the reveal: a background tab, a crawler or a battery saver
+  must never leave the page at opacity 0.
+- `sessionStorage` sets `data-intro="skip"` on a revisit, so the sequence plays
+  once per session; reduced motion disables it in the same stylesheet.
+- Motion only drives what scroll can drive: planet scale/translate, title fade,
+  haze, and a pointer parallax on a spring.
+- The planet gained weather (a procedural band/storm texture that turns with the
+  longitude), a terminator, an inner air band and a two-pass atmospheric bloom.
