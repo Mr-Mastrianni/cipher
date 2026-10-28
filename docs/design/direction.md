@@ -189,3 +189,22 @@ Known residue, all scheduled for later phases:
 Verified over the DevTools protocol, not by eye: clicking a chip sets the field
 to "Ujjain, India"; tapping the London pin on the canvas sets it to
 "London, England"; `aria-pressed` follows the selection; no runtime errors.
+
+**Phase 2, in progress.** Shipped so far:
+
+- A place chosen on the globe now hands **coordinates and an IANA zone** to the
+  intake (`lat`, `lon`, `tz`, `n`), so `/enter` skips the geocode entirely and
+  opens on the verify screen — "Confirm the exact moment", with UTC offset and
+  the daylight-saving fold still unguessed. Verified by watching the dev log:
+  zero `/api/geocode` requests on the pinned path, one on the typed path.
+- The intake no longer fetches a search when a place is already resolved, which
+  was quietly burning the geocode route's per-IP budget.
+- The world's intake asks for the name only. Silhouette, colour and crest moved
+  to the avatar panel inside, where they are previewed against the room.
+
+Still to do in this phase:
+
+- **`/world` is still wearing the old neon.** Its UI is a separate token file
+  (`src/world/ui/world.css`, `--w-*`), not the app's `--c-*` family, so Phase 0
+  never reached it. That is the first job of Phase 3 — with a decision to make
+  about renaming `--w-lime`, which will hold brass.

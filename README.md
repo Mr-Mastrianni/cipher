@@ -358,7 +358,7 @@ to generate the reference values in `src/lib/kp/__tests__/`.
 The world was verified in a real browser with software WebGL (Chromium + Mesa
 llvmpipe under Xvfb) at 1440×900 and 390×844:
 
-- The landing, the avatar builder and the room-status probe render before entry;
+- The landing, the name field and the room-status probe render before entry;
   entry is queued if the valley is still loading.
 - Walk, sprint, four air jumps, flight and the return to walking change the player
   state and the HUD.

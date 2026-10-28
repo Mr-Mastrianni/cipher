@@ -35,10 +35,10 @@ import { cn } from "@/lib/utils";
  * `note` is only read by the list under the globe; the canvas label is the name.
  */
 const PLACES: readonly GlobePlace[] = [
-  { id: "ujjain", name: "Ujjain", note: "The KP meridian", city: "Ujjain, India", lat: 23.18, lon: 75.78 },
-  { id: "london", name: "London", note: "Greenwich", city: "London, England", lat: 51.51, lon: -0.13 },
-  { id: "new-york", name: "New York", note: "West gate", city: "New York, USA", lat: 40.71, lon: -74.01 },
-  { id: "tokyo", name: "Tokyo", note: "First light", city: "Tokyo, Japan", lat: 35.68, lon: 139.69 },
+  { id: "ujjain", name: "Ujjain", note: "The KP meridian", city: "Ujjain, India", lat: 23.18, lon: 75.78, timeZone: "Asia/Kolkata" },
+  { id: "london", name: "London", note: "Greenwich", city: "London, England", lat: 51.51, lon: -0.13, timeZone: "Europe/London" },
+  { id: "new-york", name: "New York", note: "West gate", city: "New York, USA", lat: 40.71, lon: -74.01, timeZone: "America/New_York" },
+  { id: "tokyo", name: "Tokyo", note: "First light", city: "Tokyo, Japan", lat: 35.68, lon: 139.69, timeZone: "Asia/Tokyo" },
 ];
 
 const GLASS =
@@ -68,6 +68,18 @@ export function HeroIntake() {
       t: `${time}:00`.slice(0, 8),
       q: place.trim(),
     });
+
+    // When the place came from a pin and the field still reads that place, hand
+    // the coordinates and the zone over too. The intake then skips its geocode
+    // and lands on the one screen that matters: confirming the instant.
+    const pinned = PLACES.find((candidate) => candidate.id === chosenPlace);
+    if (pinned && place.trim() === pinned.city) {
+      params.set("lat", String(pinned.lat));
+      params.set("lon", String(pinned.lon));
+      params.set("tz", pinned.timeZone);
+      params.set("n", pinned.city);
+    }
+
     router.push(`/enter?${params.toString()}`);
   }
 

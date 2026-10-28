@@ -15,11 +15,7 @@ import {
   WifiOff,
 } from "lucide-react";
 
-import {
-  AVATAR_COLORS,
-  AVATAR_CRESTS,
-  AVATAR_FORMS,
-} from "../content/world";
+import { AVATAR_FORMS } from "../content/world";
 import { getStore, toast, useRealm, type TeachingCall } from "../state";
 import type { MemberAvatar } from "@/lib/world/avatar-shared";
 import { persistAvatar } from "../net/avatar";
@@ -46,9 +42,10 @@ export interface Viewer {
 /**
  * The threshold.
  *
- * Not a login wall: a place to decide who you are before you are seen. Name,
- * silhouette, colour and crest are the whole avatar contract; everything else
- * the engine knows comes from the 2D site's own profile.
+ * Not a login wall: one question — what should people call you — and a list of
+ * rooms. Appearance is chosen inside, where the avatar panel can show it against
+ * the valley; asking for it before entry was four fields of homework between a
+ * visitor and their first step.
  */
 export function Landing({ viewer }: { viewer: Viewer }) {
   const s = useRealm();
@@ -226,62 +223,10 @@ export function Landing({ viewer }: { viewer: Viewer }) {
               />
             </label>
 
-            <fieldset className="world-fieldset">
-              <legend className="world-field-label">Silhouette</legend>
-              <div className="world-form-grid">
-                {AVATAR_FORMS.map((form) => (
-                  <button
-                    key={form.id}
-                    type="button"
-                    onClick={() => store.setIdentity({ form: form.id })}
-                    aria-pressed={identity.form === form.id}
-                    className={cn("world-form-card", identity.form === form.id && "is-active")}
-                    title={form.blurb}
-                  >
-                    <span className={cn("world-form-mark", `is-${form.id}`)} style={{ borderColor: identity.color }} />
-                    <span>{form.name}</span>
-                  </button>
-                ))}
-              </div>
-            </fieldset>
-
-            <fieldset className="world-fieldset">
-              <legend className="world-field-label">Colour</legend>
-              <div className="world-swatches">
-                {AVATAR_COLORS.map((color) => (
-                  <button
-                    key={color.css}
-                    type="button"
-                    onClick={() => store.setIdentity({ color: color.css })}
-                    aria-label={color.name}
-                    aria-pressed={identity.color === color.css}
-                    className={cn("world-swatch", identity.color === color.css && "is-active")}
-                    style={{ backgroundColor: color.css }}
-                    title={color.name}
-                  />
-                ))}
-              </div>
-            </fieldset>
-
-            <fieldset className="world-fieldset">
-              <legend className="world-field-label">Crest</legend>
-              <div className="world-crests">
-                {AVATAR_CRESTS.map((crest) => (
-                  <button
-                    key={crest.glyph}
-                    type="button"
-                    onClick={() => store.setIdentity({ crest: crest.glyph })}
-                    aria-label={crest.name}
-                    aria-pressed={identity.crest === crest.glyph}
-                    className={cn("world-crest", identity.crest === crest.glyph && "is-active")}
-                    title={crest.name}
-                    style={{ color: identity.crest === crest.glyph ? identity.color : undefined }}
-                  >
-                    {crest.glyph}
-                  </button>
-                ))}
-              </div>
-            </fieldset>
+            <p className="world-landing-note">
+              Silhouette, colour and crest are chosen inside, from the avatar
+              panel — where you can see them against the room first.
+            </p>
 
             <label className="world-field">
               <span className="world-field-label">Room</span>

@@ -50,12 +50,13 @@ the software and mobile GPUs that the earlier photographic sky could break.
 ## Entering, identity and controls
 
 Open `/world` (or follow **The World** in the 2D navigation, or the card on the
-dashboard). The intake screen is not a second login: it is where you choose the
-name, silhouette, colour and crest the room will see. Those four choices are
-saved to the member's profile in `cipher_member_avatars` (and cached in
-`localStorage` for the first paint). They are appearance only — no image is
-uploaded — and they follow the member across devices. The room still receives
-them as presence, never as trusted state.
+dashboard). The intake screen is not a second login: it asks one question — the
+name the room will see — and lists the rooms. Silhouette, colour and crest are
+chosen inside, from the avatar panel, where they can be seen against the valley
+first. All four are saved to the member's profile in `cipher_member_avatars`
+(and cached in `localStorage` for the first paint). They are appearance only —
+no image is uploaded — and they follow the member across devices. The room still
+receives them as presence, never as trusted state.
 
 **Pointer capture is opt-in.** The interface is clickable until you click the
 view. Once the mouse is captured, press **Esc** to release it and use the HUD

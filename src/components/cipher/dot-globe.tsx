@@ -38,6 +38,8 @@ export interface GlobePlace {
   note: string;
   /** What the place should write into a city field. */
   city: string;
+  /** IANA zone for the place, so the intake need not geocode it again. */
+  timeZone: string;
   lat: number;
   lon: number;
 }

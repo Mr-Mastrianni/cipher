@@ -294,6 +294,23 @@ export default function EnterPage() {
     const city = params.get("q");
     if (!date && !time && !city) return;
 
+    // A place chosen on the landing globe arrives with its coordinates and an
+    // IANA zone. No lookup, no wait, and nothing guessed: the verify screen
+    // still asks for the daylight-saving fold before the chart is cast.
+    const zone = params.get("tz");
+    const label = params.get("n") ?? city ?? "";
+    const latitude = Number(params.get("lat"));
+    const longitude = Number(params.get("lon"));
+    const pinned =
+      params.has("lat") &&
+      params.has("lon") &&
+      zone !== null &&
+      isValidZone(zone) &&
+      Number.isFinite(latitude) &&
+      Number.isFinite(longitude) &&
+      Math.abs(latitude) <= 90 &&
+      Math.abs(longitude) <= 180;
+
     if (date) {
       const [y, m, d] = date.split("-");
       if (y && m && d) {
@@ -308,7 +325,29 @@ export default function EnterPage() {
       if (mi) setMinute(mi);
       if (s) setSecond(s);
     }
-    if (city) setQuery(city);
+    if (pinned) {
+      const resolved: PlaceResult = {
+        name: label,
+        displayName: label,
+        latitude,
+        longitude,
+        timeZone: zone,
+        country: null,
+        admin1: null,
+      };
+      setPlace(resolved);
+      setQuery(label);
+      // Nothing to search for: this place is already resolved.
+      setDismissedQuery(label);
+      // Straight to verification: the date, the second and the place are all
+      // known, and the moment still has to be confirmed.
+      if (date && time) {
+        setStep(3);
+        return;
+      }
+    } else if (city) {
+      setQuery(city);
+    }
 
     // With the date and time already filled, the place is the first empty step.
     if (date && time) setStep(2);
@@ -339,7 +378,9 @@ export default function EnterPage() {
   }, [query]);
 
   useEffect(() => {
-    if (debouncedQuery.length < 2) return;
+    // A resolved place needs no lookup, and asking for one burns the route's
+    // per-IP budget for an answer we already have.
+    if (place || debouncedQuery.length < 2) return;
     const controller = new AbortController();
     void (async () => {
       try {
@@ -381,7 +422,7 @@ export default function EnterPage() {
       }
     })();
     return () => controller.abort();
-  }, [debouncedQuery]);
+  }, [debouncedQuery, place]);
 
   /* The loading screen narrates the pipeline rather than spinning mutely. */
   useEffect(() => {
