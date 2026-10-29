@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 
 import { IntakeForm } from "@/components/cipher/hero-intake";
+import { Actions, Facts, Lede, PanelHeading, pillClass as PILL, quietClass as QUIET, type Fact } from "@/components/cipher/panel";
 import { DESTINATIONS, SpaceLink, useSpace } from "@/components/cipher/space-shell";
 import type { GrahaId } from "@/components/cipher/sky/bodies";
 import type { BodyId } from "@/components/cipher/sky/layout";
@@ -19,26 +20,23 @@ import { Sheet } from "@/components/ui/sheet";
  * graha you choose. Everything else is a page of its own beside its planet.
  */
 
-const READINGS = [
+const READINGS: readonly Fact[] = [
   {
     title: "Your bodygraph",
     body: "Nine centres and thirty-six channels — the map we read together on the weekly call.",
     figure: "26",
-    unit: "activations",
   },
   {
     title: "Your KP chart",
     body: "Sidereal, Placidus, every sub lord. Members learn to read it in the courses and circles.",
     figure: "½″",
-    unit: "from the Swiss Ephemeris",
   },
   {
     title: "Your Aura Avatar",
     body: "Two words that are yours alone — the first thing people learn about you in the Commons.",
     figure: "2",
-    unit: "words, yours alone",
   },
-] as const;
+];
 
 /** What each graha that is not a destination says when you visit it. */
 const MEANING: Partial<Record<GrahaId, { sanskrit: string; line: string }>> = {
@@ -49,10 +47,6 @@ const MEANING: Partial<Record<GrahaId, { sanskrit: string; line: string }>> = {
   ketu: { sanskrit: "The south node", line: "Where it falls back through: release, and what you already know by heart." },
 };
 
-const PILL =
-  "inline-flex items-center gap-2.5 rounded-full bg-bone px-6 py-3 text-[15px] font-medium text-ink transition-colors hover:bg-gold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 focus-visible:ring-offset-void";
-const QUIET =
-  "inline-flex items-center gap-2 text-[15px] text-muted underline decoration-hairline underline-offset-4 transition-colors hover:text-bone hover:decoration-gold";
 
 export function Landing() {
   const { focus, joinHref, transits } = useSpace();
@@ -205,34 +199,13 @@ function Panel({ children }: { children: ReactNode }) {
   );
 }
 
-function Heading({ caption, children }: { caption: string; children: ReactNode }) {
-  return (
-    <div>
-      <p className="caption">{caption}</p>
-      <h2 className="mt-2 max-w-[16ch] font-display text-[clamp(36px,5vw,60px)] leading-[1.0] text-bone">{children}</h2>
-    </div>
-  );
-}
-
 function Chart({ joinHref, onCast }: { joinHref: string; onCast: () => void }) {
   return (
     <>
-      <Heading caption="The Sun · your chart">Bring the moment you were born.</Heading>
-      <p className="mt-5 max-w-[38ch] text-pretty text-[16px] leading-relaxed text-muted">
-        One instant, held to the second, gives three readings — and a room of people to read them with.
-      </p>
-      <ol className="mt-8 flex flex-col">
-        {READINGS.map((reading) => (
-          <li key={reading.title} className="flex items-baseline gap-5 border-t border-hairline py-5">
-            <span className="w-16 shrink-0 font-display text-4xl text-gold">{reading.figure}</span>
-            <span>
-              <span className="block font-display text-2xl text-bone">{reading.title}</span>
-              <span className="mt-1 block max-w-[36ch] text-[15px] leading-relaxed text-muted">{reading.body}</span>
-            </span>
-          </li>
-        ))}
-      </ol>
-      <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-4">
+      <PanelHeading as="h1" caption="The Sun · your chart">Bring the moment you were born.</PanelHeading>
+      <Lede>One instant, held to the second, gives three readings — and a room of people to read them with.</Lede>
+      <Facts items={READINGS} />
+      <Actions>
         <button type="button" onClick={onCast} className={PILL}>
           Cast your chart free
           <ArrowRight aria-hidden="true" className="h-4 w-4" strokeWidth={1.6} />
@@ -240,7 +213,7 @@ function Chart({ joinHref, onCast }: { joinHref: string; onCast: () => void }) {
         <Link href={joinHref} className={QUIET}>
           Join the community
         </Link>
-      </div>
+      </Actions>
     </>
   );
 }
@@ -248,10 +221,10 @@ function Chart({ joinHref, onCast }: { joinHref: string; onCast: () => void }) {
 function World() {
   return (
     <>
-      <Heading caption="Mars · the world">A place to meet each other.</Heading>
-      <p className="mt-5 max-w-[38ch] text-pretty text-[16px] leading-relaxed text-muted">
+      <PanelHeading as="h1" caption="Mars · the world">A place to meet each other.</PanelHeading>
+      <Lede>
         Walk, run and fly through a valley at dusk. Your chart hangs in the Observatory; your people gather in the Commons.
-      </p>
+      </Lede>
       <figure className="mt-8 overflow-hidden rounded-lg border border-hairline">
         <Image
           src="/world-preview.jpg"
@@ -263,12 +236,12 @@ function World() {
           className="h-auto w-full object-cover"
         />
       </figure>
-      <div className="mt-8">
+      <Actions>
         <Link href="/world" className={PILL}>
           Enter the world
           <ArrowRight aria-hidden="true" className="h-4 w-4" strokeWidth={1.6} />
         </Link>
-      </div>
+      </Actions>
     </>
   );
 }
@@ -281,14 +254,14 @@ function TransitCard({ id }: { id: BodyId }) {
   const node = id === "rahu" || id === "ketu";
   return (
     <>
-      <Heading caption={`${meaning.sanskrit} · in transit today`}>
+      <PanelHeading as="h1" caption={`${meaning.sanskrit} · in transit today`}>
         {`${transit.name} in ${transit.place}`}
-      </Heading>
-      <p className="mt-5 max-w-[38ch] text-pretty text-[16px] leading-relaxed text-muted">{meaning.line}</p>
+      </PanelHeading>
+      <Lede>{meaning.line}</Lede>
       {transit.retrograde && !node ? (
         <p className="mt-3 font-display text-[16px] italic text-gold">Retrograde: moving backward through the sign, as seen from here.</p>
       ) : null}
-      <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-4">
+      <Actions>
         <SpaceLink to="earth" className={PILL}>
           Talk it over in the Collective
           <ArrowRight aria-hidden="true" className="h-4 w-4" strokeWidth={1.6} />
@@ -296,7 +269,7 @@ function TransitCard({ id }: { id: BodyId }) {
         <SpaceLink to="sun" className={QUIET}>
           See it in your own chart
         </SpaceLink>
-      </div>
+      </Actions>
     </>
   );
 }

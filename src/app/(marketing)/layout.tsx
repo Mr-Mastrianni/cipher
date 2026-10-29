@@ -2,6 +2,7 @@ import { SiteFooter } from "@/components/chrome/site-footer";
 import { SiteHeader } from "@/components/chrome/site-header";
 import { SpaceShell } from "@/components/cipher/space-shell";
 
+import { joinHref } from "./join";
 import { todaysSky } from "./sky";
 
 /**
@@ -19,9 +20,7 @@ export default function MarketingLayout({ children }: LayoutProps<"/">) {
   return (
     <SpaceShell
       transits={todaysSky()}
-      // With Clerk unconfigured there is no hosted sign-up route, so joining
-      // starts at sign-in, as on the membership page.
-      joinHref={clerkEnabled ? "/sign-up" : "/sign-in"}
+      joinHref={joinHref()}
       header={<SiteHeader clerkEnabled={clerkEnabled} />}
       footer={<SiteFooter />}
     >

@@ -188,7 +188,7 @@ export default function ApplyPage() {
   return (
     <>
       <main id="main" className="flex-1">
-        <div className="mx-auto w-full max-w-3xl px-4 py-12 sm:px-6 sm:py-20">
+        <div className="w-full pt-6">
           {submitted ? (
             <motion.section
               initial={reduced ? false : { opacity: 0, y: 12 }}

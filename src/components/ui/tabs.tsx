@@ -198,7 +198,7 @@ export function TabsTrigger({
         cue("select");
       }}
       className={cn(
-        "relative inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap px-3.5 py-2.5 font-mono text-[11px] uppercase tracking-[0.16em] transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 focus-visible:ring-offset-void",
+        "relative inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap px-3.5 py-2.5 font-display text-[16px] transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 focus-visible:ring-offset-void",
         selected ? "text-gold" : "text-muted hover:text-bone",
         className,
       )}

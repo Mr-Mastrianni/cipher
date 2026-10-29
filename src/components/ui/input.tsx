@@ -70,7 +70,7 @@ export function Label({ required, className, children, ...props }: LabelProps) {
   return (
     <label
       className={cn(
-        "flex items-baseline gap-1 font-mono text-[10px] uppercase tracking-[0.2em] text-muted",
+        "flex items-baseline gap-1 font-display text-[16px] italic text-muted",
         className,
       )}
       {...props}

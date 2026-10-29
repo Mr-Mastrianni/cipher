@@ -1,8 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, BadgeCheck, CircleDot, Clock, Orbit, Ruler, Sigma } from "lucide-react";
-import { PageHeader, PageShell, Section } from "@/components/chrome";
-import { Button } from "@/components/ui";
+import { ArrowRight } from "lucide-react";
+
+import { Actions, Facts, Further, Lede, More, PanelHeading, pillClass, quietClass, type Fact } from "@/components/cipher/panel";
+import { Reveal } from "@/components/motion/reveal";
+
+import { joinHref } from "../join";
 
 export const metadata: Metadata = {
   title: "The Method",
@@ -19,22 +22,18 @@ export const metadata: Metadata = {
 
 const KP_PIPELINE = [
   {
-    icon: Orbit,
     title: "KP only, sidereal",
     body: "The astrology on this platform is Krishnamurti Paddhati and nothing else. Positions are sidereal, measured with the KP (Krishnamurti) ayanamsa — 22°21′50″ at 1900, carried forward by precession, about 23°45′ in 2000. There is no Western or tropical chart, and no code path that falls back to one.",
   },
   {
-    icon: Ruler,
     title: "Placidus cusps and sub lords",
     body: "KP houses are Placidus, computed from apparent sidereal time and the true obliquity. Each of the 27 nakshatras is divided into nine subs in Vimshottari proportion, and each sub again into sub-subs — the 249-row KP table, generated here from first principles. Where Placidus does not exist (inside the polar circles) the chart is refused, not substituted.",
   },
   {
-    icon: Sigma,
     title: "A precision ephemeris",
     body: "The grahas come from the full VSOP87 planetary theory and the Moon from ELP/MPP02, with light-time and aberration applied and ΔT from the IERS record. Across sixteen reference charts from 1900 to 2049 they agree with the Swiss Ephemeris to within 0.5″ for the grahas and 0.04″ for the cusps — two hundred times finer than the narrowest sub-sub.",
   },
   {
-    icon: Clock,
     title: "Birth time to the second, verified",
     body: "A KP cusp moves about fifteen arcseconds per second of clock time. So every chart asks for hours, minutes and seconds, then shows the resolved time zone, UTC offset, daylight saving and UTC instant for you to confirm. A local time that happened twice must be chosen explicitly; one that never existed is refused. Rahu and Ketu default to the mean node, the KP convention, with the true node as a labelled option.",
   },
@@ -42,22 +41,18 @@ const KP_PIPELINE = [
 
 const PIPELINE = [
   {
-    icon: Sigma,
     title: "Human Design is its own system",
     body: "The bodygraph is not astrology and is never shown as a chart. It is defined on the tropical ecliptic longitudes of the Sun, Moon, nodes and planets at two instants, so it is computed from those positions directly, for the same verified birth instant the KP chart uses.",
   },
   {
-    icon: CircleDot,
     title: "The 88° solar arc",
     body: "The Human Design Design chart is cast for the moment the Sun stood exactly 88° of solar arc before the birth instant — not 88 days earlier. Earth's orbit is elliptical, so 88° of arc takes between roughly 86 and 92 days depending on the season. We root-find that instant on the Sun's longitude. Subtracting a fixed 88 days is the single most common way a bodygraph comes out quietly wrong.",
   },
   {
-    icon: Ruler,
     title: "The true node",
     body: "Human Design uses the true (osculating) lunar node, not the mean node. The two differ by up to about 1.5°, and a gate is only 5.625° wide, so the choice can move an activation across a gate boundary and change a channel. We use the true node and derive the South Node as its geometric opposition rather than observing it separately.",
   },
   {
-    icon: BadgeCheck,
     title: "The wheel offset",
     body: "Gate 41 line 1 begins at ecliptic longitude 302.000° — exactly 2°00′ of Aquarius in the tropical zodiac. Each gate spans 5.625°, each line 0.9375°, each colour 0.15625°, each tone about 0.02604°, and each base about 0.00521°. The gate order is the standard Rave Mandala, beginning 41, 19, 13, 49, 30, 55, 37, 63, … The zodiac is tropical; a sidereal conversion would be wrong by more than four gates.",
   },
@@ -126,208 +121,110 @@ const VERIFIED = [
   },
 ] as const;
 
+/** The method in four numbers, each one checkable. */
+const FACTS: readonly Fact[] = [
+  {
+    figure: "½″",
+    title: "Checked against the Swiss Ephemeris",
+    body: "Sixteen reference charts, 1900 to 2049: the grahas agree to half an arcsecond.",
+  },
+  {
+    figure: "15″",
+    title: "Why we ask for the second",
+    body: "A KP cusp moves fifteen arcseconds for every second of clock time.",
+  },
+  {
+    figure: "88°",
+    title: "Of solar arc, not 88 days",
+    body: "The Human Design Design chart is solved on the Sun's own path.",
+  },
+  {
+    figure: "249",
+    title: "Sub lords, generated",
+    body: "The KP sub table is built from first principles, so no printed typo reaches you.",
+  },
+];
+
 /**
- * The public method page.
+ * The method, beside Jupiter — the teacher.
  *
- * It exists to be checkable: every claim about the engine is stated in terms a
- * reader can verify against the reading they were just given, and the accuracy
- * limits are given the same weight as the mechanics.
+ * It exists to be checkable: the page leads with four claims a reader can test
+ * against their own reading, and keeps every piece of the arithmetic, and
+ * every limit on it, one fold away.
  */
 export default function MethodPage() {
   return (
-    <>
-      <main id="main" className="flex-1">
-        <PageShell width="lg">
-          <PageHeader
-            eyebrow="The Method"
-            title="How the calculation actually works."
-            description="Most sites describe a system. This page describes the arithmetic underneath it — the ayanamsa, the cusps, the sub lords, the ephemeris — and then states, without hedging, where the arithmetic is uncertain."
-            actions={
-              <Button asChild variant="primary">
-                <Link href="/enter">
-                  Cast a KP chart
-                  <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.5} />
-                </Link>
-              </Button>
-            }
-          />
+    <main id="main">
+      <Reveal stagger={0.08} className="mt-6 flex flex-col">
+        <PanelHeading as="h1" caption="Jupiter · the method">
+          How the chart is cast.
+        </PanelHeading>
+        <Lede>
+          KP and only KP, sidereal and verified — with a Human Design bodygraph beside it. Every claim here can be
+          checked against the reading you were given.
+        </Lede>
+        <Facts items={FACTS} />
+        <Actions>
+          <Link href="/enter" className={pillClass}>
+            Cast your chart free
+            <ArrowRight aria-hidden="true" className="h-4 w-4" strokeWidth={1.6} />
+          </Link>
+          <Link href={joinHref()} className={quietClass}>
+            Join the community
+          </Link>
+        </Actions>
+      </Reveal>
 
-          <Section
-            eyebrow="Krishnamurti Paddhati"
-            title="KP, computed to the arcsecond."
-            description="The astrology here is KP and only KP. These four decisions determine every sub lord in your chart."
-          >
-            <div className="grid gap-px overflow-hidden rounded-xl border border-hairline bg-hairline sm:grid-cols-2">
-              {KP_PIPELINE.map((item) => (
-                <article key={item.title} className="flex flex-col gap-4 bg-void p-7">
-                  <item.icon aria-hidden="true" strokeWidth={1.5} className="h-5 w-5 text-gold" />
-                  <h3 className="font-display text-lg tracking-wide text-bone">{item.title}</h3>
-                  <p className="text-sm leading-relaxed text-muted">{item.body}</p>
-                </article>
-              ))}
-            </div>
-          </Section>
-
-          <Section
-            eyebrow="Human Design"
-            title="Four decisions determine the bodygraph."
-            description="Change any one of them and the bodygraph moves. These are the four that calculators most often get wrong."
-          >
-            <div className="grid gap-px overflow-hidden rounded-xl border border-hairline bg-hairline sm:grid-cols-2">
-              {PIPELINE.map((item) => (
-                <article key={item.title} className="flex flex-col gap-4 bg-void p-7">
-                  <item.icon
-                    aria-hidden="true"
-                    strokeWidth={1.5}
-                    className="h-5 w-5 text-gold"
-                  />
-                  <h3 className="font-display text-lg tracking-wide text-bone">
-                    {item.title}
-                  </h3>
-                  <p className="text-sm leading-relaxed text-muted">{item.body}</p>
-                </article>
-              ))}
-            </div>
-          </Section>
-
-          <Section
-            eyebrow="Accuracy"
-            title="What we will not pretend to know."
-            description="A reading is only useful if its uncertainty is legible. These are the limits the engine carries into every chart it produces."
-          >
-            <div className="grid gap-5 sm:grid-cols-2">
-              {LIMITS.map((limit) => (
-                <div key={limit.title} className="surface flex flex-col gap-3 p-6">
-                  <h3 className="font-display text-base tracking-wide text-bone">
-                    {limit.title}
-                  </h3>
-                  <p className="text-sm leading-relaxed text-muted">{limit.body}</p>
-                </div>
-              ))}
-            </div>
-          </Section>
-
-          <Section
-            eyebrow="What we do differently"
-            title="The differences are technical, and they are the point."
-            description="None of this is proprietary. It is simply what the system requires, done carefully and then stated openly."
-          >
-            <ul className="surface list-none divide-y divide-hairline p-0">
-              {DIFFERENT.map((item, index) => (
-                <li key={item} className="flex gap-4 p-5 sm:p-6">
-                  <span
-                    aria-hidden="true"
-                    className="font-display text-lg tabular-nums text-gold"
-                  >
-                    {String(index + 1).padStart(2, "0")}
-                  </span>
-                  <p className="text-sm leading-relaxed text-muted">{item}</p>
-                </li>
-              ))}
-            </ul>
-          </Section>
-
-          <Section
-            eyebrow="Verification"
-            title="The engine reproduces published bodygraphs."
-            description="The mechanical layer is checked against bodygraphs that were published before this engine existed. These are the reference charts, with the birth data, so the check can be repeated."
-          >
-            <div className="surface overflow-x-auto rounded-lg">
-              <table className="w-full min-w-[38rem] border-collapse text-left">
-                <caption className="sr-only">
-                  Reference charts and the published structure the engine
-                  reproduces for each.
-                </caption>
-                <thead>
-                  <tr className="border-b border-hairline">
-                    <th
-                      scope="col"
-                      className="px-4 py-3 font-display text-[15px] font-medium italic text-muted"
-                    >
-                      Chart
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-4 py-3 font-display text-[15px] font-medium italic text-muted"
-                    >
-                      Birth data
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-4 py-3 font-display text-[15px] font-medium italic text-muted"
-                    >
-                      Reproduced structure
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {VERIFIED.map((row) => (
-                    <tr
-                      key={row.who}
-                      className="border-b border-hairline/70 last:border-b-0"
-                    >
-                      <th
-                        scope="row"
-                        className="whitespace-nowrap px-4 py-4 text-left font-sans text-sm font-normal text-bone"
-                      >
-                        {row.who}
-                      </th>
-                      <td className="px-4 py-4 text-sm leading-relaxed text-code">
-                        {row.when}
-                      </td>
-                      <td className="px-4 py-4 text-sm leading-relaxed text-muted">
-                        {row.expected}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="mt-6 space-y-4 text-sm leading-relaxed text-muted">
-              <p>
-                Agreement on headline structure is not the same as agreement on
-                every tone and base. We verify at the level of type, profile,
-                authority, definition, incarnation cross and defined centres —
-                the fields that published sources actually print and agree on.
-              </p>
-              <p>
-                Where published sources disagree with each other, or with the
-                engine, we say so rather than matching the source. One example
-                is worth naming: for one of the reference charts a secondary
-                source lists channel 19–49 where the activations resolve to
-                30–41. Both channels connect the Solar Plexus to the Root, and
-                every headline field is identical; the engine reports the
-                activations it computed and this page records the disagreement.
-              </p>
-              <p>
-                Contested birth times are treated the same way. Where the
-                recorded time is disputed, a reading built on it is labelled
-                time-sensitive — see the boundary notices at the top of any
-                reading.
-              </p>
-            </div>
-          </Section>
-
-          <Section
-            eyebrow="Next"
-            title="The fastest way to check the method is to run it."
-            description="Enter your own coordinates and read the accuracy notices first. They will tell you exactly how much the rest of the page can be trusted."
-          >
-            <div className="flex flex-wrap gap-3">
-              <Button asChild variant="primary" size="lg">
-                <Link href="/enter">
-                  Compute my chart
-                  <ArrowRight className="h-4 w-4" strokeWidth={1.75} />
-                </Link>
-              </Button>
-              <Button asChild variant="secondary" size="lg">
-                <Link href="/membership">See membership</Link>
-              </Button>
-            </div>
-          </Section>
-        </PageShell>
-      </main>
-    </>
+      <Further title="The full method">
+        <More summary="KP, computed to the arcsecond">
+          <dl className="flex flex-col gap-4">
+            {KP_PIPELINE.map((item) => (
+              <div key={item.title}>
+                <dt className="font-display text-lg text-bone">{item.title}</dt>
+                <dd className="mt-1">{item.body}</dd>
+              </div>
+            ))}
+          </dl>
+        </More>
+        <More summary="The four decisions behind a bodygraph">
+          <dl className="flex flex-col gap-4">
+            {PIPELINE.map((item) => (
+              <div key={item.title}>
+                <dt className="font-display text-lg text-bone">{item.title}</dt>
+                <dd className="mt-1">{item.body}</dd>
+              </div>
+            ))}
+          </dl>
+        </More>
+        <More summary="What we will not pretend to know">
+          <dl className="flex flex-col gap-4">
+            {LIMITS.map((limit) => (
+              <div key={limit.title}>
+                <dt className="font-display text-lg text-bone">{limit.title}</dt>
+                <dd className="mt-1">{limit.body}</dd>
+              </div>
+            ))}
+          </dl>
+        </More>
+        <More summary="What we do differently">
+          <ul className="flex list-disc flex-col gap-3 pl-5 marker:text-gold">
+            {DIFFERENT.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </More>
+        <More summary="Published charts the engine reproduces">
+          <dl className="flex flex-col gap-4">
+            {VERIFIED.map((row) => (
+              <div key={row.who}>
+                <dt className="font-display text-lg text-bone">{row.who}</dt>
+                <dd className="mt-0.5 italic text-faint">{row.when}</dd>
+                <dd className="mt-1 text-code">{row.expected}</dd>
+              </div>
+            ))}
+          </dl>
+        </More>
+      </Further>
+    </main>
   );
 }

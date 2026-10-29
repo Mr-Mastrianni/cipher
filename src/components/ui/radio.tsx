@@ -81,7 +81,7 @@ export function RadioGroup({
   return (
     <fieldset className={cn("flex flex-col gap-3", className)}>
       {label ? (
-        <legend className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted">
+        <legend className="font-display text-[16px] italic text-muted">
           {label}
         </legend>
       ) : null}

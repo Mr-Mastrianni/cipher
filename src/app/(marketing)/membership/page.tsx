@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, Check, Minus } from "lucide-react";
-import { PageHeader, PageShell, Section } from "@/components/chrome";
-import { Badge, Button } from "@/components/ui";
-import { cn } from "@/lib/utils";
+
+import { Actions, Further, Lede, More, PanelHeading, pillClass, quietClass } from "@/components/cipher/panel";
+import { Reveal } from "@/components/motion/reveal";
+
+import { joinHref } from "../join";
 
 export const metadata: Metadata = {
   title: "Membership",
@@ -33,15 +35,6 @@ const TIERS = [
     tagline: "The door, open.",
     description:
       "The whole chart and the whole bodygraph, computed and kept. No account required to see it, and no time limit on it.",
-    features: [
-      "Your full KP chart and bodygraph",
-      "Your Aura Avatar",
-      "The nine centres, read in full",
-      "Two foundation courses: KP Foundations and Human Design",
-      "The public collective feed",
-    ],
-    cta: "Start free",
-    href: "/enter",
     featured: false,
   },
   {
@@ -52,16 +45,6 @@ const TIERS = [
     tagline: "The work, in practice.",
     description:
       "The base membership: the rooms, the course library, the weekly call, and unlimited flashcards.",
-    features: [
-      "Everything in Threshold",
-      "Cohort rooms, archetype and lane channels",
-      "Direct messages",
-      "The weekly live call",
-      "Every course track",
-      "Full flashcard decks with spaced repetition",
-    ],
-    cta: "Apply for membership",
-    href: "/membership/apply",
     featured: true,
   },
   {
@@ -72,15 +55,6 @@ const TIERS = [
     tagline: "For the ones who teach it.",
     description:
       "For practitioners who read other people's charts as well as their own: comparison, timing, and the extended library.",
-    features: [
-      "Everything in Initiate",
-      "Call recordings and archives",
-      "The extended readings library",
-      "KP horary (Prashna) with ruling-planet timing",
-      "Priority in the live call queue",
-    ],
-    cta: "Apply for membership",
-    href: "/membership/apply",
     featured: false,
   },
   {
@@ -91,15 +65,6 @@ const TIERS = [
     tagline: "The room where it is built.",
     description:
       "The top tier, kept deliberately small: a monthly circle, a direct line, and the tools before they are public.",
-    features: [
-      "Everything in Adept",
-      "Monthly small-group reading circle",
-      "Direct line to the studio",
-      "Early access to new engines and tools",
-      "Your readings archive, exportable",
-    ],
-    cta: "Apply for membership",
-    href: "/membership/apply",
     featured: false,
   },
 ] as const;
@@ -190,218 +155,99 @@ function ComparisonCell({ value }: { value: Cell }) {
 }
 
 /**
- * The public pricing page.
+ * Membership, beside Venus — what we value, and belonging.
  *
- * The page is a statically rendered server component: it reads only the public
- * Clerk key to decide where the join call to action points, so it renders
- * correctly with no environment variables at all.
+ * The four tiers read as four lines: a price, a name and what it is for. The
+ * full comparison and the questions people ask first are one fold away. The
+ * page is a server component that reads only the public Clerk key, so it
+ * renders correctly with no environment variables at all.
  */
 export default function MembershipPage() {
-  // With Clerk unconfigured there is no hosted sign-up route, so the join CTA
-  // degrades to the sign-in path and the application form stays the real door.
-  const clerkConfigured = Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
-  const joinHref = clerkConfigured ? "/sign-up" : "/sign-in";
-
   return (
-    <>
-      <main id="main" className="flex-1">
-        <PageShell width="wide">
-          <PageHeader
-            eyebrow="Membership"
-            title="Four tiers. The first one is free forever."
-            description="Membership is reviewed by a person, usually within two days. You choose a tier when you apply, and nothing is charged until you are accepted."
-            actions={
-              <>
-                <Button asChild variant="primary">
-                  <Link href="/membership/apply">
-                    Apply for membership
-                    <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.5} />
-                  </Link>
-                </Button>
-                <Button asChild variant="secondary">
-                  <Link href={joinHref}>
-                    {clerkConfigured ? "Create an account" : "Sign in"}
-                  </Link>
-                </Button>
-              </>
-            }
-          />
+    <main id="main">
+      <Reveal stagger={0.08} className="mt-6 flex flex-col">
+        <PanelHeading as="h1" caption="Venus · membership">
+          Come in. There&apos;s a seat for you.
+        </PanelHeading>
+        <Lede>
+          Joining is free, and your chart is yours for good. Applications are read by a person, usually within two
+          days, and nothing is charged until you&apos;re welcomed in.
+        </Lede>
+        <ul className="mt-8 flex flex-col">
+          {TIERS.map((tier) => (
+            <li key={tier.key} className="flex items-baseline gap-5 border-t border-hairline py-5">
+              <span className="w-20 shrink-0 font-display text-4xl leading-none text-gold">
+                {tier.price}
+                {tier.cadence ? <span className="ml-0.5 text-[15px] italic text-faint">/mo</span> : null}
+              </span>
+              <span>
+                <span className="block font-display text-2xl text-bone">
+                  {tier.name}
+                  {tier.featured ? <span className="ml-3 text-[15px] italic text-gold">most chosen</span> : null}
+                </span>
+                <span className="block font-display text-[16px] italic text-muted">{tier.tagline}</span>
+                <span className="mt-1 block max-w-[38ch] text-[15px] leading-relaxed text-muted">{tier.description}</span>
+              </span>
+            </li>
+          ))}
+        </ul>
+        <Actions>
+          <Link href="/membership/apply" className={pillClass}>
+            Become a member
+            <ArrowRight aria-hidden="true" className="h-4 w-4" strokeWidth={1.6} />
+          </Link>
+          <Link href={joinHref()} className={quietClass}>
+            Join free
+          </Link>
+        </Actions>
+      </Reveal>
 
-          <Section
-            eyebrow="The tiers"
-            title="What opens at each step."
-            description="Nothing essential is held back. The free tier is a complete reading — the paid tiers are the room, the practice and the tools."
-          >
-            <div className="grid gap-5 lg:grid-cols-4">
-              {TIERS.map((tier) => (
-                <article
-                  key={tier.key}
-                  className={cn(
-                    "flex h-full flex-col rounded-xl border bg-ink/60 p-6 transition-all duration-300",
-                    tier.featured
-                      ? "border-gold/50 shadow-glow"
-                      : "border-hairline hover:border-line",
-                  )}
-                >
-                  {tier.featured ? (
-                    <Badge tone="gold" size="sm" className="mb-4 w-fit">
-                      Most chosen
-                    </Badge>
-                  ) : null}
-                  <h3 className="font-display text-lg tracking-wide text-bone">
-                    {tier.name}
-                  </h3>
-                  <p className="mt-1 text-xs text-faint">{tier.tagline}</p>
-                  <p className="mt-5 font-display text-3xl text-bone">
-                    {tier.price}
-                    <span className="text-sm text-faint">{tier.cadence}</span>
-                  </p>
-                  <p className="mt-4 text-[13px] leading-relaxed text-muted">
-                    {tier.description}
-                  </p>
-                  <ul className="mt-6 flex-1 list-none space-y-2.5 p-0">
-                    {tier.features.map((feature) => (
-                      <li
-                        key={feature}
-                        className="flex gap-2.5 text-[13px] leading-relaxed text-muted"
-                      >
-                        <span
-                          aria-hidden="true"
-                          className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-gold"
-                        />
-                        {feature}
-                      </li>
-                    ))}
-                  </ul>
-                  <Button
-                    asChild
-                    variant={tier.featured ? "primary" : "secondary"}
-                    className="mt-7 w-full"
-                  >
-                    <Link href={tier.key === "threshold" ? joinHref : tier.href}>
-                      {tier.cta}
-                    </Link>
-                  </Button>
-                </article>
-              ))}
-            </div>
-          </Section>
-
-          <Section
-            eyebrow="Comparison"
-            title="Everything, side by side."
-            description="The same information as the cards above, in a form you can read down a single column."
-          >
-            <div className="surface overflow-x-auto rounded-lg">
-              <table className="w-full min-w-[44rem] border-collapse text-left">
-                <caption className="sr-only">
-                  Feature comparison across the Threshold, Initiate, Adept and
-                  Oracle tiers.
-                </caption>
-                <thead>
-                  <tr className="border-b border-hairline">
+      <Further title="Compare and ask">
+        <More summary="Everything, side by side">
+          <div className="-mx-1 overflow-x-auto">
+            <table className="w-full min-w-[36rem] border-collapse text-left">
+              <caption className="sr-only">
+                Feature comparison across the Threshold, Initiate, Adept and Oracle tiers.
+              </caption>
+              <thead>
+                <tr className="border-b border-hairline">
+                  <th scope="col" className="py-3 pr-3 font-display text-[15px] font-medium italic text-muted">
+                    What you get
+                  </th>
+                  {TIERS.map((tier) => (
                     <th
+                      key={tier.key}
                       scope="col"
-                      className="px-4 py-4 font-display text-[15px] font-medium italic text-muted"
+                      className="px-2 py-3 text-center font-display text-[15px] font-medium text-bone"
                     >
-                      What you get
+                      {tier.name}
                     </th>
-                    {TIERS.map((tier) => (
-                      <th
-                        key={tier.key}
-                        scope="col"
-                        className="px-4 py-4 text-center font-display text-[15px] font-medium italic text-muted"
-                      >
-                        <span className="block text-bone">{tier.name}</span>
-                        <span className="mt-1 block text-faint">
-                          {tier.price}
-                          {tier.cadence}
-                        </span>
-                      </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {COMPARISON.map((row) => (
+                  <tr key={row.label} className="border-b border-hairline/70 last:border-b-0">
+                    <th scope="row" className="py-2.5 pr-3 text-left font-sans text-sm font-normal text-muted">
+                      {row.label}
+                    </th>
+                    {(["threshold", "initiate", "adept", "oracle"] as const).map((key) => (
+                      <td key={key} className="px-2 py-2.5 text-center">
+                        <ComparisonCell value={row[key]} />
+                      </td>
                     ))}
                   </tr>
-                </thead>
-                <tbody>
-                  {COMPARISON.map((row) => (
-                    <tr
-                      key={row.label}
-                      className="border-b border-hairline/70 last:border-b-0"
-                    >
-                      <th
-                        scope="row"
-                        className="px-4 py-3 text-left font-sans text-sm font-normal text-muted"
-                      >
-                        {row.label}
-                      </th>
-                      <td className="px-4 py-3 text-center">
-                        <ComparisonCell value={row.threshold} />
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <ComparisonCell value={row.initiate} />
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <ComparisonCell value={row.adept} />
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <ComparisonCell value={row.oracle} />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </Section>
-
-          <Section
-            eyebrow="Questions"
-            title="The things people ask first."
-          >
-            <div className="divide-y divide-hairline border-y border-hairline">
-              {FAQ.map((item) => (
-                <details key={item.q} className="group py-5">
-                  <summary className="flex cursor-pointer list-none items-center justify-between gap-6 text-left">
-                    <span className="font-display text-base tracking-wide text-bone">
-                      {item.q}
-                    </span>
-                    <span
-                      aria-hidden="true"
-                      className="grid h-6 w-6 shrink-0 place-items-center rounded-full border border-line text-faint transition-all group-open:rotate-45 group-open:border-gold group-open:text-gold"
-                    >
-                      +
-                    </span>
-                  </summary>
-                  <p className="mt-4 max-w-2xl text-sm leading-relaxed text-muted">
-                    {item.a}
-                  </p>
-                </details>
-              ))}
-            </div>
-          </Section>
-
-          <Section
-            eyebrow="Apply"
-            title="The application is one page and read by a person."
-            description="Tell us what you make and why you want in. If the room is right for you, you will hear back within about two days."
-          >
-            <div className="flex flex-wrap gap-3">
-              <Button asChild variant="primary" size="lg">
-                <Link href="/membership/apply">
-                  Start an application
-                  <ArrowRight className="h-4 w-4" strokeWidth={1.75} />
-                </Link>
-              </Button>
-              <Button asChild variant="secondary" size="lg">
-                <Link href="/collective">See the collective</Link>
-              </Button>
-              <Button asChild variant="ghost" size="lg">
-                <Link href={joinHref}>
-                  {clerkConfigured ? "Create an account" : "Sign in"}
-                </Link>
-              </Button>
-            </div>
-          </Section>
-        </PageShell>
-      </main>
-    </>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </More>
+        {FAQ.map((item) => (
+          <More key={item.q} summary={item.q}>
+            <p className="max-w-[44ch]">{item.a}</p>
+          </More>
+        ))}
+      </Further>
+    </main>
   );
 }

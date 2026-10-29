@@ -120,7 +120,7 @@ export function Tooltip({
                 ease: [0.22, 1, 0.36, 1],
               }}
               className={cn(
-                "surface block w-max max-w-[16rem] px-2.5 py-1.5 font-mono text-[10px] uppercase leading-relaxed tracking-[0.14em] text-bone shadow-md",
+                "surface block w-max max-w-[16rem] px-2.5 py-1.5 text-[12px] leading-relaxed text-bone shadow-md",
                 className,
               )}
             >

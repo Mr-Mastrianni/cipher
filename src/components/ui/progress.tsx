@@ -28,12 +28,12 @@ export function Progress({
       {label || showValue ? (
         <div className="flex items-baseline justify-between gap-3">
           {label ? (
-            <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted">
+            <span className="font-display text-[15px] italic text-muted">
               {label}
             </span>
           ) : null}
           {showValue ? (
-            <span className="font-mono text-[10px] tabular-nums text-faint">
+            <span className="text-[12px] tabular-nums text-faint">
               {Math.round(percent)}%
             </span>
           ) : null}

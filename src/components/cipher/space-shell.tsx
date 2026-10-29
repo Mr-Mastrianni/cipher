@@ -210,11 +210,11 @@ function BodyPage({ children }: { children: ReactNode }) {
           aria-hidden="true"
           className="absolute inset-0 -z-10 bg-gradient-to-b from-void/0 via-void/85 to-void lg:bg-gradient-to-r lg:from-void/95 lg:via-void/85 lg:to-void/0"
         />
-        <div className="px-1 pt-2 lg:pr-24">
+        <div className="px-6 pb-20 pt-4 lg:px-12 lg:pr-24 lg:pt-10">
           <button
             type="button"
             onClick={() => go(null)}
-            className="ml-4 mt-2 inline-flex items-center gap-2 font-display text-[15px] italic text-muted transition-colors hover:text-gold sm:ml-6 lg:ml-8"
+            className="inline-flex items-center gap-2 font-display text-[15px] italic text-muted transition-colors hover:text-gold"
           >
             <ArrowLeft aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={1.5} />
             The whole sky
