@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { motion, useReducedMotion, useScroll, useTransform } from "motion/react";
 
 import { DotGlobe, type GlobePlace } from "@/components/cipher/dot-globe";
+import type { Transit } from "@/components/cipher/sky/planets";
 import { Starfield } from "@/components/cipher/starfield";
 import { cn } from "@/lib/utils";
 
@@ -16,14 +17,15 @@ import { cn } from "@/lib/utils";
  * same planet. It is a background: no pointer capture, no focus, nothing that
  * competes with the content or with scrolling.
  *
- * The planet arrives in three layers of fidelity. A CSS disc is there from the
- * first paint. The WebGL Earth loads after it and crossfades in once its
+ * The sky arrives in three layers of fidelity. A CSS disc is there from the
+ * first paint. The WebGL sky — the Earth, today's grahas on the zodiac wheel,
+ * the civilisation in orbit — loads after it and crossfades in once its
  * textures are on the GPU. If the browser cannot open a WebGL context, the
  * renderer throws, or the GPU drops the context, the dotted globe stands in.
  */
 
-const EarthScene = dynamic(
-  () => import("./earth-scene").then((module) => module.EarthScene),
+const SkyCanvas = dynamic(
+  () => import("./sky/sky-canvas").then((module) => module.SkyCanvas),
   { ssr: false },
 );
 
@@ -63,9 +65,9 @@ class EarthBoundary extends Component<
 
 type Fidelity = "pending" | "webgl" | "dots";
 
-export function CosmicBackdrop() {
+export function CosmicBackdrop({ transits }: { transits: readonly Transit[] }) {
   const reduced = useReducedMotion() ?? false;
-  const { scrollY } = useScroll();
+  const { scrollY, scrollYProgress } = useScroll();
 
   const [fidelity, setFidelity] = useState<Fidelity>("pending");
   const [earthReady, setEarthReady] = useState(false);
@@ -81,16 +83,22 @@ export function CosmicBackdrop() {
   const fallBack = useCallback(() => setFidelity("dots"), []);
 
   // The page's scroll, handed to the WebGL frame loop without re-rendering.
-  const scrolled = useRef(0);
+  const scrolled = useRef({ px: 0, progress: 0 });
   // The dotted fallback turns with the page the same way.
   const spin = useRef(0);
   useEffect(() => {
-    const unsubscribe = scrollY.on("change", (value) => {
-      scrolled.current = value;
+    const unsubscribePx = scrollY.on("change", (value) => {
+      scrolled.current.px = value;
       spin.current = value * 0.045;
     });
-    return unsubscribe;
-  }, [scrollY]);
+    const unsubscribeProgress = scrollYProgress.on("change", (value) => {
+      scrolled.current.progress = value;
+    });
+    return () => {
+      unsubscribePx();
+      unsubscribeProgress();
+    };
+  }, [scrollY, scrollYProgress]);
 
   // A long, slow push: the planet grows for three screens, then holds. The
   // WebGL Earth reproduces this in its own camera; these drive the CSS layers.
@@ -145,7 +153,7 @@ export function CosmicBackdrop() {
         </div>
       </motion.div>
 
-      {/* The Earth itself, once its textures are on the GPU. */}
+      {/* The sky itself, once its textures are on the GPU. */}
       {fidelity === "webgl" ? (
         <motion.div
           style={reduced ? undefined : { opacity: dim }}
@@ -158,7 +166,8 @@ export function CosmicBackdrop() {
             )}
           >
             <EarthBoundary onFail={fallBack}>
-              <EarthScene
+              <SkyCanvas
+                transits={transits}
                 scroll={scrolled}
                 reduced={reduced}
                 onReady={markReady}

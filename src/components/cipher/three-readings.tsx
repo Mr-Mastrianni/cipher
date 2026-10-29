@@ -20,21 +20,21 @@ const READINGS = [
   {
     id: "R.01",
     title: "Your bodygraph",
-    body: "Nine centres, thirty-six channels, and the definition between them — resolved from one instant.",
+    body: "Nine centres and thirty-six channels — the map we read together on the weekly call.",
     figure: "26",
     unit: "activations",
   },
   {
     id: "R.02",
     title: "Your KP chart",
-    body: "Sidereal, Placidus, and the sub lord of every graha and cusp. No Western fallback.",
+    body: "Sidereal, Placidus, every sub lord. Members learn to read it in the courses and circles.",
     figure: "½″",
     unit: "from the Swiss Ephemeris",
   },
   {
     id: "R.03",
     title: "Your Aura Avatar",
-    body: "Two words: a seat from the gate you carry, a format from the line you carry most.",
+    body: "Two words that are yours alone — the first thing people learn about you in the Commons.",
     figure: "2",
     unit: "words, yours alone",
   },
@@ -151,7 +151,7 @@ export function ThreeReadings() {
       >
         <div className="flex items-center justify-between gap-6">
           <span className="font-mono text-[9px] uppercase tracking-[0.3em] text-gold">
-            S.01 · One instant
+            S.01 · What we read together
           </span>
           <span
             aria-hidden="true"
