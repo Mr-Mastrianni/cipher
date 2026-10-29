@@ -2,14 +2,13 @@
 
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
-import { SplitText } from "gsap/SplitText";
 import { useGSAP } from "@gsap/react";
 
 /**
  * One place to register GSAP's plugins. Every scroll component imports from
  * here, so the registration runs once and before any of them mounts.
  */
-gsap.registerPlugin(ScrollTrigger, SplitText, useGSAP);
+gsap.registerPlugin(ScrollTrigger, useGSAP);
 
 /** The house curve — the same `cubic-bezier(.22,1,.36,1)` the CSS uses. */
 export const EASE_OUT = "expo.out";
@@ -23,4 +22,4 @@ export const RICH_MOTION =
 export const LIGHT_MOTION =
   "(prefers-reduced-motion: no-preference) and not ((hover: hover) and (pointer: fine))";
 
-export { gsap, ScrollTrigger, SplitText, useGSAP };
+export { gsap, ScrollTrigger, useGSAP };

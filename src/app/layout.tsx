@@ -19,18 +19,19 @@ import "./globals.css";
  * inside `@next/font/dist/google/loader.js`. Serving the files from the repo
  * removes the failure mode entirely and cuts two round-trips at runtime.
  *
- * The pairing is deliberate: Instrument Serif (a high-contrast display serif)
- * for headings and the wordmark, Inter (a neutral grotesque) for everything
- * read at length, and Space Mono demoted to labels, coordinates and keys. Body
- * copy was previously set in Space Mono, which is what made the site read as a
- * terminal rather than a publication.
+ * The pairing is deliberate: Cormorant Garamond (a Garamond cut for display,
+ * with a true italic) for headings, the wordmark, planet names and captions —
+ * the voice of a star atlas rather than a dashboard — Inter (a neutral
+ * grotesque) for everything read at length, and Space Mono kept only for the
+ * member tools' coordinates and keys. Body copy was once set in Space Mono,
+ * which is what made the site read as a terminal rather than a publication.
  */
-const instrument = localFont({
+const cormorant = localFont({
   src: [
-    { path: "./fonts/InstrumentSerif-Regular.woff2", weight: "400", style: "normal" },
-    { path: "./fonts/InstrumentSerif-Italic.woff2", weight: "400", style: "italic" },
+    { path: "./fonts/CormorantGaramond-Variable.woff2", weight: "300 700", style: "normal" },
+    { path: "./fonts/CormorantGaramond-Italic-Variable.woff2", weight: "300 700", style: "italic" },
   ],
-  variable: "--font-instrument",
+  variable: "--font-cormorant",
   display: "swap",
   fallback: ["ui-serif", "Georgia", "Times New Roman", "serif"],
 });
@@ -130,7 +131,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       data-theme={theme}
       data-scroll-behavior="smooth"
       suppressHydrationWarning
-      className={`${instrument.variable} ${inter.variable} ${spaceMono.variable} h-full`}
+      className={`${cormorant.variable} ${inter.variable} ${spaceMono.variable} h-full`}
     >
       <body className="min-h-full flex flex-col bg-void text-bone font-sans antialiased">
         <a

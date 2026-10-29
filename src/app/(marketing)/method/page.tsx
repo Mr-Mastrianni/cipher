@@ -217,7 +217,7 @@ export default function MethodPage() {
                 <li key={item} className="flex gap-4 p-5 sm:p-6">
                   <span
                     aria-hidden="true"
-                    className="mt-0.5 font-mono text-xs tabular-nums text-gold"
+                    className="font-display text-lg tabular-nums text-gold"
                   >
                     {String(index + 1).padStart(2, "0")}
                   </span>
@@ -242,19 +242,19 @@ export default function MethodPage() {
                   <tr className="border-b border-hairline">
                     <th
                       scope="col"
-                      className="px-4 py-3 font-mono text-[10px] font-medium uppercase tracking-[0.18em] text-faint"
+                      className="px-4 py-3 font-display text-[15px] font-medium italic text-muted"
                     >
                       Chart
                     </th>
                     <th
                       scope="col"
-                      className="px-4 py-3 font-mono text-[10px] font-medium uppercase tracking-[0.18em] text-faint"
+                      className="px-4 py-3 font-display text-[15px] font-medium italic text-muted"
                     >
                       Birth data
                     </th>
                     <th
                       scope="col"
-                      className="px-4 py-3 font-mono text-[10px] font-medium uppercase tracking-[0.18em] text-faint"
+                      className="px-4 py-3 font-display text-[15px] font-medium italic text-muted"
                     >
                       Reproduced structure
                     </th>
@@ -272,7 +272,7 @@ export default function MethodPage() {
                       >
                         {row.who}
                       </th>
-                      <td className="px-4 py-4 font-mono text-xs leading-relaxed text-code">
+                      <td className="px-4 py-4 text-sm leading-relaxed text-code">
                         {row.when}
                       </td>
                       <td className="px-4 py-4 text-sm leading-relaxed text-muted">

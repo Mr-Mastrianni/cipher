@@ -1,7 +1,5 @@
 import * as THREE from "three";
 
-import { HALF_HEIGHT } from "./framing";
-
 /**
  * The civilisation: what a people who build in gold and indigo have put
  * around their world.
@@ -12,7 +10,7 @@ import { HALF_HEIGHT } from "./framing";
  * - Ships in orbit, each with a hull shaped like a cowrie — the shell that was
  *   currency and ornament across the continent — a crescent of wing around it,
  *   and a trail of light behind.
- * - Now and then, one ship crosses the sky close to us.
+ * - A courier on a long loop out past the Moon's orbit and home again.
  *
  * Everything here is original geometry; nothing is copied from a sacred mark.
  */
@@ -107,13 +105,13 @@ interface Ship {
 export interface Fleet {
   /** Added to the Earth's frame (units of Earth radii). */
   orbital: THREE.Group;
-  /** Added to the scene (world units): the ship that passes close. */
+  /** Added to the scene, Earth at the origin: the courier on its long loop. */
   near: THREE.Group;
   update(input: {
     time: number;
     sunDir: THREE.Vector3;
+    /** The Earth's drawn radius, so the courier's loop scales with it. */
     earthRadius: number;
-    halfWidth: number;
     moving: boolean;
   }): void;
   dispose(): void;
@@ -278,17 +276,19 @@ export function createFleet(globe: THREE.Group, options: { ships: number }): Fle
     };
   });
 
-  // The one that passes close: world space, above the horizon.
+  // The courier: out past the Moon's orbit and home, on a tipped ellipse
+  // with the Earth at one focus.
   const near = new THREE.Group();
   const nearShip = makeShip(0xffd29a);
   const nearTrail = makeTrail(new THREE.Color(0xffc27a));
   near.add(nearShip.group, nearTrail.trail);
   const nearState = { history: nearTrail.history, filled: 0 };
-  const NEAR_Z = 12;
-  const NEAR_PERIOD = 34;
-  const NEAR_FLIGHT = 11;
-  /** World length of the close ship: about 70 px at its depth. */
-  const NEAR_SIZE = 0.245;
+  const COURIER_PERIOD = 42;
+  const COURIER_APOGEE = 4.4;
+  const COURIER_PERIGEE = 1.35;
+  const courierPlane = new THREE.Quaternion().setFromEuler(new THREE.Euler(0.16, 0.9, 0.05));
+  /** Ship length in Earth radii: small against a planet, as it should be. */
+  const SHIP_SIZE = 0.05;
 
   const local = new THREE.Vector3();
   const ahead = new THREE.Vector3();
@@ -306,11 +306,9 @@ export function createFleet(globe: THREE.Group, options: { ships: number }): Fle
   return {
     orbital,
     near,
-    update({ time, sunDir, earthRadius, halfWidth, moving }) {
+    update({ time, sunDir, earthRadius, moving }) {
       const t = moving ? time : 0;
-
-      // Ships are sized against the screen, not the planet.
-      const shipScale = (0.022 * 2 * HALF_HEIGHT) / earthRadius;
+      const shipScale = SHIP_SIZE;
       for (const ship of ships) {
         const angle = ship.phase + t * ship.speed;
         local.set(Math.cos(angle) * ship.radius, 0, Math.sin(angle) * ship.radius).applyQuaternion(ship.plane);
@@ -336,23 +334,24 @@ export function createFleet(globe: THREE.Group, options: { ships: number }): Fle
       }
       spireMaterial.opacity = 0.7 * night;
 
-      // The close pass: once a period, left to right in an easy arc.
-      const cycle = t % NEAR_PERIOD;
-      const flying = moving && cycle < NEAR_FLIGHT;
-      near.visible = flying;
-      if (flying) {
-        const s = cycle / NEAR_FLIGHT;
-        const depthHalfWidth = halfWidth * ((30 - NEAR_Z) / 30);
-        const x = THREE.MathUtils.lerp(-depthHalfWidth * 1.3, depthHalfWidth * 1.3, s);
-        const y = HALF_HEIGHT * (0.42 + 0.22 * Math.sin(Math.PI * s)) * ((30 - NEAR_Z) / 30);
-        local.set(x, y, NEAR_Z);
-        ahead.set(x + 0.1, HALF_HEIGHT * (0.42 + 0.22 * Math.sin(Math.PI * (s + 0.01))) * ((30 - NEAR_Z) / 30), NEAR_Z);
-        nearShip.group.position.copy(local);
-        nearShip.group.lookAt(ahead);
-        nearShip.group.scale.setScalar(NEAR_SIZE);
-        if (s < 0.02) nearState.filled = 0;
-        pushHistory(nearState, nearTrail.trail, local);
-      }
+      // The courier: Kepler's ellipse by eccentric anomaly, so it runs fast
+      // past the Earth and slow at the far end of its loop.
+      const a = ((COURIER_APOGEE + COURIER_PERIGEE) / 2) * earthRadius;
+      const e = (COURIER_APOGEE - COURIER_PERIGEE) / (COURIER_APOGEE + COURIER_PERIGEE);
+      const courierAt = (when: number, target: THREE.Vector3) => {
+        const mean = ((when % COURIER_PERIOD) / COURIER_PERIOD) * Math.PI * 2;
+        let eccentric = mean;
+        for (let i = 0; i < 5; i++) eccentric = mean + e * Math.sin(eccentric);
+        return target
+          .set(a * (Math.cos(eccentric) - e), 0, a * Math.sqrt(1 - e * e) * Math.sin(eccentric))
+          .applyQuaternion(courierPlane);
+      };
+      courierAt(t, local);
+      courierAt(t + 0.05, ahead);
+      nearShip.group.position.copy(local);
+      nearShip.group.lookAt(ahead);
+      nearShip.group.scale.setScalar(SHIP_SIZE * 2.2 * earthRadius);
+      if (moving) pushHistory(nearState, nearTrail.trail, local);
     },
     dispose() {
       for (const item of disposables) item.dispose();

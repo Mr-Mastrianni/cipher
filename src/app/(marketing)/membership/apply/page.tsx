@@ -22,7 +22,6 @@ import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Field, Input, RadioGroup, Radio, Textarea } from "@/components/ui";
 import { useSound } from "@/components/providers/sound-provider";
-import { cn } from "@/lib/utils";
 
 const EXPERIENCE_LEVELS = [
   {
@@ -233,7 +232,7 @@ export default function ApplyPage() {
               animate={{ opacity: 1, y: 0 }}
             >
               <header className="flex flex-col gap-4 border-b border-hairline pb-8">
-                <p className="font-mono text-[10px] uppercase tracking-[0.32em] text-gold">
+                <p className="caption">
                   Application
                 </p>
                 <h1 className="font-display text-3xl leading-tight text-bone text-balance sm:text-4xl">
@@ -376,7 +375,7 @@ export default function ApplyPage() {
                   <Button asChild variant="ghost" size="lg">
                     <Link href="/membership">Back to membership</Link>
                   </Button>
-                  <span className={cn("font-mono text-[10px] uppercase tracking-[0.16em] text-faint")}>
+                  <span className="font-display text-[15px] italic text-muted">
                     Nothing is charged now
                   </span>
                 </div>
@@ -396,7 +395,7 @@ export default function ApplyPage() {
                 <Link
                   key={item.href}
                   href={item.href}
-                  className="font-mono text-[10px] uppercase tracking-[0.16em] text-faint transition-colors hover:text-gold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 focus-visible:ring-offset-void"
+                  className="font-display text-[15px] italic text-muted transition-colors hover:text-gold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 focus-visible:ring-offset-void"
                 >
                   {item.label}
                 </Link>

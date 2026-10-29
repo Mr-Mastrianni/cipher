@@ -5,7 +5,7 @@ import { motion, useReducedMotion } from "motion/react";
 import { cn } from "@/lib/utils";
 
 export interface SectionProps {
-  /** Small mono caps label above the title. */
+  /** A short italic caption above the title. */
   eyebrow?: ReactNode;
   title?: ReactNode;
   description?: ReactNode;
@@ -50,7 +50,7 @@ export function Section({
         <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div className="flex flex-col gap-2">
             {eyebrow ? (
-              <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-gold">
+              <p className="caption">
                 {eyebrow}
               </p>
             ) : null}

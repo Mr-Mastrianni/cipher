@@ -213,7 +213,7 @@ export default function CollectivePage() {
                 <li key={agreement} className="flex gap-4 p-5 sm:p-6">
                   <span
                     aria-hidden="true"
-                    className="mt-0.5 font-mono text-xs tabular-nums text-gold"
+                    className="font-display text-lg tabular-nums text-gold"
                   >
                     {String(index + 1).padStart(2, "0")}
                   </span>

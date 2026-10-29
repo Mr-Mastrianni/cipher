@@ -186,7 +186,7 @@ function ComparisonCell({ value }: { value: Cell }) {
       </span>
     );
   }
-  return <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-code">{value}</span>;
+  return <span className="text-[13px] text-code">{value}</span>;
 }
 
 /**
@@ -302,7 +302,7 @@ export default function MembershipPage() {
                   <tr className="border-b border-hairline">
                     <th
                       scope="col"
-                      className="px-4 py-4 font-mono text-[10px] font-medium uppercase tracking-[0.18em] text-faint"
+                      className="px-4 py-4 font-display text-[15px] font-medium italic text-muted"
                     >
                       What you get
                     </th>
@@ -310,7 +310,7 @@ export default function MembershipPage() {
                       <th
                         key={tier.key}
                         scope="col"
-                        className="px-4 py-4 text-center font-mono text-[10px] font-medium uppercase tracking-[0.18em] text-faint"
+                        className="px-4 py-4 text-center font-display text-[15px] font-medium italic text-muted"
                       >
                         <span className="block text-bone">{tier.name}</span>
                         <span className="mt-1 block text-faint">

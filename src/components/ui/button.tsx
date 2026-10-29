@@ -19,7 +19,7 @@ export type ButtonVariant =
 export type ButtonSize = "sm" | "md" | "lg";
 
 const BASE =
-  "relative inline-flex select-none items-center justify-center gap-2 rounded-md border font-mono font-medium uppercase tracking-[0.16em] transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 focus-visible:ring-offset-void disabled:pointer-events-none disabled:opacity-45 aria-disabled:pointer-events-none aria-disabled:opacity-45";
+  "relative inline-flex select-none items-center justify-center gap-2 rounded-md border font-sans font-medium tracking-normal transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 focus-visible:ring-offset-void disabled:pointer-events-none disabled:opacity-45 aria-disabled:pointer-events-none aria-disabled:opacity-45";
 
 const VARIANTS: Record<ButtonVariant, string> = {
   primary: "border-transparent bg-gold text-on-accent hover:bg-gold-hi",
@@ -32,9 +32,9 @@ const VARIANTS: Record<ButtonVariant, string> = {
 };
 
 const SIZES: Record<ButtonSize, string> = {
-  sm: "h-8 px-3 text-[10px]",
-  md: "h-10 px-4 text-[11px]",
-  lg: "h-12 px-6 text-xs",
+  sm: "h-8 px-3 text-[13px]",
+  md: "h-10 px-4 text-sm",
+  lg: "h-12 px-6 text-[15px]",
 };
 
 const SPRING = { type: "spring", stiffness: 420, damping: 28, mass: 0.6 } as const;

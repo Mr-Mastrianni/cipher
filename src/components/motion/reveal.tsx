@@ -2,13 +2,11 @@
 
 import { useRef } from "react";
 
-import { cn } from "@/lib/utils";
 import {
   EASE_OUT,
   gsap,
   LIGHT_MOTION,
   RICH_MOTION,
-  SplitText,
   useGSAP,
 } from "./gsap";
 
@@ -64,58 +62,5 @@ export function Reveal({
     <div ref={ref} className={className}>
       {children}
     </div>
-  );
-}
-
-type RiseTag = "h1" | "h2" | "h3" | "p";
-
-/**
- * A heading that rises line by line from behind its own baseline, the way a
- * title card is uncovered. SplitText re-splits on resize and font load, so the
- * lines are always the lines actually on screen.
- */
-export function RiseText({
-  as: Tag = "h2",
-  children,
-  className,
-  delay = 0,
-}: {
-  as?: RiseTag;
-  children: string;
-  className?: string;
-  delay?: number;
-}) {
-  const ref = useRef<HTMLHeadingElement>(null);
-
-  useGSAP(
-    () => {
-      const element = ref.current;
-      if (!element) return;
-
-      gsap.matchMedia().add("(prefers-reduced-motion: no-preference)", () => {
-        const split = SplitText.create(element, {
-          type: "lines",
-          mask: "lines",
-          autoSplit: true,
-          onSplit: (self) =>
-            gsap.from(self.lines, {
-              yPercent: 115,
-              duration: 1.2,
-              delay,
-              stagger: 0.09,
-              ease: EASE_OUT,
-              scrollTrigger: { trigger: element, start: "top 88%", once: true },
-            }),
-        });
-        return () => split.revert();
-      });
-    },
-    { scope: ref },
-  );
-
-  return (
-    <Tag ref={ref} className={cn("text-balance", className)}>
-      {children}
-    </Tag>
   );
 }

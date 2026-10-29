@@ -62,7 +62,7 @@ export function SiteFooter({ className }: SiteFooterProps) {
           <div className="grid grid-cols-2 gap-8 sm:grid-cols-3 sm:gap-12">
             {COLUMNS.map((column) => (
               <nav key={column.title} aria-label={column.title}>
-                <h2 className="font-mono text-[10px] uppercase tracking-[0.24em] text-faint">
+                <h2 className="font-display text-[16px] italic text-gold">
                   {column.title}
                 </h2>
                 <ul className="mt-4 flex list-none flex-col gap-2.5 p-0">
@@ -85,11 +85,11 @@ export function SiteFooter({ className }: SiteFooterProps) {
         <div className="rule" />
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="inline-flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.16em] text-faint">
+          <p className="inline-flex items-center gap-2 text-[13px] text-faint">
             <Check aria-hidden="true" strokeWidth={1.5} className="h-3.5 w-3.5 text-ok" />
             Computations verified against the ephemeris and the Rave bodygraph
           </p>
-          <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-faint">
+          <p className="text-[13px] text-faint">
             © {new Date().getFullYear()} The Cipher
           </p>
         </div>

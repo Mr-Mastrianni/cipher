@@ -29,7 +29,7 @@ const ICON_BUTTON =
   "inline-flex h-9 w-9 items-center justify-center rounded-md border border-transparent text-muted transition-colors duration-200 hover:border-hairline hover:text-gold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 focus-visible:ring-offset-void";
 
 const NAV_LINK =
-  "relative rounded-sm px-3 py-2 font-mono text-[11px] uppercase tracking-[0.16em] transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 focus-visible:ring-offset-void";
+  "relative rounded-sm px-3 py-2 font-display text-[17px] transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 focus-visible:ring-offset-void";
 
 function isActive(pathname: string, href: string) {
   if (href === "/") return pathname === "/";
@@ -203,7 +203,7 @@ export function SiteHeader({
                 aria-current={active ? "page" : undefined}
                 onClick={() => setMenuOpen(false)}
                 className={cn(
-                  "rounded-md px-3 py-3 font-mono text-xs uppercase tracking-[0.18em] transition-colors duration-200",
+                  "rounded-md px-3 py-3 font-display text-xl transition-colors duration-200",
                   active
                     ? "bg-raised text-gold"
                     : "text-muted hover:bg-raised hover:text-bone",
@@ -282,7 +282,7 @@ function ClerkAuthControls({ stacked = false }: ClerkAuthControlsProps) {
 
   return (
     <div className={cn("flex items-center gap-3", stacked && "justify-between")}>
-      <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted">
+      <span className="text-[13px] text-muted">
         {user?.firstName ?? user?.username ?? "Member"}
       </span>
       <UserButton

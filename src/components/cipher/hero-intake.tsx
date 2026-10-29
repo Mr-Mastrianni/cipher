@@ -28,9 +28,9 @@ const PLACES: readonly GlobePlace[] = [
 const FIELD =
   "field w-full bg-transparent pb-2 pt-1 text-base text-bone placeholder:text-faint focus-visible:outline-none";
 
-const LABEL = "font-mono text-[9px] uppercase tracking-[0.22em] text-faint";
+const LABEL = "font-display text-[15px] italic text-muted";
 
-const RAIL = "font-mono text-[8.5px] uppercase tracking-[0.2em] text-faint";
+const RAIL = "font-display text-[14px] italic text-faint";
 
 export function IntakeForm() {
   const router = useRouter();
@@ -126,7 +126,7 @@ export function IntakeForm() {
                 setError(null);
               }}
               className={cn(
-                "font-mono text-[9px] uppercase tracking-[0.18em] transition-colors",
+                "font-display text-[16px] transition-colors",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/40",
                 active ? "text-gold" : "text-muted hover:text-bone",
               )}

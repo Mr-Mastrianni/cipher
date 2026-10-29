@@ -13,14 +13,10 @@ import * as THREE from "three";
  * Textures: Solar System Scope, CC BY 4.0, after NASA (public/textures/earth).
  */
 
-/** Africa toward the viewer. */
+/** Africa toward +z before any turn. */
 export const FACING_LON = 18;
-/**
- * The camera sees the cap of a sphere whose centre is below the screen;
- * tipping the north pole away lifts the equator into that cap, north still up.
- */
-const TILT = -0.5;
-const ROLL = 0.12;
+/** The Earth's axial tilt to the ecliptic, about the line toward the viewer. */
+const AXIAL_TILT = THREE.MathUtils.degToRad(23.44);
 /** How thick the glow above the limb reads, as a share of the radius. */
 const AIR_SCALE = 0.011;
 
@@ -229,7 +225,7 @@ export function createEarth(textures: EarthTextures, anisotropy: number): Earth 
 
   const frame = new THREE.Group();
   const tilt = new THREE.Group();
-  tilt.rotation.set(TILT, 0, ROLL);
+  tilt.rotation.set(0, 0, AXIAL_TILT);
   const globe = new THREE.Group();
   globe.add(new THREE.Mesh(geometries[0], surface));
   const clouds = new THREE.Mesh(geometries[1], cloudDeck);

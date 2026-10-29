@@ -1,29 +1,41 @@
 "use client";
 
-import { useEffect, useRef, type RefObject } from "react";
+import { useEffect, useRef } from "react";
 
-import type { Transit } from "./planets";
-import { createSky } from "./sky";
+import type { Caption, Transit } from "./bodies";
+import type { BodyId } from "./layout";
+import { createSky, type Sky } from "./sky";
 
 /**
- * Mounts the WebGL sky behind the page. The scene itself lives in `sky.ts`;
- * this only owns the canvas, the label layer and the lifetime.
+ * Mounts the WebGL space. The scene lives in `sky.ts`; this owns the canvas,
+ * the label layer and the lifetime, and passes the focus through.
  */
 export function SkyCanvas({
   transits,
   reduced,
-  scroll,
+  focus,
+  caption,
   onReady,
   onLost,
+  onSelect,
 }: {
   transits: readonly Transit[];
   reduced: boolean;
-  scroll: RefObject<{ px: number; progress: number }>;
+  focus: BodyId | null;
+  caption: Caption;
   onReady: () => void;
   onLost: () => void;
+  onSelect: (id: BodyId) => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const labelsRef = useRef<HTMLDivElement>(null);
+  const skyRef = useRef<Sky | null>(null);
+  // The latest handlers, so the scene is built once per sky, not per render.
+  const handlers = useRef({ onReady, onLost, onSelect, caption });
+  useEffect(() => {
+    handlers.current = { onReady, onLost, onSelect, caption };
+  });
+  const initialFocus = useRef(focus);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -31,17 +43,31 @@ export function SkyCanvas({
     const sky = createSky(canvas, labelsRef.current, {
       transits,
       reduced,
-      readScroll: () => scroll.current,
-      onReady,
-      onLost,
+      caption: (id, place) => handlers.current.caption(id, place),
+      onReady: () => handlers.current.onReady(),
+      onLost: () => handlers.current.onLost(),
+      onSelect: (id) => handlers.current.onSelect(id),
     });
-    return () => sky.dispose();
-  }, [transits, reduced, scroll, onReady, onLost]);
+    sky.focus(initialFocus.current);
+    skyRef.current = sky;
+    return () => {
+      skyRef.current = null;
+      sky.dispose();
+    };
+  }, [transits, reduced]);
+
+  useEffect(() => {
+    skyRef.current?.focus(focus);
+  }, [focus]);
 
   return (
     <>
-      <canvas ref={canvasRef} className="absolute inset-0 h-full w-full" />
-      <div ref={labelsRef} className="absolute inset-0 overflow-hidden" />
+      <canvas
+        ref={canvasRef}
+        aria-hidden="true"
+        className="absolute inset-0 h-full w-full cursor-grab touch-none select-none"
+      />
+      <div ref={labelsRef} aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden" />
     </>
   );
 }

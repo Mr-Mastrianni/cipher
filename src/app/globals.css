@@ -202,7 +202,7 @@
   --color-info: var(--c-info);
   --color-on-accent: var(--c-on-accent);
 
-  --font-display: var(--font-instrument), ui-serif, Georgia, serif;
+  --font-display: var(--font-cormorant), ui-serif, Georgia, serif;
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-space-mono), ui-monospace, SFMono-Regular, monospace;
 
@@ -299,8 +299,20 @@
 @layer components {
   .font-display {
     font-family: var(--font-display);
-    font-weight: 400;
-    letter-spacing: -0.01em;
+    font-weight: 500;
+    letter-spacing: -0.005em;
+  }
+
+  /* The page's small voice: an italic caption in the display face, sentence
+     case, where a terminal would put an uppercase monospace label. */
+  .caption {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-weight: 500;
+    font-size: 1.0625rem;
+    line-height: 1.35;
+    letter-spacing: 0.005em;
+    color: var(--c-gold);
   }
 
   /* the signature underline-only input from the threshold screen */
