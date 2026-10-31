@@ -1,14 +1,14 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowLeft, ArrowRight } from "lucide-react";
+import { ArrowLeft, ArrowRight, ChevronDown } from "lucide-react";
 
 import { IntakeForm } from "@/components/cipher/hero-intake";
 import { Actions, Facts, Lede, PanelHeading, pillClass as PILL, quietClass as QUIET, type Fact } from "@/components/cipher/panel";
-import { DESTINATIONS, SpaceLink, useSpace } from "@/components/cipher/space-shell";
-import type { GrahaId } from "@/components/cipher/sky/bodies";
+import { BODY_IDS, DESTINATIONS, SpaceLink, useSpace } from "@/components/cipher/space-shell";
+import type { GrahaId, Transit } from "@/components/cipher/sky/bodies";
 import type { BodyId } from "@/components/cipher/sky/layout";
 import { Reveal } from "@/components/motion/reveal";
 import { useSound } from "@/components/providers/sound-provider";
@@ -48,11 +48,44 @@ const MEANING: Partial<Record<GrahaId, { sanskrit: string; line: string }>> = {
 };
 
 
+/**
+ * The title the root layout gives the home page. Mirrored here because the sky
+ * changes without a navigation, and Next only rewrites the title when the route
+ * does; this is what we put back when the visitor returns to the whole sky.
+ */
+const HOME_TITLE = "The Cipher — enter your coordinates";
+
+/** How a place in the sky names itself: in a title, and to a screen reader. */
+function placeLabel(id: BodyId, transits: readonly Transit[]): string {
+  const transit = transits.find((candidate) => candidate.graha === id);
+  const name = transit?.name ?? "Earth";
+  if (id === "sun") return "The Sun · your chart";
+  if (id === "mars") return "Mars · the world";
+  const destination = DESTINATIONS[id];
+  if (destination) return `${name} · ${destination.title}`;
+  return transit ? `${transit.name} in ${transit.place}` : name;
+}
+
 export function Landing() {
   const { focus, joinHref, transits } = useSpace();
   const [casting, setCasting] = useState(false);
   const { play } = useSound();
   const moon = transits.find((transit) => transit.graha === "moon");
+  const label = focus === null ? null : placeLabel(focus, transits);
+  const previous = useRef<BodyId | null>(focus);
+
+  // The sky changes without a page load, so the title and the reading order
+  // have to follow it: whoever activated a planet is carried to its panel, and
+  // back to the overview's headline on the way home. The first render is left
+  // alone — a page load has its own reading order.
+  useEffect(() => {
+    document.title = label ? `${label} · The Cipher` : HOME_TITLE;
+    if (previous.current === focus) return;
+    previous.current = focus;
+    document
+      .getElementById(focus === null ? "sky-overview" : "sky-place")
+      ?.focus({ preventScroll: focus === null });
+  }, [focus, label]);
 
   const openIntake = () => {
     play("select");
@@ -64,13 +97,13 @@ export function Landing() {
       {focus === null ? (
         <Overview joinHref={joinHref} moonPlace={moon?.place} onCast={openIntake} />
       ) : (
-        <Panel key={focus}>
+        <Panel key={focus} label={label ?? ""}>
           {focus === "sun" ? (
             <Chart joinHref={joinHref} onCast={openIntake} />
           ) : focus === "mars" ? (
             <World />
           ) : (
-            <TransitCard id={focus} />
+            <PlaceCard id={focus} />
           )}
         </Panel>
       )}
@@ -103,6 +136,8 @@ function Overview({
   moonPlace?: string;
   onCast: () => void;
 }) {
+  const { transits } = useSpace();
+  const listRef = useRef<HTMLDetailsElement>(null);
   const visits: BodyId[] = ["sun", "earth", "jupiter", "venus", "mars"];
   return (
     <div className="pointer-events-none flex flex-1 flex-col justify-end">
@@ -115,7 +150,11 @@ function Overview({
           <p className="intro-fade caption" style={{ animationDelay: "0.3s" }}>
             A Human Design &amp; KP astrology community
           </p>
-          <h1 className="mt-3 font-display text-[clamp(44px,7.4vw,92px)] leading-[0.95] tracking-[-0.01em] text-bone">
+          <h1
+            id="sky-overview"
+            tabIndex={-1}
+            className="mt-3 font-display text-[clamp(44px,7.4vw,92px)] leading-[0.95] tracking-[-0.01em] text-bone outline-none"
+          >
             {["Read the sky", "together."].map((line, index) => (
               <span key={line} className="block overflow-hidden pb-[0.08em]">
                 <span className="intro-line block" style={{ animationDelay: `${0.45 + index * 0.12}s` }}>
@@ -156,6 +195,47 @@ function Overview({
                 </li>
               ))}
             </ul>
+
+            {/* The whole sky in words: every graha, its place today, and its
+                own link. The map is a picture; this is the way in for anyone
+                reading by keyboard or screen reader — and for a phone, where
+                a planet is thinner than a fingertip. */}
+            <details ref={listRef} className="group relative mt-3">
+              <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 rounded-sm font-display text-[15px] italic text-faint transition-colors hover:text-gold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/70 focus-visible:ring-offset-2 focus-visible:ring-offset-void [&::-webkit-details-marker]:hidden">
+                <ChevronDown
+                  aria-hidden="true"
+                  strokeWidth={1.6}
+                  className="h-3.5 w-3.5 transition-transform duration-300 group-open:rotate-180"
+                />
+                Every graha in today&apos;s sky
+              </summary>
+              <div className="absolute bottom-full left-0 z-20 mb-3 max-h-[58svh] w-[min(34rem,calc(100vw-3rem))] overflow-y-auto rounded-lg border border-line bg-abyss p-4 shadow-lg">
+                <ul className="grid grid-cols-1 gap-x-8 sm:grid-cols-2">
+                  {BODY_IDS.map((body) => {
+                    const transit = transits.find((candidate) => candidate.graha === body);
+                    const name = transit?.name ?? "Earth";
+                    const where = DESTINATIONS[body]?.title ?? transit?.place ?? "";
+                    return (
+                      <li key={body} className="border-b border-hairline/70 last:border-b-0">
+                        <SpaceLink
+                          to={body}
+                          onNavigate={() => listRef.current?.removeAttribute("open")}
+                          className="group/graha flex items-baseline justify-between gap-4 rounded-sm py-2 focus-visible:bg-raised/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-gold/70"
+                        >
+                          <span className="font-display text-[17px] text-bone transition-colors group-hover/graha:text-gold">
+                            {name}
+                            {transit?.retrograde && body !== "rahu" && body !== "ketu" ? (
+                              <span className="ml-1.5 text-[11px] text-faint">℞</span>
+                            ) : null}
+                          </span>
+                          <span className="text-right font-display text-[13px] italic leading-tight text-gold">{where}</span>
+                        </SpaceLink>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            </details>
           </div>
           {moonPlace ? (
             <SpaceLink to="moon" className="font-display text-[15px] italic text-muted transition-colors hover:text-gold">
@@ -172,12 +252,17 @@ function Overview({
    A place in the sky: the panel beside (or under) its body
    ------------------------------------------------------------------------- */
 
-function Panel({ children }: { children: ReactNode }) {
+function Panel({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="pointer-events-none flex flex-1 flex-col">
       {/* The body's window on a phone: the space stays touchable here. */}
       <div aria-hidden="true" className="h-[36svh] shrink-0 lg:hidden" />
-      <div className="pointer-events-auto relative flex-1 lg:w-[min(46rem,52vw)]">
+      <section
+        id="sky-place"
+        tabIndex={-1}
+        aria-label={label}
+        className="pointer-events-auto relative flex-1 outline-none lg:w-[min(46rem,52vw)]"
+      >
         <div
           aria-hidden="true"
           className="absolute inset-0 -z-10 bg-gradient-to-b from-void/0 via-void/85 to-void lg:bg-gradient-to-r lg:from-void/95 lg:via-void/80 lg:to-void/0"
@@ -194,7 +279,7 @@ function Panel({ children }: { children: ReactNode }) {
             {children}
           </Reveal>
         </div>
-      </div>
+      </section>
     </div>
   );
 }
@@ -241,6 +326,29 @@ function World() {
           Enter the world
           <ArrowRight aria-hidden="true" className="h-4 w-4" strokeWidth={1.6} />
         </Link>
+      </Actions>
+    </>
+  );
+}
+
+/**
+ * A body that keeps a page of its own. Tapping it in the sky navigates there,
+ * so this is only reached by a hash — but a shared or typed `/#earth` must
+ * still land somewhere real rather than on an empty panel.
+ */
+function PlaceCard({ id }: { id: BodyId }) {
+  const destination = DESTINATIONS[id];
+  const name = id === "earth" ? "Earth" : id[0].toUpperCase() + id.slice(1);
+  if (!destination) return <TransitCard id={id} />;
+  return (
+    <>
+      <PanelHeading as="h1" caption={`${name} · a place in the sky`}>{destination.title}</PanelHeading>
+      <Lede>{destination.line}</Lede>
+      <Actions>
+        <SpaceLink to={id} className={PILL}>
+          Go to {destination.title}
+          <ArrowRight aria-hidden="true" className="h-4 w-4" strokeWidth={1.6} />
+        </SpaceLink>
       </Actions>
     </>
   );

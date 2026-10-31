@@ -186,10 +186,13 @@ export function createBodies(
   maps: Map<string, THREE.Texture>,
   labelLayer: HTMLElement | null,
   caption: Caption,
+  onSelect: (id: GrahaId) => void,
 ): Bodies {
   const group = new THREE.Group();
   const disposables: { dispose(): void }[] = [];
   const keep = <T extends { dispose(): void }>(value: T) => (disposables.push(value), value);
+  /** The body whose label the pointer is over; the sphere pick cannot see it. */
+  let hovered: GrahaId | null = null;
 
   const longitudeOf = (id: GrahaId) => transits.find((transit) => transit.graha === id)?.longitude ?? 0;
 
@@ -341,12 +344,29 @@ export function createBodies(
     targets.push(target);
     group.add(body);
 
-    const label = document.createElement("div");
+    const label = document.createElement("button");
+    label.type = "button";
+    // Outside the tab order on purpose: the sky is a picture, and the page's
+    // "Every graha" list is the keyboard and screen-reader way to the same
+    // places. This only gives the pointer a target worth aiming at.
+    label.tabIndex = -1;
     label.className =
-      "pointer-events-none absolute left-0 top-0 whitespace-nowrap text-left opacity-0 transition-opacity duration-500 will-change-transform";
-    label.innerHTML = `<span class="block font-display text-[15px] leading-tight text-bone">${transit.name}${
+      "group/label pointer-events-none absolute left-0 top-0 cursor-pointer whitespace-nowrap border-0 bg-transparent p-0 text-left opacity-0 transition-opacity duration-500 will-change-transform focus:outline-none";
+    label.innerHTML = `<span class="block font-display text-[15px] leading-tight text-bone transition-colors group-hover/label:text-gold">${transit.name}${
       transit.retrograde && id !== "rahu" && id !== "ketu" ? ' <span class="text-faint">℞</span>' : ""
     }</span><span class="block font-display text-[13px] italic leading-tight text-gold">${caption(id, transit.place)}</span>`;
+    label.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      hovered = null;
+      onSelect(id);
+    });
+    label.addEventListener("pointerenter", () => {
+      hovered = id;
+    });
+    label.addEventListener("pointerleave", () => {
+      if (hovered === id) hovered = null;
+    });
     labelLayer?.appendChild(label);
 
     return { id, transit, group: body, spinner, lightDir, label };
@@ -384,6 +404,8 @@ export function createBodies(
       if (star?.spinner) ((star.spinner as THREE.Mesh).material as THREE.ShaderMaterial).uniforms.time.value = time;
     },
     place(camera, width, height, focus, hover) {
+      // A label under the pointer dims the others just as a sphere does.
+      const activeHover = hovered ?? hover;
       const toScreen = (world: THREE.Vector3) => {
         projected.copy(world).project(camera);
         return [(projected.x * 0.5 + 0.5) * width, (-projected.y * 0.5 + 0.5) * height, projected.z] as const;
@@ -417,7 +439,9 @@ export function createBodies(
             box.right < other.left || box.left > other.right || box.bottom < other.top || box.top > other.bottom,
         );
       for (const { body, x, y, r, visible } of discs) {
-        body.label.style.opacity = visible ? (hover && hover !== body.id ? "0.55" : "1") : "0";
+        body.label.style.opacity = visible ? (activeHover && activeHover !== body.id ? "0.55" : "1") : "0";
+        // A hidden label must not swallow a drag meant for the sky behind it.
+        body.label.style.pointerEvents = visible ? "auto" : "none";
         if (!visible) continue;
         labelWidth.set(body, labelWidth.get(body) || body.label.offsetWidth || 110);
         const w = labelWidth.get(body)!;

@@ -60,7 +60,8 @@ const ROUTE_FOCUS: Record<string, BodyId> = {
   "/membership/apply": "venus",
 };
 
-const BODY_IDS: readonly BodyId[] = ["earth", "sun", "moon", "mars", "mercury", "jupiter", "venus", "saturn", "rahu", "ketu"];
+/** Every body in the sky, in the order the site speaks about them. */
+export const BODY_IDS: readonly BodyId[] = ["earth", "sun", "moon", "mars", "mercury", "jupiter", "venus", "saturn", "rahu", "ketu"];
 
 interface Space {
   transits: readonly Transit[];
@@ -231,10 +232,13 @@ export function SpaceLink({
   to,
   className,
   children,
+  onNavigate,
 }: {
   to: BodyId | null;
   className?: string;
   children: ReactNode;
+  /** Runs after the trip starts, for a menu or a list that should close. */
+  onNavigate?: () => void;
 }) {
   const { go } = useSpace();
   const href = to === null ? "/" : DESTINATIONS[to]?.href ?? `/#${to}`;
@@ -246,6 +250,7 @@ export function SpaceLink({
         if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
         event.preventDefault();
         go(to);
+        onNavigate?.();
       }}
     >
       {children}

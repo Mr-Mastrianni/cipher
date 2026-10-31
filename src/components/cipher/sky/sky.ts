@@ -122,10 +122,17 @@ export function createSky(canvas: HTMLCanvasElement, labelLayer: HTMLElement | n
   let teardown = () => {};
 
   // The Earth's own name, under it.
-  const earthLabel = document.createElement("div");
+  const earthLabel = document.createElement("button");
+  earthLabel.type = "button";
+  earthLabel.tabIndex = -1;
   earthLabel.className =
-    "pointer-events-none absolute left-0 top-0 whitespace-nowrap text-center opacity-0 transition-opacity duration-500 will-change-transform";
+    "pointer-events-none absolute left-0 top-0 cursor-pointer whitespace-nowrap border-0 bg-transparent p-0 text-center opacity-0 transition-opacity duration-500 will-change-transform focus:outline-none";
   earthLabel.innerHTML = `<span class="block font-display text-[15px] leading-tight text-bone">Earth</span><span class="block font-display text-[13px] italic leading-tight text-gold">${caption("earth", "")}</span>`;
+  earthLabel.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    onSelect("earth");
+  });
   labelLayer?.appendChild(earthLabel);
 
   const loader = new THREE.TextureLoader();
@@ -149,7 +156,7 @@ export function createSky(canvas: HTMLCanvasElement, labelLayer: HTMLElement | n
         texture.anisotropy = anisotropy;
         maps.set(path, texture);
       });
-      const bodies = createBodies(transits, maps, labelLayer, caption);
+      const bodies = createBodies(transits, maps, labelLayer, caption, onSelect);
       const fleet = createFleet(earth.globe, { ships: large ? 9 : 6 });
       earth.frame.add(fleet.orbital);
 
@@ -194,7 +201,9 @@ export function createSky(canvas: HTMLCanvasElement, labelLayer: HTMLElement | n
         edge.project(camera);
         const x = (projected.x * 0.5 + 0.5) * width;
         const y = (-edge.y * 0.5 + 0.5) * height;
-        earthLabel.style.opacity = focusId === "earth" || projected.z > 1 ? "0" : hoverId && hoverId !== "earth" ? "0.55" : "1";
+        const hidden = focusId === "earth" || projected.z > 1;
+        earthLabel.style.opacity = hidden ? "0" : hoverId && hoverId !== "earth" ? "0.55" : "1";
+        earthLabel.style.pointerEvents = hidden ? "none" : "auto";
         earthLabel.style.transform = `translate3d(${Math.round(x)}px, ${Math.round(y + 4)}px, 0) translateX(-50%)`;
 
         if (!readied) {
