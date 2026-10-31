@@ -134,13 +134,18 @@ export function glowTexture(stops: [number, string][], size = 256): THREE.Textur
   return texture;
 }
 
-function sprite(texture: THREE.Texture, color: THREE.ColorRepresentation, opacity: number) {
+function sprite(
+  texture: THREE.Texture,
+  color: THREE.ColorRepresentation,
+  opacity: number,
+  blending: THREE.Blending = THREE.AdditiveBlending,
+) {
   return new THREE.Sprite(
     new THREE.SpriteMaterial({
       map: texture,
       color,
       opacity,
-      blending: THREE.AdditiveBlending,
+      blending,
       depthWrite: false,
       transparent: true,
     }),
@@ -187,6 +192,7 @@ export function createBodies(
   labelLayer: HTMLElement | null,
   caption: Caption,
   onSelect: (id: GrahaId) => void,
+  light = false,
 ): Bodies {
   const group = new THREE.Group();
   const disposables: { dispose(): void }[] = [];
@@ -197,11 +203,23 @@ export function createBodies(
   const longitudeOf = (id: GrahaId) => transits.find((transit) => transit.graha === id)?.longitude ?? 0;
 
   // ── Orbits, the zodiac ring and its twelve bounds.
+  // Orbits are brass haze in the dark; on paper they need to be ink you can
+  // read, and the zodiac a drawn line rather than a glow.
   const orbitMaterial = keep(
-    new THREE.LineBasicMaterial({ color: 0xbfa273, transparent: true, opacity: 0.16, depthWrite: false }),
+    new THREE.LineBasicMaterial({
+      color: light ? 0x6b6255 : 0xbfa273,
+      transparent: true,
+      opacity: light ? 0.34 : 0.16,
+      depthWrite: false,
+    }),
   );
   const ringMaterial = keep(
-    new THREE.LineBasicMaterial({ color: 0xd9c9a6, transparent: true, opacity: 0.34, depthWrite: false }),
+    new THREE.LineBasicMaterial({
+      color: light ? 0x8a6a3b : 0xd9c9a6,
+      transparent: true,
+      opacity: light ? 0.55 : 0.34,
+      depthWrite: false,
+    }),
   );
   for (const radius of new Set([ORBIT.mercury, ORBIT.venus, ORBIT.sun, ORBIT.mars, ORBIT.jupiter, ORBIT.saturn])) {
     const line = ringLine(radius, orbitMaterial);
@@ -280,16 +298,30 @@ export function createBodies(
         }),
       );
       spinner = new THREE.Mesh(sphere, material);
-      const glow = sprite(coreGlow, 0xffffff, 1);
+      // Additive light disappears against pale paper, so daylight gets a warm
+      // haze blended normally instead — the disc still reads through it.
+      const blend = light ? THREE.NormalBlending : THREE.AdditiveBlending;
+      const glow = sprite(coreGlow, light ? 0xffc98a : 0xffffff, light ? 0.5 : 1, blend);
       glow.scale.setScalar(5.2);
-      const wide = sprite(halo, 0xffffff, 0.5);
+      const wide = sprite(halo, light ? 0xffb877 : 0xffffff, light ? 0.28 : 0.5, blend);
       wide.scale.setScalar(18);
       body.add(wide, glow, spinner);
     } else if (id === "rahu" || id === "ketu") {
       const disc = new THREE.Mesh(sphere, keep(new THREE.MeshBasicMaterial({ color: 0x000000 })));
-      const ring = sprite(corona, id === "rahu" ? 0xffe1b0 : 0xd6e2ff, 0.95);
+      const blend = light ? THREE.NormalBlending : THREE.AdditiveBlending;
+      const ring = sprite(
+        corona,
+        light ? (id === "rahu" ? 0x8a6a3b : 0x5b5f86) : id === "rahu" ? 0xffe1b0 : 0xd6e2ff,
+        light ? 0.75 : 0.95,
+        blend,
+      );
       ring.scale.setScalar(2.35);
-      const outer = sprite(halo, id === "rahu" ? 0xffd9a0 : 0xc8d8ff, 0.35);
+      const outer = sprite(
+        halo,
+        light ? (id === "rahu" ? 0xbfa273 : 0x8e93b8) : id === "rahu" ? 0xffd9a0 : 0xc8d8ff,
+        light ? 0.3 : 0.35,
+        blend,
+      );
       outer.scale.setScalar(6);
       body.add(outer, ring, disc);
     } else {

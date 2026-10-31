@@ -23,6 +23,8 @@ const MAX_BOOST = 1.6;
 export interface SkyOptions {
   transits: readonly Transit[];
   reduced: boolean;
+  /** Daylight: the page is pale, so the stars and orbits turn to ink. */
+  light: boolean;
   /** The line under each body's name: a destination, or today's place. */
   caption: Caption;
   onReady: () => void;
@@ -39,7 +41,7 @@ export interface Sky {
 }
 
 export function createSky(canvas: HTMLCanvasElement, labelLayer: HTMLElement | null, options: SkyOptions): Sky {
-  const { transits, reduced, caption, onReady, onLost, onSelect } = options;
+  const { transits, reduced, light, caption, onReady, onLost, onSelect } = options;
 
   // Phones and small screens get 2k Earth maps; the download is a third.
   const large = window.innerWidth * Math.min(window.devicePixelRatio, 2) >= 1600;
@@ -52,7 +54,9 @@ export function createSky(canvas: HTMLCanvasElement, labelLayer: HTMLElement | n
   });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, large ? 1.75 : 1.5));
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.05;
+  // Paper reflects more light than the void does; pull the exposure back a
+  // touch so the brass and the planet limbs do not bleach in daylight.
+  renderer.toneMappingExposure = light ? 0.98 : 1.05;
   renderer.debug.onShaderError = (context, program) => {
     console.warn("Sky shader failed; using the plain sky.", context.getProgramInfoLog(program));
     onLost();
@@ -61,7 +65,7 @@ export function createSky(canvas: HTMLCanvasElement, labelLayer: HTMLElement | n
 
   const camera = new THREE.PerspectiveCamera(FOV, 1, 0.02, 600);
   const scene = new THREE.Scene();
-  const stars = createStars(window.innerWidth < 700 ? 2400 : 4200);
+  const stars = createStars(window.innerWidth < 700 ? 2400 : 4200, light);
   const sunLight = new THREE.DirectionalLight(0xfff1dc, 2.6);
   scene.add(stars.points, sunLight, new THREE.AmbientLight(0x3a4466, 0.35));
 
@@ -156,7 +160,7 @@ export function createSky(canvas: HTMLCanvasElement, labelLayer: HTMLElement | n
         texture.anisotropy = anisotropy;
         maps.set(path, texture);
       });
-      const bodies = createBodies(transits, maps, labelLayer, caption, onSelect);
+      const bodies = createBodies(transits, maps, labelLayer, caption, onSelect, light);
       const fleet = createFleet(earth.globe, { ships: large ? 9 : 6 });
       earth.frame.add(fleet.orbital);
 

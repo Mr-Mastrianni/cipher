@@ -13,6 +13,7 @@ import { createSky, type Sky } from "./sky";
 export function SkyCanvas({
   transits,
   reduced,
+  light,
   focus,
   caption,
   onReady,
@@ -21,6 +22,8 @@ export function SkyCanvas({
 }: {
   transits: readonly Transit[];
   reduced: boolean;
+  /** Ivory is a daylight sky: ink stars and darker orbits. */
+  light: boolean;
   focus: BodyId | null;
   caption: Caption;
   onReady: () => void;
@@ -37,12 +40,16 @@ export function SkyCanvas({
   });
   const initialFocus = useRef(focus);
 
+  // A theme change rebuilds the scene: the palette lives in the materials, and
+  // a visitor toggles the theme rarely enough that a fresh sky is cheaper than
+  // threading every uniform through a setter.
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const sky = createSky(canvas, labelsRef.current, {
       transits,
       reduced,
+      light,
       caption: (id, place) => handlers.current.caption(id, place),
       onReady: () => handlers.current.onReady(),
       onLost: () => handlers.current.onLost(),
@@ -54,7 +61,7 @@ export function SkyCanvas({
       skyRef.current = null;
       sky.dispose();
     };
-  }, [transits, reduced]);
+  }, [transits, reduced, light]);
 
   useEffect(() => {
     skyRef.current?.focus(focus);
