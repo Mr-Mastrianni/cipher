@@ -9,7 +9,7 @@ import * as THREE from "three";
 
 const STAR_RADIUS = 160;
 
-export function createStars(count: number) {
+export function createStars(count: number, light = false) {
   let seed = 4242;
   const random = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
   const gaussian = () => {
@@ -36,11 +36,16 @@ export function createStars(count: number) {
     }
     direction.multiplyScalar(STAR_RADIUS).toArray(positions, i * 3);
 
-    // Mostly white, some warm, some blue; a few bright, most faint.
+    // Mostly white, some warm, some blue; a few bright, most faint. In
+    // daylight the same stars are ink dust on paper: cool, low, never white.
     const warmth = random();
-    tint.setRGB(1, 0.94 + warmth * 0.06, 0.86 + (1 - warmth) * 0.14);
-    if (warmth < 0.18) tint.setRGB(0.78, 0.86, 1);
-    const brightness = Math.pow(random(), 2.6) * 0.85 + (banded ? 0.08 : 0.12);
+    if (light) {
+      tint.setRGB(0.34 + warmth * 0.05, 0.37 + warmth * 0.04, 0.45);
+    } else {
+      tint.setRGB(1, 0.94 + warmth * 0.06, 0.86 + (1 - warmth) * 0.14);
+      if (warmth < 0.18) tint.setRGB(0.78, 0.86, 1);
+    }
+    const brightness = Math.pow(random(), 2.6) * (light ? 0.72 : 0.85) + (banded ? 0.1 : 0.14) * (light ? 0.6 : 1);
     tint.multiplyScalar(brightness).toArray(colors, i * 3);
   }
 
@@ -48,10 +53,11 @@ export function createStars(count: number) {
   geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
   geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
   const material = new THREE.PointsMaterial({
-    size: 1.6,
+    size: light ? 1.2 : 1.6,
     sizeAttenuation: false,
     vertexColors: true,
     transparent: true,
+    opacity: light ? 0.85 : 1,
     depthWrite: false,
   });
   const points = new THREE.Points(geometry, material);

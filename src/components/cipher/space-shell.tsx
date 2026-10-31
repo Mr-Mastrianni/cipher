@@ -19,6 +19,7 @@ import { ArrowLeft } from "lucide-react";
 import type { Transit } from "@/components/cipher/sky/bodies";
 import type { BodyId } from "@/components/cipher/sky/layout";
 import { Starfield } from "@/components/cipher/starfield";
+import { useTheme } from "@/components/providers/theme-provider";
 import { cn } from "@/lib/utils";
 
 /**
@@ -122,6 +123,8 @@ export function SpaceShell({
   const pathname = usePathname() ?? "/";
   const router = useRouter();
   const reduced = useReducedMotion() ?? false;
+  const { theme } = useTheme();
+  const light = theme === "light";
   const hash = useSyncExternalStore(subscribeHash, readHash, serverHash);
 
   const home = pathname === "/";
@@ -163,7 +166,7 @@ export function SpaceShell({
 
   return (
     <SpaceContext.Provider value={space}>
-      <div aria-hidden={fidelity !== "webgl"} className="fixed inset-0 z-0 overflow-hidden bg-void">
+      <div aria-hidden={fidelity !== "webgl"} className="space-ground fixed inset-0 z-0 overflow-hidden">
         <div className={cn("absolute inset-0 transition-opacity duration-[1400ms]", showSky ? "opacity-0" : "opacity-80")}>
           <Starfield />
         </div>
@@ -172,6 +175,7 @@ export function SpaceShell({
             <SkyCanvas
               transits={transits}
               reduced={reduced}
+              light={light}
               focus={focus}
               caption={caption}
               onReady={markReady}

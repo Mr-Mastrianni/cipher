@@ -144,7 +144,7 @@ function Overview({
       <div className="pointer-events-auto relative px-6 pb-6 pt-16 sm:pb-8 sm:pt-24 lg:px-12 lg:pb-12">
         <div
           aria-hidden="true"
-          className="absolute inset-0 -z-10 bg-gradient-to-t from-void via-void/80 to-void/0 lg:bg-gradient-to-tr lg:via-void/55"
+          className="absolute inset-0 -z-10 bg-gradient-to-t from-void via-void/80 to-void/0 [mask-image:linear-gradient(to_bottom,transparent_0,black_120px)] [-webkit-mask-image:linear-gradient(to_bottom,transparent_0,black_120px)] lg:bg-gradient-to-tr lg:via-void/55"
         />
         <div className="max-w-[40rem]">
           <p className="intro-fade caption" style={{ animationDelay: "0.3s" }}>
@@ -201,7 +201,7 @@ function Overview({
                 reading by keyboard or screen reader — and for a phone, where
                 a planet is thinner than a fingertip. */}
             <details ref={listRef} className="group relative mt-3">
-              <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 rounded-sm font-display text-[15px] italic text-faint transition-colors hover:text-gold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/70 focus-visible:ring-offset-2 focus-visible:ring-offset-void [&::-webkit-details-marker]:hidden">
+              <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 rounded-sm font-display text-[15px] italic text-muted transition-colors hover:text-gold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/70 focus-visible:ring-offset-2 focus-visible:ring-offset-void [&::-webkit-details-marker]:hidden">
                 <ChevronDown
                   aria-hidden="true"
                   strokeWidth={1.6}

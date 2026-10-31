@@ -80,6 +80,12 @@
     ),
     var(--c-void);
 
+  /* The sky the canvas is composited over, and the dust of the still
+     fallback. Noir is depth without colour; Ivory is dawn (below). */
+  --c-sky-top: #0b0b10;
+  --c-sky-low: #070708;
+  --c-star: #ece6da;
+
   /* motion — slower, weightier, no spring */
   --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-in-out-quart: cubic-bezier(0.76, 0, 0.24, 1);
@@ -158,6 +164,12 @@
       #f8f5ef 55%,
       #f0ece4 100%
     );
+
+  /* Daylight: a pale sky above a warm horizon, with the stars as ink dust.
+     The planets keep their real light; only the page they float on changes. */
+  --c-sky-top: #d7e3f2;
+  --c-sky-low: #f7f3ec;
+  --c-star: #4a5160;
 }
 
 /* --- map tokens into Tailwind's theme ------------------------------------ */
@@ -332,6 +344,17 @@
     border: 1px solid var(--c-hairline);
     border-radius: var(--r-lg);
     backdrop-filter: blur(12px);
+  }
+
+  /* The field behind the WebGL sky. Not a flat colour: a horizon, so the
+     scene sits in depth — midnight in Noir, dawn in Ivory. */
+  .space-ground {
+    background: radial-gradient(
+      120% 90% at 50% 0%,
+      var(--c-sky-top) 0%,
+      var(--c-void) 58%,
+      var(--c-sky-low) 100%
+    );
   }
 
   .hairline-grid {
