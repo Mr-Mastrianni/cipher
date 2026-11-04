@@ -3,6 +3,7 @@
 import {
   useCallback,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -14,9 +15,9 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import {
   ArrowLeft,
   ArrowRight,
-  Check,
   CircleAlert,
   Compass,
+  Save,
   Sparkles,
 } from "lucide-react";
 
@@ -27,6 +28,12 @@ import {
   type BirthMomentDraft,
   type VerifiedBirth,
 } from "@/components/cipher/birth-verification";
+import {
+  PlaceAutocomplete,
+  type PlaceSuggestion,
+} from "@/components/onboarding/place-autocomplete";
+import { StepDots, StepProgress } from "@/components/onboarding/step-progress";
+import { ShortcutHints } from "@/components/onboarding/shortcut-hints";
 import { useSound } from "@/components/providers/sound-provider";
 import {
   Badge,
@@ -39,6 +46,7 @@ import {
   EmptyState,
   Field,
   Input,
+  Label,
   Progress,
   Radio,
   RadioGroup,
@@ -46,7 +54,8 @@ import {
   Spinner,
   Textarea,
 } from "@/components/ui";
-import { cn } from "@/lib/utils";
+import { cn, timeAgo } from "@/lib/utils";
+import { readDraft, removeDraft, writeDraft } from "@/lib/onboarding/draft";
 import type { AuraAvatar } from "@/lib/cipher/aura-avatar";
 import type { MemberCategory } from "@/lib/cipher/categorization";
 
@@ -112,6 +121,38 @@ interface Answers {
   timezone: string;
   callSlot: string;
 }
+
+/**
+ * Per-field validation, run while typing rather than only on Continue.
+ *
+ * Each rule returns an error string or `null`. The rules are deliberately
+ * gentler than `validate`: an empty field is not an error until it is left,
+ * because flagging a field the person has not reached yet is just noise.
+ */
+const INLINE_RULES: Record<string, (value: string) => string | null> = {
+  birthDate: (value) => (value ? null : "Enter your date of birth."),
+  birthTime: (value) =>
+    /^\d{2}:\d{2}:\d{2}$/.test(value)
+      ? null
+      : "Include seconds, as HH:MM:SS.",
+  birthTimeZone: (value) => (value.trim() ? null : "The zone is required."),
+  birthPlaceName: (value) => (value.trim() ? null : "Name the nearest town."),
+  birthLatitude: (value) => {
+    const parsed = Number(value);
+    if (value.trim() === "" || !Number.isFinite(parsed)) return "Enter a decimal degree.";
+    return Math.abs(parsed) <= 90 ? null : "Latitude runs from −90 to 90.";
+  },
+  birthLongitude: (value) => {
+    const parsed = Number(value);
+    if (value.trim() === "" || !Number.isFinite(parsed)) return "Enter a decimal degree.";
+    return Math.abs(parsed) <= 180 ? null : "Longitude runs from −180 to 180.";
+  },
+  timezone: (value) => (value.trim() ? null : "The zone is required."),
+  hereToMake: (value) =>
+    value.trim().length >= 3 ? null : "Give us at least a few words.",
+  stopDoing: (value) =>
+    value.trim().length >= 3 ? null : "Name it, even roughly.",
+};
 
 const WANTS = [
   "community",
@@ -369,11 +410,129 @@ export default function OnboardingPage() {
   const panelRef = useRef<HTMLDivElement | null>(null);
   const firstFieldRef = useRef<HTMLInputElement | null>(null);
 
+  // While-typing validation, separate from the per-step gate `validate` below.
+  // Errors are only *shown* once a field has been left (see `touched`), because
+  // flagging the first character someone types is noise, not help.
+  const [inlineErrors, setInlineErrors] = useState<Record<string, string>>({});
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const inlineTimers = useRef<Record<string, number>>({});
+
+  // Draft save/resume. `draftSavedAt` is what the header reports, so the
+  // control reflects a real write rather than an optimistic one.
+  const [draftSavedAt, setDraftSavedAt] = useState<number | null>(null);
+  const [draftMessage, setDraftMessage] = useState<string | null>(null);
+
+  /**
+   * Validate one field as it is typed, debounced so a fast typist is not
+   * scolded mid-word.
+   *
+   * @param name - The key in {@link INLINE_RULES}.
+   * @param value - The current control value.
+   */
+  const validateField = useCallback((name: string, value: string) => {
+    const rule = INLINE_RULES[name];
+    if (!rule) return;
+    const timers = inlineTimers.current;
+    window.clearTimeout(timers[name]);
+    timers[name] = window.setTimeout(() => {
+      const error = rule(value);
+      setInlineErrors((current) => {
+        const next = { ...current };
+        if (error) next[name] = error;
+        else delete next[name];
+        return next;
+      });
+    }, 260);
+  }, []);
+
+  useEffect(() => {
+    const timers = inlineTimers.current;
+    return () => {
+      for (const id of Object.values(timers)) window.clearTimeout(id);
+    };
+  }, []);
+
+  /**
+   * Mark a field as visited, so its error may be displayed.
+   *
+   * @param name - The field key.
+   */
+  const markTouched = useCallback((name: string) => {
+    setTouched((current) => (current[name] ? current : { ...current, [name]: true }));
+  }, []);
+
+  // The draft line is a confirmation, not a permanent status: it fades back to
+  // the stored timestamp so the header keeps telling the truth over time.
+  const draftMessageTimer = useRef<number | null>(null);
+  const flashDraftMessage = useCallback((message: string | null) => {
+    if (draftMessageTimer.current !== null) {
+      window.clearTimeout(draftMessageTimer.current);
+      draftMessageTimer.current = null;
+    }
+    setDraftMessage(message);
+    if (message) {
+      draftMessageTimer.current = window.setTimeout(() => {
+        draftMessageTimer.current = null;
+        setDraftMessage(null);
+      }, 4000);
+    }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (draftMessageTimer.current !== null) {
+        window.clearTimeout(draftMessageTimer.current);
+      }
+    };
+  }, []);
+
+  /** Store the current answers on this device. */
+  const saveDraft = useCallback(() => {
+    const stored = writeDraft<BirthFields, Answers>({
+      stepIndex,
+      hasBirthProfile,
+      birth,
+      answers,
+    });
+    if (stored) {
+      setDraftSavedAt(Date.now());
+      flashDraftMessage("Draft saved on this device.");
+      play("confirm");
+      setStatusMessage("Draft saved on this device.");
+    } else {
+      flashDraftMessage("This browser would not store a draft.");
+      play("error");
+      setStatusMessage("This browser would not store a draft.");
+    }
+  }, [answers, birth, flashDraftMessage, hasBirthProfile, play, stepIndex]);
+
+  /** Forget the stored draft and its status line. */
+  const discardDraft = useCallback(() => {
+    removeDraft();
+    setDraftSavedAt(null);
+    flashDraftMessage(null);
+  }, [flashDraftMessage]);
+
   /* ── Bootstrap ─────────────────────────────────────────────────────────── */
 
   useEffect(() => {
     let cancelled = false;
+
     (async () => {
+      // A stored draft is restored before the server is consulted, so answers
+      // already given are never replaced by fresh defaults. It is read inside
+      // the async body rather than the effect body: the restore is a normal
+      // async update, not a cascading synchronous one.
+      const draft = readDraft<BirthFields, Answers>();
+      if (!cancelled && draft) {
+        setBirth(draft.birth);
+        setAnswers(draft.answers);
+        setStepIndex(draft.stepIndex);
+        setHasBirthProfile(draft.hasBirthProfile);
+        setDraftSavedAt(draft.savedAt);
+        flashDraftMessage("Draft restored from this device.");
+      }
+
       try {
         const response = await fetch("/api/onboarding", {
           headers: { accept: "application/json" },
@@ -390,14 +549,25 @@ export default function OnboardingPage() {
         }
         const data = (await response.json()) as BootstrapResponse;
         const zone = data.timezone ?? "UTC";
-        setHasBirthProfile(Boolean(data.hasBirthProfile));
-        setBirth(data.birth ? { ...data.birth, birthPlaceName: data.birth.birthPlaceName ?? "" } : defaultBirth(zone));
-        setAnswers(defaultAnswers(zone));
-        setStatusMessage(
-          data.hasBirthProfile
-            ? "Your chart is on file. Let us place you."
-            : "Let us take your birth details first.",
-        );
+
+        // The server knows whether a chart is already on file; that is the one
+        // fact it may override, because it decides which steps exist at all.
+        if (data.hasBirthProfile) setHasBirthProfile(true);
+
+        if (!draft) {
+          setHasBirthProfile(Boolean(data.hasBirthProfile));
+          setBirth(
+            data.birth
+              ? { ...data.birth, birthPlaceName: data.birth.birthPlaceName ?? "" }
+              : defaultBirth(zone),
+          );
+          setAnswers(defaultAnswers(zone));
+          setStatusMessage(
+            data.hasBirthProfile
+              ? "Your chart is on file. Let us place you."
+              : "Let us take your birth details first.",
+          );
+        }
         setPhase("ready");
       } catch {
         if (cancelled) return;
@@ -408,7 +578,7 @@ export default function OnboardingPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [flashDraftMessage]);
 
   /* ── Steps ─────────────────────────────────────────────────────────────── */
 
@@ -499,6 +669,13 @@ export default function OnboardingPage() {
   const goNext = useCallback(() => {
     const error = validate(step.id);
     if (error) {
+      // A failed attempt is a request for help: reveal every inline message so
+      // the person sees which field to fix, not merely that something is wrong.
+      setTouched((current) => {
+        const next = { ...current };
+        for (const key of Object.keys(INLINE_RULES)) next[key] = true;
+        return next;
+      });
       setFieldError(error);
       setStatusMessage(error);
       play("error");
@@ -560,13 +737,56 @@ export default function OnboardingPage() {
       play("reveal");
       // Reveal replaces the step list; render it by pointing past the end.
       setStepIndex(steps.length);
+      // The answers are now on the server; a local draft would only go stale.
+      discardDraft();
     } catch {
       setPhase("ready");
       setFieldError("The connection dropped. Try once more.");
       setStatusMessage("The connection dropped.");
       play("error");
     }
-  }, [answers, birth, hasBirthProfile, play, steps.length, validate, verifiedBirth]);
+  }, [answers, birth, discardDraft, hasBirthProfile, play, steps.length, validate, verifiedBirth]);
+
+  /* ── Keyboard shortcuts ────────────────────────────────────────────────── */
+
+  // Enter advances, Escape goes back, and ⌘S keeps a draft. The flow is a
+  // sequence of short screens, so this is the difference between a mouse
+  // journey and a keyboard one. Declared after its callbacks so nothing is
+  // referenced before it exists.
+  useEffect(() => {
+    if (phase !== "ready") return;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      const typing =
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target instanceof HTMLSelectElement ||
+        target?.isContentEditable === true;
+
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") {
+        event.preventDefault();
+        saveDraft();
+        return;
+      }
+
+      if (typing) return;
+
+      if (event.key === "Enter" && !isReveal && event.target === panelRef.current) {
+        event.preventDefault();
+        goNext();
+        return;
+      }
+
+      if (event.key === "Escape" && stepIndex > 0 && !isReveal) {
+        event.preventDefault();
+        goBack();
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [goBack, goNext, isReveal, phase, saveDraft, stepIndex]);
 
   /* ── Render ────────────────────────────────────────────────────────────── */
 
@@ -645,56 +865,73 @@ export default function OnboardingPage() {
           </div>
 
           {!isReveal && (
-            <Progress
-              value={clampedIndex + 1}
-              max={steps.length}
-              label={`Step ${clampedIndex + 1} of ${steps.length}`}
-              showValue
-            />
+            <div className="flex flex-col gap-2">
+              <Progress
+                value={clampedIndex + 1}
+                max={steps.length}
+                label={`Step ${clampedIndex + 1} of ${steps.length}`}
+                showValue
+              />
+              {/* The rail's compact form: the same logic, one line, and the
+                  only progress cue a phone gets. */}
+              <StepDots
+                className="lg:hidden"
+                steps={steps}
+                currentIndex={clampedIndex}
+                isReveal={isReveal}
+              />
+            </div>
           )}
 
-          <ol className="hidden flex-col gap-2 lg:flex" aria-label="Onboarding steps">
-            {steps.map((entry, index) => (
-              <li
-                key={entry.id}
-                aria-current={index === clampedIndex ? "step" : undefined}
-                className={cn(
-                  "flex items-center gap-3 font-mono text-[10px] uppercase tracking-[0.2em]",
-                  index === clampedIndex
-                    ? "text-gold"
-                    : index < clampedIndex
-                      ? "text-muted"
-                      : "text-faint",
-                )}
-              >
-                <span
-                  aria-hidden="true"
-                  className={cn(
-                    "grid h-5 w-5 place-items-center rounded-full border",
-                    index < clampedIndex
-                      ? "border-gold/50 text-gold"
-                      : index === clampedIndex
-                        ? "border-gold text-gold"
-                        : "border-line text-faint",
-                  )}
-                >
-                  {index < clampedIndex ? (
-                    <Check className="h-3 w-3" strokeWidth={2.5} />
-                  ) : (
-                    index + 1
-                  )}
-                </span>
-                {entry.title}
-              </li>
-            ))}
-          </ol>
+          <div className="hidden lg:block">
+            <StepProgress
+              steps={steps}
+              currentIndex={clampedIndex}
+              isReveal={isReveal}
+              reveal={STEP_META.reveal}
+            />
+          </div>
+
+          <ShortcutHints className="lg:mt-2" />
         </aside>
 
         {/* ── Panel ──────────────────────────────────────────────────────── */}
         <section className="min-w-0">
-          <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-gold">
-            {isReveal ? STEP_META.reveal.eyebrow : step.eyebrow}
-          </p>
+          <div className="flex items-start justify-between gap-4">
+            <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-gold">
+              {isReveal ? STEP_META.reveal.eyebrow : step.eyebrow}
+            </p>
+
+            {/* Keeping the draft is a first-class action, not a hidden one:
+                six screens of answers are worth more than a reload. */}
+            {!isReveal ? (
+              <div className="flex shrink-0 items-center gap-2">
+                <p
+                  aria-live="polite"
+                  className={cn(
+                    "hidden font-mono text-[9px] uppercase tracking-[0.16em] sm:block",
+                    draftMessage ? "text-muted" : "text-faint",
+                  )}
+                >
+                  {draftMessage ??
+                    (draftSavedAt
+                      ? `Saved ${timeAgo(new Date(draftSavedAt))}`
+                      : "")}
+                </p>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={saveDraft}
+                  disabled={phase !== "ready"}
+                  aria-label="Save a draft on this device (⌘S)"
+                  title="Save a draft on this device (⌘S)"
+                >
+                  <Save aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={1.5} />
+                  <span className="hidden sm:inline">Save</span>
+                </Button>
+              </div>
+            ) : null}
+          </div>
 
           {fieldError && (
             <p
@@ -729,6 +966,10 @@ export default function OnboardingPage() {
                         birth={birth}
                         onChange={setBirth}
                         firstFieldRef={firstFieldRef}
+                        inlineErrors={inlineErrors}
+                        touched={touched}
+                        validateField={validateField}
+                        markTouched={markTouched}
                       />
                     )}
 
@@ -745,15 +986,22 @@ export default function OnboardingPage() {
                         label="What you are here to make"
                         description="One or two sentences. The concrete version, not the impressive one."
                         required
+                        error={touched.hereToMake ? inlineErrors.hereToMake : undefined}
                       >
                         <Textarea
                           value={answers.hereToMake}
-                          onChange={(event) =>
+                          onChange={(event) => {
+                            const value = event.target.value;
                             setAnswers((current) => ({
                               ...current,
-                              hereToMake: event.target.value,
-                            }))
-                          }
+                              hereToMake: value,
+                            }));
+                            validateField("hereToMake", value);
+                          }}
+                          onBlur={(event) => {
+                            markTouched("hereToMake");
+                            validateField("hereToMake", event.target.value);
+                          }}
                           maxLength={2000}
                           rows={5}
                           autoFocus
@@ -810,15 +1058,22 @@ export default function OnboardingPage() {
                         label="The one thing you want to stop doing"
                         description="A behaviour, a role, a commitment. One line is fine."
                         required
+                        error={touched.stopDoing ? inlineErrors.stopDoing : undefined}
                       >
                         <Textarea
                           value={answers.stopDoing}
-                          onChange={(event) =>
+                          onChange={(event) => {
+                            const value = event.target.value;
                             setAnswers((current) => ({
                               ...current,
-                              stopDoing: event.target.value,
-                            }))
-                          }
+                              stopDoing: value,
+                            }));
+                            validateField("stopDoing", value);
+                          }}
+                          onBlur={(event) => {
+                            markTouched("stopDoing");
+                            validateField("stopDoing", event.target.value);
+                          }}
                           maxLength={2000}
                           rows={4}
                           autoFocus
@@ -874,15 +1129,22 @@ export default function OnboardingPage() {
                           label="Your time zone"
                           description="IANA name — the one your calendar uses."
                           required
+                          error={touched.timezone ? inlineErrors.timezone : undefined}
                         >
                           <Input
                             value={answers.timezone}
-                            onChange={(event) =>
+                            onChange={(event) => {
+                              const value = event.target.value;
                               setAnswers((current) => ({
                                 ...current,
-                                timezone: event.target.value,
-                              }))
-                            }
+                                timezone: value,
+                              }));
+                              validateField("timezone", value);
+                            }}
+                            onBlur={(event) => {
+                              markTouched("timezone");
+                              validateField("timezone", event.target.value);
+                            }}
                             list="cipher-timezones"
                             autoComplete="off"
                             spellCheck={false}
@@ -991,20 +1253,105 @@ function BirthStep({
   birth,
   onChange,
   firstFieldRef,
+  inlineErrors,
+  touched,
+  validateField,
+  markTouched,
 }: {
   birth: BirthFields;
   onChange: (next: BirthFields) => void;
   firstFieldRef: React.RefObject<HTMLInputElement | null>;
+  inlineErrors: Record<string, string>;
+  touched: Record<string, boolean>;
+  validateField: (name: string, value: string) => void;
+  markTouched: (name: string) => void;
 }) {
+  const placeId = useId();
+
+  /** Only surface an error once the field has been left. */
+  const errorFor = (name: string) => (touched[name] ? inlineErrors[name] : undefined);
+
+  // The coordinates are edited as text. A number input bound to the stored
+  // value turns a cleared field into 0 — the equator — so the text is kept
+  // local and only a parseable entry is committed. That keeps "empty, not yet
+  // filled" distinguishable from "0°", which matters: 0,0 is a real place.
+  const [latitudeText, setLatitudeText] = useState(() => String(birth.birthLatitude));
+  const [longitudeText, setLongitudeText] = useState(() => String(birth.birthLongitude));
+
+  // Adopt coordinates chosen with the place picker. This is React's documented
+  // "adjust state when a prop changes" pattern rather than an effect: it runs
+  // during render, only when the stored value actually changed, and it leaves
+  // half-typed text alone when the text already parses to the new value.
+  const [syncedLatitude, setSyncedLatitude] = useState(birth.birthLatitude);
+  if (birth.birthLatitude !== syncedLatitude) {
+    setSyncedLatitude(birth.birthLatitude);
+    const parsed = Number(latitudeText);
+    if (!Number.isFinite(parsed) || Math.abs(parsed - birth.birthLatitude) > 1e-9) {
+      setLatitudeText(String(birth.birthLatitude));
+    }
+  }
+
+  const [syncedLongitude, setSyncedLongitude] = useState(birth.birthLongitude);
+  if (birth.birthLongitude !== syncedLongitude) {
+    setSyncedLongitude(birth.birthLongitude);
+    const parsed = Number(longitudeText);
+    if (!Number.isFinite(parsed) || Math.abs(parsed - birth.birthLongitude) > 1e-9) {
+      setLongitudeText(String(birth.birthLongitude));
+    }
+  }
+
+  /** Commit a typed coordinate, ignoring text that is not a number yet. */
+  const commitCoordinate = (
+    key: "birthLatitude" | "birthLongitude",
+    text: string,
+  ) => {
+    validateField(key, text);
+    if (text.trim() === "") return;
+    const parsed = Number(text);
+    if (!Number.isFinite(parsed)) return;
+    if (key === "birthLatitude" && Math.abs(parsed) > 90) return;
+    if (key === "birthLongitude" && Math.abs(parsed) > 180) return;
+    onChange({ ...birth, [key]: parsed });
+  };
+
+  /** Fill the whole place from a picked suggestion. */
+  const pickPlace = (place: PlaceSuggestion) => {
+    onChange({
+      ...birth,
+      birthPlaceName: place.displayName,
+      birthLatitude: place.latitude,
+      birthLongitude: place.longitude,
+      // A resolved zone is a real answer; an unresolved one leaves whatever the
+      // person already typed rather than guessing from the country.
+      birthTimeZone: place.timeZone ?? birth.birthTimeZone,
+    });
+    markTouched("birthPlaceName");
+    validateField("birthPlaceName", place.displayName);
+    setLatitudeText(String(place.latitude));
+    setLongitudeText(String(place.longitude));
+    if (place.timeZone) validateField("birthTimeZone", place.timeZone);
+  };
+
+  const placeErrorId = `${placeId}-error`;
+  const placeHelpId = `${placeId}-help`;
+
   return (
     <div className="grid gap-6 sm:grid-cols-2">
-      <Field label="Date of birth" required>
+      <Field
+        label="Date of birth"
+        required
+        error={errorFor("birthDate")}
+      >
         <Input
           ref={firstFieldRef}
           type="date"
           value={birth.birthDate}
           max="2100-12-31"
-          onChange={(event) => onChange({ ...birth, birthDate: event.target.value })}
+          onChange={(event) => {
+            onChange({ ...birth, birthDate: event.target.value });
+            validateField("birthDate", event.target.value);
+          }}
+          onBlur={(event) => { markTouched("birthDate"); validateField("birthDate", event.target.value); }}
         />
       </Field>
 
@@ -1012,34 +1359,63 @@ function BirthStep({
         label="Time of birth, to the second"
         description="From the birth record. If it gives only minutes, use :00 seconds."
         required
+        error={errorFor("birthTime")}
       >
         <Input
           type="time"
           step={1}
           value={birth.birthTime}
-          onChange={(event) => onChange({ ...birth, birthTime: event.target.value })}
+          onChange={(event) => {
+            onChange({ ...birth, birthTime: event.target.value });
+            validateField("birthTime", event.target.value);
+          }}
+          onBlur={(event) => { markTouched("birthTime"); validateField("birthTime", event.target.value); }}
         />
       </Field>
+
+      {/* The place picker is not wrapped in `Field`: its control is nested in a
+          combobox wrapper, which `Field`'s id injection cannot reach, so the
+          label is wired by hand. */}
+      <div className="flex flex-col gap-2 sm:col-span-2">
+        <Label htmlFor={placeId} required>
+          Birthplace
+        </Label>
+        <PlaceAutocomplete
+          inputId={placeId}
+          value={birth.birthPlaceName ?? ""}
+          onValueChange={(next) => {
+            onChange({ ...birth, birthPlaceName: next });
+            validateField("birthPlaceName", next);
+          }}
+          onPlacePicked={pickPlace}
+          invalid={Boolean(errorFor("birthPlaceName"))}
+          describedBy={errorFor("birthPlaceName") ? placeErrorId : placeHelpId}
+        />
+        {errorFor("birthPlaceName") ? (
+          <p id={placeErrorId} role="alert" className="text-xs leading-relaxed text-danger">
+            {errorFor("birthPlaceName")}
+          </p>
+        ) : (
+          <p id={placeHelpId} className="text-xs leading-relaxed text-faint">
+            Search for the nearest town. Choosing it fills the coordinates and,
+            when the service can resolve one, the time zone below.
+          </p>
+        )}
+      </div>
 
       <Field
-        label="Birth city"
-        description="Nearest town is enough — used for the coordinates below."
+        label="Time zone at birth"
+        description="IANA name, including historical DST."
         required
+        error={errorFor("birthTimeZone")}
       >
         <Input
-          value={birth.birthPlaceName ?? ""}
-          onChange={(event) =>
-            onChange({ ...birth, birthPlaceName: event.target.value })
-          }
-          placeholder="Leeds, England"
-          autoComplete="off"
-        />
-      </Field>
-
-      <Field label="Time zone at birth" description="IANA name, including historical DST." required>
-        <Input
           value={birth.birthTimeZone}
-          onChange={(event) => onChange({ ...birth, birthTimeZone: event.target.value })}
+          onChange={(event) => {
+            onChange({ ...birth, birthTimeZone: event.target.value });
+            validateField("birthTimeZone", event.target.value);
+          }}
+          onBlur={(event) => { markTouched("birthTimeZone"); validateField("birthTimeZone", event.target.value); }}
           list="cipher-timezones-birth"
           autoComplete="off"
           spellCheck={false}
@@ -1052,29 +1428,45 @@ function BirthStep({
         ))}
       </datalist>
 
-      <Field label="Latitude" description="Decimal degrees, negative for south." required>
+      <Field
+        label="Latitude"
+        description="Decimal degrees, negative for south."
+        required
+        error={errorFor("birthLatitude")}
+      >
         <Input
-          type="number"
-          step="0.0001"
-          min={-90}
-          max={90}
-          value={String(birth.birthLatitude)}
-          onChange={(event) =>
-            onChange({ ...birth, birthLatitude: Number(event.target.value) })
-          }
+          type="text"
+          inputMode="decimal"
+          value={latitudeText}
+          onChange={(event) => {
+            setLatitudeText(event.target.value);
+            commitCoordinate("birthLatitude", event.target.value);
+          }}
+          onBlur={(event) => { markTouched("birthLatitude"); validateField("birthLatitude", event.target.value); }}
+          placeholder="51.5074"
+          autoComplete="off"
+          spellCheck={false}
         />
       </Field>
 
-      <Field label="Longitude" description="Decimal degrees, negative for west." required>
+      <Field
+        label="Longitude"
+        description="Decimal degrees, negative for west."
+        required
+        error={errorFor("birthLongitude")}
+      >
         <Input
-          type="number"
-          step="0.0001"
-          min={-180}
-          max={180}
-          value={String(birth.birthLongitude)}
-          onChange={(event) =>
-            onChange({ ...birth, birthLongitude: Number(event.target.value) })
-          }
+          type="text"
+          inputMode="decimal"
+          value={longitudeText}
+          onChange={(event) => {
+            setLongitudeText(event.target.value);
+            commitCoordinate("birthLongitude", event.target.value);
+          }}
+          onBlur={(event) => { markTouched("birthLongitude"); validateField("birthLongitude", event.target.value); }}
+          placeholder="-0.1276"
+          autoComplete="off"
+          spellCheck={false}
         />
       </Field>
     </div>

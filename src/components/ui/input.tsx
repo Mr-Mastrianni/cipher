@@ -92,6 +92,8 @@ export interface FieldProps {
   description?: ReactNode;
   /** Error copy; when present the control is marked `aria-invalid`. */
   error?: ReactNode;
+  /** Shows a validating spinner while async validation is in progress. */
+  isValidating?: boolean;
   /** Adds the required marker and forwards `required` to the control. */
   required?: boolean;
   className?: string;
@@ -108,6 +110,7 @@ export function Field({
   label,
   description,
   error,
+  isValidating = false,
   required = false,
   className,
   children,
@@ -137,14 +140,25 @@ export function Field({
           {label}
         </Label>
       ) : null}
-      <Slot
-        id={controlId}
-        aria-describedby={describedBy || undefined}
-        aria-invalid={error ? true : undefined}
-        required={required || childProps.required || undefined}
-      >
-        {children}
-      </Slot>
+      <div className="relative">
+        <Slot
+          id={controlId}
+          aria-describedby={describedBy || undefined}
+          aria-invalid={error ? true : undefined}
+          aria-busy={isValidating || undefined}
+          required={required || childProps.required || undefined}
+        >
+          {children}
+        </Slot>
+        {isValidating ? (
+          // A CSS ring rather than an icon: the kit stays free of icon imports,
+          // and reduced-motion already collapses the spin globally.
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute right-0 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin rounded-full border-2 border-hairline border-t-gold"
+          />
+        ) : null}
+      </div>
       {description && !error ? (
         <p id={descriptionId} className="text-xs leading-relaxed text-faint">
           {description}
