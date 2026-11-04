@@ -19,6 +19,7 @@ import { ArrowLeft } from "lucide-react";
 import type { Transit } from "@/components/cipher/sky/bodies";
 import type { BodyId, SkyView } from "@/components/cipher/sky/layout";
 import { Starfield } from "@/components/cipher/starfield";
+import { Guide } from "@/components/guide/guide";
 import { cn } from "@/lib/utils";
 
 /**
@@ -198,6 +199,7 @@ export function SpaceShell({
         )}
         {home ? null : <div className="pointer-events-auto">{footer}</div>}
       </div>
+      <Guide go={go} />
     </SpaceContext.Provider>
   );
 }
