@@ -142,7 +142,7 @@ function Home({
 
 function Hero({ joinHref, onCast }: { joinHref: string; onCast: () => void }) {
   return (
-    <section aria-labelledby="home-title" className="max-w-[36rem]">
+    <section aria-labelledby="home-title" data-guide="hero" className="max-w-[36rem]">
       <p className="intro-fade caption" style={{ animationDelay: "0.3s" }}>
         A Human Design &amp; KP astrology community
       </p>
@@ -165,11 +165,11 @@ function Hero({ joinHref, onCast }: { joinHref: string; onCast: () => void }) {
         Cast your chart, learn to read it, and meet the people reading theirs beside you.
       </p>
       <div className="intro-rise mt-7 flex flex-wrap items-center gap-x-6 gap-y-4" style={{ animationDelay: "0.95s" }}>
-        <Link href={joinHref} className={PILL}>
+        <Link href={joinHref} data-guide="join" className={PILL}>
           Join the community
           <ArrowRight aria-hidden="true" className="h-4 w-4" strokeWidth={1.6} />
         </Link>
-        <button type="button" onClick={onCast} className={QUIET}>
+        <button type="button" onClick={onCast} data-guide="cast" className={QUIET}>
           Cast your chart free
         </button>
       </div>
@@ -184,7 +184,7 @@ function TodaysSky({ transits }: { transits: readonly Transit[] }) {
   );
   if (rows.length === 0) return null;
   return (
-    <section aria-labelledby="todays-sky" className="intro-fade max-w-[36rem]" style={{ animationDelay: "1.2s" }}>
+    <section aria-labelledby="todays-sky" data-guide="sky-today" className="intro-fade max-w-[36rem]" style={{ animationDelay: "1.2s" }}>
       <h2 id="todays-sky" className="caption">
         Tonight&apos;s sky
       </h2>
@@ -224,7 +224,7 @@ function Places() {
           const place = DESTINATIONS[id];
           if (!place) return null;
           return (
-            <li key={id} className="border-t border-hairline">
+            <li key={id} data-guide={`place-${id}`} className="border-t border-hairline">
               <SpaceLink
                 to={id}
                 className="group flex items-center justify-between gap-6 py-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
@@ -244,7 +244,7 @@ function Places() {
             </li>
           );
         })}
-        <li className="border-t border-hairline pt-5">
+        <li data-guide="whole-sky" className="border-t border-hairline pt-5">
           <SpaceLink to="sky" className={QUIET}>
             See the whole sky
             <ArrowRight aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={1.5} />

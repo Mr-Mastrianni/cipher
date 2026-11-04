@@ -24,6 +24,12 @@ export interface GuideTopic {
   label: string;
   lines: readonly string[];
   actions: readonly GuideAction[];
+  /**
+   * What she flies to while she explains, in order of preference: the ids of
+   * page elements tagged `data-guide`, or `earth-view` for the planet drawn in
+   * the scene. The first one on screen wins; none means she stays where she is.
+   */
+  targets?: readonly string[];
 }
 
 export const TOPICS: readonly GuideTopic[] = [
@@ -35,6 +41,7 @@ export const TOPICS: readonly GuideTopic[] = [
       "It is free to cast, and you do not need an account to see your reading.",
     ],
     actions: [{ label: "Cast my chart", to: "sun" }],
+    targets: ["cast", "place-sun"],
   },
   {
     id: "this-page",
@@ -44,6 +51,7 @@ export const TOPICS: readonly GuideTopic[] = [
       "Each planet keeps part of the site: the Sun holds your chart, Jupiter the Method, Venus Membership, Mars the World, and the Earth the Collective.",
     ],
     actions: [{ label: "See the whole sky", to: "sky" }],
+    targets: ["earth-view"],
   },
   {
     id: "kp",
@@ -53,6 +61,7 @@ export const TOPICS: readonly GuideTopic[] = [
       "Every chart is cast from a birth time given to the second, after you confirm the time zone and daylight saving.",
     ],
     actions: [{ label: "Read the Method", to: "jupiter" }],
+    targets: ["place-jupiter", "nav-method"],
   },
   {
     id: "hd",
@@ -62,6 +71,7 @@ export const TOPICS: readonly GuideTopic[] = [
       "Here the Design side is found by the Sun's true arc, 88 degrees before birth, not simply 88 days.",
     ],
     actions: [{ label: "Read the Method", to: "jupiter" }],
+    targets: ["place-jupiter", "nav-method"],
   },
   {
     id: "collective",
@@ -70,6 +80,7 @@ export const TOPICS: readonly GuideTopic[] = [
       "The Starseed Collective is the community: themed rooms, live calls and events, courses and flashcards, and cosmic matching if you choose to opt in.",
     ],
     actions: [{ label: "Visit the Collective", to: "earth" }],
+    targets: ["place-earth", "nav-collective"],
   },
   {
     id: "world",
@@ -78,6 +89,7 @@ export const TOPICS: readonly GuideTopic[] = [
       "A valley you can walk, run and fly through together. Your chart hangs in the Observatory, and your people gather in the Commons.",
     ],
     actions: [{ label: "Enter the world", href: "/world" }],
+    targets: ["place-mars", "nav-world"],
   },
   {
     id: "membership",
@@ -89,6 +101,7 @@ export const TOPICS: readonly GuideTopic[] = [
       { label: "See membership", to: "venus" },
       { label: "Join", href: "/sign-up" },
     ],
+    targets: ["place-venus", "nav-membership"],
   },
   {
     id: "privacy",

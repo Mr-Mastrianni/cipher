@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useRef } from "react";
+import { Suspense, useEffect, useMemo, useRef, type RefObject } from "react";
 import { Canvas, useFrame, useLoader, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
@@ -8,22 +8,43 @@ import { MeshoptDecoder } from "three/examples/jsm/libs/meshopt_decoder.module.j
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 
 /**
- * The guide's body: the optimised model, floating in a moonlit key and rim.
+ * The guide's body: the optimised model, lit by a warm brass key and a cool
+ * moonlit rim, drawn in a small transparent canvas that the page moves about.
  *
- * The model has no skeleton and no face rig, so she does not talk with her
- * mouth or pose. She breathes, drifts, turns toward whoever is looking, and
- * leans in while she is being read aloud. That is the honest range of a static
- * mesh, and it is enough to feel attended to.
+ * The model has no skeleton, so she cannot walk or move her mouth. What she
+ * can do is what a winged figure does: glide. She banks into a turn, tips
+ * toward where she is going, bobs as she travels, turns to face what she is
+ * showing you, and leans in while she is read aloud.
  */
 
 const MODEL = "/models/guide/guide.glb";
 const HEIGHT = 2;
 
-function Guardian({ speaking, reduced }: { speaking: boolean; reduced: boolean }) {
+/** What the page tells the figure each frame about how she is moving. */
+export interface GuideMotion {
+  /** Velocity on screen, in CSS pixels a second. */
+  vx: number;
+  vy: number;
+  /** Which way to face, in [-1, 1]: positive toward the right of the screen. */
+  face: number;
+}
+
+const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
+
+function Guardian({
+  motion,
+  speaking,
+  reduced,
+}: {
+  motion: RefObject<GuideMotion>;
+  speaking: boolean;
+  reduced: boolean;
+}) {
   const gltf = useLoader(GLTFLoader, MODEL, (loader) => {
     loader.setMeshoptDecoder(MeshoptDecoder);
   });
   const body = useRef<THREE.Group>(null);
+  const lean = useRef(0);
 
   // Stand her upright at a fixed height, centred, whatever scale Meshy chose.
   const figure = useMemo(() => {
@@ -37,19 +58,27 @@ function Guardian({ speaking, reduced }: { speaking: boolean; reduced: boolean }
     return root;
   }, [gltf]);
 
-  const lean = useRef(0);
   useFrame((state, dt) => {
     const group = body.current;
     if (!group) return;
+    const { vx, vy, face } = motion.current;
     const t = state.clock.elapsedTime;
-    const ease = 1 - Math.exp(-dt * 3);
-    const lookX = reduced ? 0 : state.pointer.x;
-    const lookY = reduced ? 0 : state.pointer.y;
-    group.rotation.y += (lookX * 0.38 - group.rotation.y) * ease;
-    group.rotation.x += (-lookY * 0.07 - group.rotation.x) * ease;
+    const ease = 1 - Math.exp(-dt * 5);
+    const speed = Math.hypot(vx, vy);
+
     lean.current += ((speaking ? 1 : 0) - lean.current) * ease;
-    group.position.y = reduced ? 0 : Math.sin(t * (0.8 + lean.current * 0.5)) * 0.035;
-    group.position.z = lean.current * 0.16;
+    const yaw = clamp(face * 0.5 + vx * 0.0005, -0.75, 0.75);
+    const roll = reduced ? 0 : clamp(-vx * 0.0011, -0.4, 0.4);
+    const pitch = reduced ? 0 : clamp(vy * 0.0005, -0.3, 0.3) + lean.current * 0.08;
+    group.rotation.y += (yaw - group.rotation.y) * ease;
+    group.rotation.z += (roll - group.rotation.z) * ease;
+    group.rotation.x += (pitch - group.rotation.x) * ease;
+
+    // A hover, and a livelier bounce while she is travelling.
+    const hover = reduced ? 0 : Math.sin(t * 1.5) * 0.05;
+    const travel = reduced ? 0 : Math.abs(Math.sin(t * 8)) * 0.035 * Math.min(1, speed / 350);
+    group.position.y = hover + travel;
+    group.position.z = lean.current * 0.12;
   });
 
   return (
@@ -72,11 +101,21 @@ function Environment() {
   return <primitive object={texture} attach="environment" />;
 }
 
+/** Rendered only once the model has loaded, so the page can fade her in. */
+function Ready({ onReady }: { onReady?: () => void }) {
+  useEffect(() => {
+    onReady?.();
+  }, [onReady]);
+  return null;
+}
+
 export function GuideScene({
+  motion,
   speaking,
   reduced,
   onReady,
 }: {
+  motion: RefObject<GuideMotion>;
   speaking: boolean;
   reduced: boolean;
   onReady?: () => void;
@@ -85,31 +124,20 @@ export function GuideScene({
     <Canvas
       aria-hidden="true"
       scene={{ environmentIntensity: 0.55 }}
-      camera={{ fov: 28, position: [0, 0.38, 4.2], near: 0.1, far: 40 }}
-      dpr={[1, 1.75]}
+      camera={{ fov: 30, position: [0, 0, 4.7], near: 0.1, far: 40 }}
+      dpr={[1, 1.5]}
+      style={{ pointerEvents: "none" }}
       gl={{ antialias: true, alpha: true, toneMapping: THREE.ACESFilmicToneMapping, powerPreference: "high-performance" }}
-      onCreated={({ gl, camera }) => {
-        gl.setClearColor(0x000000, 0);
-        // A bust: the head, the crest and the wings fill the frame.
-        camera.lookAt(0, 0.32, 0);
-      }}
+      onCreated={({ gl }) => gl.setClearColor(0x000000, 0)}
     >
       <Environment />
       {/* A warm brass key from the front and a cool moonlit rim from behind. */}
       <directionalLight position={[2.5, 2.2, 4]} intensity={1.6} color={0xffdfae} />
       <directionalLight position={[-3, 1.5, -3]} intensity={2.4} color={0x9db8ff} />
       <Suspense fallback={null}>
-        <Guardian speaking={speaking} reduced={reduced} />
+        <Guardian motion={motion} speaking={speaking} reduced={reduced} />
         <Ready onReady={onReady} />
       </Suspense>
     </Canvas>
   );
-}
-
-/** Rendered only once the model has loaded, so the panel can fade her in. */
-function Ready({ onReady }: { onReady?: () => void }) {
-  useEffect(() => {
-    onReady?.();
-  }, [onReady]);
-  return null;
 }

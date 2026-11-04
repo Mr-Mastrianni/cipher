@@ -31,6 +31,11 @@ const ICON_BUTTON =
 const NAV_LINK =
   "relative rounded-sm px-3 py-2 font-display text-[17px] transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 focus-visible:ring-offset-void";
 
+/** The id the site guide uses to find a nav link: `nav-method`, `nav-world`. */
+function navGuide(href: string) {
+  return href === "/" ? undefined : `nav${href.replace(/\//g, "-")}`;
+}
+
 function isActive(pathname: string, href: string) {
   if (href === "/") return pathname === "/";
   return pathname === href || pathname.startsWith(`${href}/`);
@@ -108,6 +113,7 @@ export function SiteHeader({
               <Link
                 key={item.href}
                 href={item.href}
+                data-guide={navGuide(item.href)}
                 aria-current={active ? "page" : undefined}
                 onMouseEnter={() => cue("hover")}
                 className={cn(
@@ -200,6 +206,7 @@ export function SiteHeader({
               <Link
                 key={item.href}
                 href={item.href}
+                data-guide={navGuide(item.href)}
                 aria-current={active ? "page" : undefined}
                 onClick={() => setMenuOpen(false)}
                 className={cn(

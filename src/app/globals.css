@@ -634,3 +634,23 @@ html[data-intro="skip"] .intro-planet {
     animation: none;
   }
 }
+
+/* The page element the site guide is showing you: a gold outline that breathes. */
+[data-guide-active] {
+  outline: 1px solid color-mix(in srgb, var(--c-gold) 75%, transparent);
+  outline-offset: 7px;
+  border-radius: 8px;
+  animation: guideOutline 2.4s ease-in-out infinite;
+}
+
+@keyframes guideOutline {
+  50% {
+    outline-color: color-mix(in srgb, var(--c-gold) 28%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-guide-active] {
+    animation: none;
+  }
+}
