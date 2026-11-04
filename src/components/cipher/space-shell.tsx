@@ -17,7 +17,7 @@ import { useReducedMotion } from "motion/react";
 import { ArrowLeft } from "lucide-react";
 
 import type { Transit } from "@/components/cipher/sky/bodies";
-import type { BodyId } from "@/components/cipher/sky/layout";
+import type { BodyId, SkyView } from "@/components/cipher/sky/layout";
 import { Starfield } from "@/components/cipher/starfield";
 import { cn } from "@/lib/utils";
 
@@ -60,15 +60,22 @@ const ROUTE_FOCUS: Record<string, BodyId> = {
   "/membership/apply": "venus",
 };
 
+/** Where a place in the sky lives: a page, or the home page's hash. */
+function hrefFor(to: SkyView | null): string {
+  if (to === null || to === "home") return "/";
+  if (to === "sky") return "/#sky";
+  return DESTINATIONS[to]?.href ?? `/#${to}`;
+}
+
 const BODY_IDS: readonly BodyId[] = ["earth", "sun", "moon", "mars", "mercury", "jupiter", "venus", "saturn", "rahu", "ketu"];
 
 interface Space {
   transits: readonly Transit[];
   joinHref: string;
-  /** What the camera is on: a body, or `null` for the whole sky. */
-  focus: BodyId | null;
-  /** Go to a body (or the whole sky), by its page or the home page's hash. */
-  go: (id: BodyId | null) => void;
+  /** What the camera is on: the Earth close up, the whole sky, or one body. */
+  view: SkyView;
+  /** Go to a body, the whole sky or home (`null`), by its page or the home page's hash. */
+  go: (to: SkyView | null) => void;
 }
 
 const SpaceContext = createContext<Space | null>(null);
@@ -124,12 +131,13 @@ export function SpaceShell({
   const hash = useSyncExternalStore(subscribeHash, readHash, serverHash);
 
   const home = pathname === "/";
-  const hashFocus = home && (BODY_IDS as readonly string[]).includes(hash) ? (hash as BodyId) : null;
-  const focus = ROUTE_FOCUS[pathname] ?? hashFocus;
+  const hashView: SkyView =
+    home && hash === "sky" ? "sky" : home && (BODY_IDS as readonly string[]).includes(hash) ? (hash as BodyId) : "home";
+  const view: SkyView = ROUTE_FOCUS[pathname] ?? hashView;
 
   const go = useCallback(
-    (id: BodyId | null) => {
-      const href = id === null ? "/" : DESTINATIONS[id]?.href ?? `/#${id}`;
+    (to: SkyView | null) => {
+      const href = hrefFor(to);
       const [path, fragment = ""] = href.split("#");
       if (path === "/" && home) {
         // A hash on the page we are on: no navigation, just a new place to look.
@@ -157,7 +165,7 @@ export function SpaceShell({
     [],
   );
 
-  const space = useMemo<Space>(() => ({ transits, joinHref, focus, go }), [transits, joinHref, focus, go]);
+  const space = useMemo<Space>(() => ({ transits, joinHref, view, go }), [transits, joinHref, view, go]);
   const showSky = fidelity === "webgl" && ready;
 
   return (
@@ -171,7 +179,7 @@ export function SpaceShell({
             <SkyCanvas
               transits={transits}
               reduced={reduced}
-              focus={focus}
+              view={view}
               caption={caption}
               onReady={markReady}
               onLost={fallBack}
@@ -217,7 +225,7 @@ function BodyPage({ children }: { children: ReactNode }) {
             className="inline-flex items-center gap-2 font-display text-[15px] italic text-muted transition-colors hover:text-gold"
           >
             <ArrowLeft aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={1.5} />
-            The whole sky
+            Back home
           </button>
           {children}
         </div>
@@ -232,12 +240,12 @@ export function SpaceLink({
   className,
   children,
 }: {
-  to: BodyId | null;
+  to: SkyView | null;
   className?: string;
   children: ReactNode;
 }) {
   const { go } = useSpace();
-  const href = to === null ? "/" : DESTINATIONS[to]?.href ?? `/#${to}`;
+  const href = hrefFor(to);
   return (
     <Link
       href={href}

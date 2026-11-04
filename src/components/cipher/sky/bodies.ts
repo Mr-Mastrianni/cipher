@@ -1,7 +1,17 @@
 import * as THREE from "three";
 
 import { SURFACE_VERTEX } from "./earth";
-import { eclipticPoint, LUNAR_INCLINATION, ORBIT, RADIUS, ZODIAC_RADIUS, type BodyId } from "./layout";
+import {
+  eclipticPoint,
+  HOME_ORBITERS,
+  HOME_SPEED,
+  LUNAR_INCLINATION,
+  ORBIT,
+  RADIUS,
+  ZODIAC_RADIUS,
+  type BodyId,
+  type SkyView,
+} from "./layout";
 
 /**
  * The nine grahas in the space around the Earth.
@@ -164,6 +174,20 @@ interface Body {
   spinner: THREE.Object3D | null;
   lightDir: THREE.Vector3 | null;
   label: HTMLElement;
+  /** Where it really is today. */
+  home: THREE.Vector3;
+  /** How far the home view's time-lapse has carried it round, in radians. */
+  phase: number;
+  /** Whether the home view shows it. The rest grow in as the view widens. */
+  near: boolean;
+}
+
+/** What the home view is doing to the bodies. */
+export interface HomeMotion {
+  /** 1 in the home view, 0 anywhere else; eased between. */
+  mix: number;
+  /** Whether the time-lapse runs now. */
+  running: boolean;
 }
 
 /** What each label says under the name: a destination, or today's place. */
@@ -171,13 +195,13 @@ export type Caption = (id: BodyId, place: string) => string;
 
 export interface Bodies {
   group: THREE.Group;
-  /** World position of each body; fixed for the visit. */
+  /** Where each body really is today; the camera goes here, not to the time-lapse. */
   position(id: GrahaId): THREE.Vector3;
   /** Invisible spheres, a little larger than each body, for picking. */
   targets: THREE.Mesh[];
-  update(time: number, dt: number, scale: number): void;
+  update(time: number, dt: number, scale: number, home: HomeMotion): void;
   /** Place the DOM labels; call after the camera has rendered. */
-  place(camera: THREE.Camera, width: number, height: number, focus: BodyId | null, hover: BodyId | null): void;
+  place(camera: THREE.Camera, width: number, height: number, view: SkyView, hover: BodyId | null): void;
   dispose(): void;
 }
 
@@ -197,11 +221,15 @@ export function createBodies(
   const orbitMaterial = keep(
     new THREE.LineBasicMaterial({ color: 0xbfa273, transparent: true, opacity: 0.16, depthWrite: false }),
   );
+  // The far orbits and the zodiac are the whole sky's; the home view lets them go.
+  const farOrbitMaterial = keep(
+    new THREE.LineBasicMaterial({ color: 0xbfa273, transparent: true, opacity: 0.16, depthWrite: false }),
+  );
   const ringMaterial = keep(
     new THREE.LineBasicMaterial({ color: 0xd9c9a6, transparent: true, opacity: 0.34, depthWrite: false }),
   );
   for (const radius of new Set([ORBIT.mercury, ORBIT.venus, ORBIT.sun, ORBIT.mars, ORBIT.jupiter, ORBIT.saturn])) {
-    const line = ringLine(radius, orbitMaterial);
+    const line = ringLine(radius, radius <= ORBIT.venus ? orbitMaterial : farOrbitMaterial);
     keep(line.geometry);
     group.add(line);
   }
@@ -220,7 +248,8 @@ export function createBodies(
   for (let rasi = 0; rasi < 12; rasi++) {
     ticks.push(eclipticPoint(rasi * 30, ZODIAC_RADIUS - 0.35), eclipticPoint(rasi * 30, ZODIAC_RADIUS + 0.35));
   }
-  group.add(new THREE.LineSegments(keep(new THREE.BufferGeometry().setFromPoints(ticks)), ringMaterial));
+  const ticksLines = new THREE.LineSegments(keep(new THREE.BufferGeometry().setFromPoints(ticks)), ringMaterial);
+  group.add(ticksLines);
 
   // ── Glows, shared.
   const coreGlow = keep(
@@ -349,7 +378,17 @@ export function createBodies(
     }</span><span class="block font-display text-[13px] italic leading-tight text-gold">${caption(id, transit.place)}</span>`;
     labelLayer?.appendChild(label);
 
-    return { id, transit, group: body, spinner, lightDir, label };
+    return {
+      id,
+      transit,
+      group: body,
+      spinner,
+      lightDir,
+      label,
+      home: body.position.clone(),
+      phase: 0,
+      near: HOME_ORBITERS.includes(id),
+    };
   });
 
   // Rasi names, just outside the ring at the middle of each sign.
@@ -373,29 +412,57 @@ export function createBodies(
     group,
     targets,
     position(id) {
-      return bodies.find((body) => body.id === id)?.group.position ?? new THREE.Vector3();
+      return bodies.find((body) => body.id === id)?.home ?? new THREE.Vector3();
     },
-    update(time, dt, scale) {
+    update(time, dt, scale, home) {
+      // The time-lapse: while the home view is up, each close body circles the
+      // Earth. Its phase is folded into (-π, π] once the view has settled, so
+      // that easing back to its true place never means spinning many times.
+      const settled = home.mix >= 0.999;
+      // How much of the far sky the current view shows (0 in the home view).
+      const wide = THREE.MathUtils.smoothstep(1 - home.mix, 0, 0.7);
+      farOrbitMaterial.opacity = 0.16 * wide;
+      ringMaterial.opacity = 0.34 * wide;
+      zodiac.visible = ticksLines.visible = wide > 0.01;
+
       for (const body of bodies) {
-        body.group.scale.setScalar(RADIUS[body.id] * scale);
+        const speed = HOME_SPEED[body.id];
+        if (speed && home.running) body.phase += speed * dt;
+        if (speed && settled) body.phase = THREE.MathUtils.euclideanModulo(body.phase + Math.PI, Math.PI * 2) - Math.PI;
+        if (speed) {
+          const longitude = body.transit.longitude + THREE.MathUtils.radToDeg(body.phase) * home.mix;
+          if (body.id === "moon") eclipticPoint(longitude, ORBIT.moon, body.group.position).applyQuaternion(lunarTilt);
+          else eclipticPoint(longitude, ORBIT[body.id], body.group.position);
+          body.lightDir?.copy(sunPosition).sub(body.group.position).normalize();
+        }
+        // Bodies the home view leaves out grow in as the view widens.
+        const appear = body.near ? 1 : wide;
+        body.group.visible = appear > 0.01;
+        body.group.scale.setScalar(RADIUS[body.id] * scale * Math.max(appear, 0.0001));
         if (body.spinner && body.id !== "sun") body.spinner.rotation.y += dt * 0.06;
       }
       const star = bodies.find((body) => body.id === "sun");
       if (star?.spinner) ((star.spinner as THREE.Mesh).material as THREE.ShaderMaterial).uniforms.time.value = time;
     },
-    place(camera, width, height, focus, hover) {
+    place(camera, width, height, view, hover) {
       const toScreen = (world: THREE.Vector3) => {
         projected.copy(world).project(camera);
         return [(projected.x * 0.5 + 0.5) * width, (-projected.y * 0.5 + 0.5) * height, projected.z] as const;
       };
       right.setFromMatrixColumn(camera.matrixWorld, 0);
+      const portrait = width < height;
       const discs = bodies.map((body) => {
         const [x, y, z] = toScreen(body.group.position);
         edge.copy(body.group.position).addScaledVector(right, body.group.scale.x);
         const [ex, ey] = toScreen(edge);
         const r = Math.hypot(ex - x, ey - y);
-        const visible =
-          z < 1 && body.id !== focus && x > -r && x < width + r && y > -r && y < height + r;
+        let visible =
+          body.group.visible && z < 1 && body.id !== view && x > -r && x < width + r && y > -r && y < height + r;
+        if (view === "home") {
+          // Named only where the page leaves the sky free, and never the nodes.
+          const free = portrait ? y > 84 && y < height * 0.47 : x > width * 0.42 && y > 84;
+          visible = visible && body.near && free;
+        }
         return { body, x, y, r, visible };
       });
 
@@ -428,10 +495,14 @@ export function createBodies(
           { left: x - r - gap - w, top: y - h / 2 },
           { left: x - w / 2, top: y + r + 4 },
         ];
-        const chosen =
-          options.find((option) =>
-            clear({ left: option.left, top: option.top, right: option.left + w, bottom: option.top + h }, body),
-          ) ?? options[0];
+        const chosen = options.find((option) =>
+          clear({ left: option.left, top: option.top, right: option.left + w, bottom: option.top + h }, body),
+        );
+        // A name with nowhere clear to stand is left off; tapping the body still works.
+        if (!chosen) {
+          body.label.style.opacity = "0";
+          continue;
+        }
         taken.push({ left: chosen.left, top: chosen.top, right: chosen.left + w, bottom: chosen.top + h });
         body.label.style.transform = `translate3d(${Math.round(chosen.left)}px, ${Math.round(chosen.top)}px, 0)`;
       }
@@ -439,7 +510,7 @@ export function createBodies(
       // Rasi names only when the whole sky is in view.
       rasiLabels.forEach((element, index) => {
         const [x, y, z] = toScreen(rasiPoints[index]);
-        const visible = focus === null && z < 1 && x > -60 && x < width + 60 && y > -20 && y < height + 20;
+        const visible = view === "sky" && z < 1 && x > 40 && x < width - 40 && y > 84 && y < height + 20;
         element.style.opacity = visible ? "1" : "0";
         if (visible) element.style.transform = `translate3d(${Math.round(x)}px, ${Math.round(y)}px, 0) translate(-50%, -50%)`;
       });

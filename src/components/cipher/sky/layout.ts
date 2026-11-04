@@ -104,11 +104,11 @@ export function overviewPose(aspect: number, sunLongitude: number): Pose {
     azimuth: THREE.MathUtils.degToRad(sunLongitude + 140),
     elevation: THREE.MathUtils.degToRad(portrait ? 58 : 30),
     shiftX: portrait ? 0 : 0.1,
-    shiftY: portrait ? 0.25 : 0.16,
+    shiftY: portrait ? 0.12 : 0.16,
   };
   // The free box, in normalised device coordinates.
   const box = portrait
-    ? { left: -0.95, right: 0.95, bottom: 0.14, top: 0.84 }
+    ? { left: -0.95, right: 0.95, bottom: -0.2, top: 0.84 }
     : { left: -0.75, right: 0.96, bottom: -0.42, top: 0.86 };
 
   const camera = new THREE.PerspectiveCamera(FOV, aspect, 0.02, 600);
@@ -133,6 +133,44 @@ export function overviewPose(aspect: number, sunLongitude: number): Pose {
   pose.distance = (edge * 0.6) / HALF_TAN;
   for (let i = 0; i < 60 && !fits(); i++) pose.distance *= 1.04;
   return pose;
+}
+
+/** What the sky is showing: the Earth close up, the whole of it, or one body. */
+export type SkyView = "home" | "sky" | BodyId;
+
+/** The bodies that circle close enough to the Earth to belong in the home view. */
+export const HOME_ORBITERS: readonly BodyId[] = ["moon", "mercury", "venus"];
+
+/**
+ * The home view's time-lapse: how fast each close body circles the Earth, in
+ * radians a second. Nearer is quicker, as it is in the sky. The nodes stand
+ * still; they are where the Moon's orbit crosses the ecliptic, not bodies.
+ */
+export const HOME_SPEED: Partial<Record<BodyId, number>> = {
+  moon: 0.24,
+  mercury: 0.15,
+  venus: 0.1,
+};
+
+/**
+ * The first view: the Earth large, its night side and cities toward us, and
+ * the nearest bodies circling it. A phone holds the Earth high, above the
+ * headline; a wide screen holds it to the right of the headline. The camera
+ * looks down enough that the orbits read as rings sweeping in front of and
+ * behind the planet.
+ */
+export function homePose(aspect: number, sunLongitude: number): Pose {
+  const portrait = aspect < 1;
+  return {
+    target: new THREE.Vector3(0, 0, 0),
+    // Wide enough that the Moon's orbit is mostly in frame on a wide screen,
+    // and that on a phone the Earth fills about two thirds of the width.
+    distance: portrait ? 10.4 : 8.2,
+    azimuth: THREE.MathUtils.degToRad(sunLongitude + 140),
+    elevation: THREE.MathUtils.degToRad(portrait ? 30 : 17),
+    shiftX: portrait ? 0 : 0.2,
+    shiftY: portrait ? 0.2 : 0.02,
+  };
 }
 
 /**

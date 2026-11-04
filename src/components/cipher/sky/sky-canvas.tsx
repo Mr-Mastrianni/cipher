@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 
 import type { Caption, Transit } from "./bodies";
-import type { BodyId } from "./layout";
+import type { BodyId, SkyView } from "./layout";
 import { createSky, type Sky } from "./sky";
 
 /**
@@ -13,7 +13,7 @@ import { createSky, type Sky } from "./sky";
 export function SkyCanvas({
   transits,
   reduced,
-  focus,
+  view,
   caption,
   onReady,
   onLost,
@@ -21,7 +21,7 @@ export function SkyCanvas({
 }: {
   transits: readonly Transit[];
   reduced: boolean;
-  focus: BodyId | null;
+  view: SkyView;
   caption: Caption;
   onReady: () => void;
   onLost: () => void;
@@ -35,7 +35,7 @@ export function SkyCanvas({
   useEffect(() => {
     handlers.current = { onReady, onLost, onSelect, caption };
   });
-  const initialFocus = useRef(focus);
+  const initialView = useRef(view);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -48,7 +48,7 @@ export function SkyCanvas({
       onLost: () => handlers.current.onLost(),
       onSelect: (id) => handlers.current.onSelect(id),
     });
-    sky.focus(initialFocus.current);
+    sky.view(initialView.current);
     skyRef.current = sky;
     return () => {
       skyRef.current = null;
@@ -57,8 +57,8 @@ export function SkyCanvas({
   }, [transits, reduced]);
 
   useEffect(() => {
-    skyRef.current?.focus(focus);
-  }, [focus]);
+    skyRef.current?.view(view);
+  }, [view]);
 
   return (
     <>

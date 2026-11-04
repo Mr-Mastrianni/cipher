@@ -4,7 +4,7 @@ import { createBodies, PLANET_MAPS, type Caption, type Transit } from "./bodies"
 import { createRig } from "./camera";
 import { createEarth, earthTexturePaths } from "./earth";
 import { createFleet } from "./fleet";
-import { eclipticPoint, focusPose, FOV, ORBIT, overviewPose, type BodyId } from "./layout";
+import { eclipticPoint, focusPose, FOV, homePose, ORBIT, overviewPose, type BodyId, type SkyView } from "./layout";
 import { createStars } from "./stars";
 
 /**
@@ -33,8 +33,8 @@ export interface SkyOptions {
 }
 
 export interface Sky {
-  /** Look at one body, or at the whole sky (`null`). */
-  focus(id: BodyId | null): void;
+  /** Look at the Earth close up, at the whole sky, or at one body. */
+  view(view: SkyView): void;
   dispose(): void;
 }
 
@@ -72,7 +72,9 @@ export function createSky(canvas: HTMLCanvasElement, labelLayer: HTMLElement | n
 
   let width = 1;
   let height = 1;
-  let focusId: BodyId | null = null;
+  let viewId: SkyView = "home";
+  // 1 while the Earth close-up is up, 0 elsewhere, eased between.
+  let homeMix = 1;
   let hoverId: BodyId | null = null;
   let positionOf: (id: BodyId) => THREE.Vector3 = () => new THREE.Vector3();
   let pickTargets: THREE.Object3D[] = [];
@@ -99,10 +101,12 @@ export function createSky(canvas: HTMLCanvasElement, labelLayer: HTMLElement | n
     },
   });
 
-  const poseFor = (id: BodyId | null) =>
-    id === null
-      ? overviewPose(width / height, sunLongitude)
-      : focusPose(id, positionOf(id), sunPosition, width / height);
+  const poseFor = (view: SkyView) =>
+    view === "home"
+      ? homePose(width / height, sunLongitude)
+      : view === "sky"
+        ? overviewPose(width / height, sunLongitude)
+        : focusPose(view, positionOf(view), sunPosition, width / height);
 
   const resize = () => {
     const aspectBefore = width / height;
@@ -110,10 +114,10 @@ export function createSky(canvas: HTMLCanvasElement, labelLayer: HTMLElement | n
     height = canvas.clientHeight || window.innerHeight;
     renderer.setSize(width, height, false);
     // Turning a phone changes the framing; re-frame without a flight.
-    if (Math.sign(aspectBefore - 1) !== Math.sign(width / height - 1)) rig.goTo(poseFor(focusId), true);
+    if (Math.sign(aspectBefore - 1) !== Math.sign(width / height - 1)) rig.goTo(poseFor(viewId), true);
   };
   resize();
-  rig.goTo(poseFor(null), true);
+  rig.goTo(poseFor(viewId), true);
   const observer = new ResizeObserver(resize);
   observer.observe(canvas);
 
@@ -164,7 +168,7 @@ export function createSky(canvas: HTMLCanvasElement, labelLayer: HTMLElement | n
 
       scene.add(earth.frame, bodies.group, fleet.near);
       built = true;
-      rig.goTo(poseFor(focusId), true);
+      rig.goTo(poseFor(viewId), true);
 
       const clock = new THREE.Timer();
       const projected = new THREE.Vector3();
@@ -180,13 +184,16 @@ export function createSky(canvas: HTMLCanvasElement, labelLayer: HTMLElement | n
         rig.update(dt, camera, width, height);
         const boost = THREE.MathUtils.clamp(rig.distance / OVERVIEW_DISTANCE, 1, MAX_BOOST);
         earth.frame.scale.setScalar(boost);
-        bodies.update(time, dt, boost);
+        // The home view's time-lapse eases in and out with the view.
+        homeMix += ((viewId === "home" ? 1 : 0) - homeMix) * (1 - Math.exp(-dt * 2.4));
+        if (Math.abs(homeMix - (viewId === "home" ? 1 : 0)) < 0.001) homeMix = viewId === "home" ? 1 : 0;
+        bodies.update(time, dt, boost, { mix: homeMix, running: viewId === "home" && !reduced });
         earth.update(sunDir, time * 0.01, time * 0.0035);
         fleet.update({ time, sunDir, earthRadius: boost, moving: !reduced });
         stars.follow(camera);
 
         renderer.render(scene, camera);
-        bodies.place(camera, width, height, focusId, hoverId);
+        bodies.place(camera, width, height, viewId, hoverId);
 
         // The Earth's label sits under the planet, unless we are there.
         projected.copy(earth.frame.position).project(camera);
@@ -194,7 +201,8 @@ export function createSky(canvas: HTMLCanvasElement, labelLayer: HTMLElement | n
         edge.project(camera);
         const x = (projected.x * 0.5 + 0.5) * width;
         const y = (-edge.y * 0.5 + 0.5) * height;
-        earthLabel.style.opacity = focusId === "earth" || projected.z > 1 ? "0" : hoverId && hoverId !== "earth" ? "0.55" : "1";
+        earthLabel.style.opacity =
+          viewId !== "sky" || projected.z > 1 ? "0" : hoverId && hoverId !== "earth" ? "0.55" : "1";
         earthLabel.style.transform = `translate3d(${Math.round(x)}px, ${Math.round(y + 4)}px, 0) translateX(-50%)`;
 
         if (!readied) {
@@ -217,11 +225,13 @@ export function createSky(canvas: HTMLCanvasElement, labelLayer: HTMLElement | n
     });
 
   return {
-    focus(id) {
-      if (id === focusId && built) return;
-      focusId = id;
-      rig.setZoomable(id === null);
-      if (built) rig.goTo(poseFor(id));
+    view(next) {
+      if (next === viewId && built) return;
+      viewId = next;
+      // Before the first frame there is nothing to ease from.
+      if (!built) homeMix = next === "home" ? 1 : 0;
+      rig.setZoomable(next === "sky");
+      if (built) rig.goTo(poseFor(next));
     },
     dispose() {
       disposed = true;
