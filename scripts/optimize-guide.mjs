@@ -1,7 +1,7 @@
 /**
  * Shrinks a Meshy export into the site's guide model.
  *
- * A raw Meshy GLB is two million triangles and tens of megabytes; this takes
+ * Keeps the skeleton and animation clips of a rigged (Mixamo) export too. A raw Meshy GLB is two million triangles and tens of megabytes; this takes
  * it to ~45k triangles, 2K/1K WebP textures and meshopt compression (about
  * 1.7 MB), which the guide loads with GLTFLoader + MeshoptDecoder.
  *
