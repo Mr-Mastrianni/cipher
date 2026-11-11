@@ -232,9 +232,12 @@ pnpm dev:world        # ws://localhost:8787/ws
 pnpm dev:realm        # next dev + the WebSocket room together
 ```
 
-A private room is a room name: `/world?room=our-private-room`. The WebSocket room
-name is the invitation and has no accounts of its own; set `WORLD_ROOM_SECRET`
-(and `NEXT_PUBLIC_WORLD_ROOM_KEY`) to require a shared key. If neither room is
+A private room is a room name: `/world?room=our-private-room`. Both rooms admit
+signed-in members only in production: the WebSocket room checks a short-lived
+token from `/api/world/token` (set the same `WORLD_TOKEN_SECRET` on the app and
+the room server), and with `DATABASE_URL` it keeps rooms in Postgres. Set
+`WORLD_ROOM_SECRET` (and `NEXT_PUBLIC_WORLD_ROOM_KEY`) to also require a shared
+key. If neither room is
 reachable, the world opens in **solo orbit** and says so. See
 [`docs/world.md`](docs/world.md) for the protocol, limits and deployment notes.
 
@@ -400,26 +403,16 @@ Honest limits:
 - **Two transports, two latency profiles.** The HTTP/Postgres room works on
   Vercel with no extra host, but presence is ~1.2 s and signals arrive on the next
   poll. The WebSocket room is the low-latency option and needs a long-lived
-  process and a persistent volume.
-- **The WebSocket room has no accounts.** The link is the invitation; names are
-  not unique. The client presents a stable browser id, so a plot and a scheduled
-  session reconnect to the same member, with a name fallback. It is not an
-  account. The HTTP transport is Clerk-authenticated in production and uses an
-  opaque member hash, but the WebSocket server remains link-keyed. Add token
-  verification before opening it to strangers.
-- **The WebSocket bench is a JSON file.** One process is assumed. The HTTP room is
-  already Postgres-backed with optimistic version retries.
-- **There is no moderation console or reporting flow in the world yet.** Chat is
-  rate-limited and sanitised, and the HTTP room is authenticated, but a room is
-  still a room. Add reporting, muting and an admin view before opening one to a
-  large public audience.
+  process on a separate host; none is deployed today.
+- **One WebSocket instance.** Rooms are in Postgres, but presence and chat are
+  relayed in memory, so run a single room-server process.
 - **Software WebGL loses the context** in some environments. The quality control
   and `?post=0` reduce the load; the flat map is always available.
 - **Teaching notes are room state, not a recording.** The 2D call is the anchor
   and the link; slides live in the room (JSON or Postgres), not in the call record
   or a course lesson.
 - **Avatar images are not uploaded.** The member profile stores a world name,
-  silhouette, colour and crest, not a photo. There is no image moderation queue.
+  silhouette, colour and crest, not a photo.
 - **Read markers are per browser.** World and 2D unread agree in the same browser,
   not across devices. Durable per-member read state would need the existing
   `channel_members` table to be wired up.

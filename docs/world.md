@@ -108,7 +108,7 @@ underneath.
 
 | Transport | When it is used | Shape | Presence | Shared events |
 |---|---|---|---|---|
-| **WebSocket** | A local development server, or an explicit `NEXT_PUBLIC_WORLD_WS_URL` | Standalone Node process + `ws`; JSON file | ~10 Hz | immediate |
+| **WebSocket** | A local development server, or an explicit `NEXT_PUBLIC_WORLD_WS_URL` | Standalone Node process + `ws`; Postgres (or a JSON file locally) | ~10 Hz | immediate |
 | **HTTP + Postgres** | Vercel and other serverless hosts | Next route handler + three Neon tables; polling | ~1.2 s | on the next poll |
 
 The client chooses automatically:
@@ -127,20 +127,30 @@ builds, terraces and sessions.
 
 ```bash
 node server/world-server.mjs
-# PORT, WORLD_DATA_FILE, WORLD_MAX_PLAYERS, WORLD_ROOM_SECRET
+# PORT, WORLD_TOKEN_SECRET, DATABASE_URL, WORLD_DATA_FILE, WORLD_MAX_PLAYERS, WORLD_ROOM_SECRET
 ```
 
 Host it on Railway, Render, Fly, a VPS, or beside a self-hosted Next deployment.
 Set `NEXT_PUBLIC_WORLD_WS_URL=wss://world.example.com/ws` before the Next build.
-Persistence is `data/world.json`, written atomically and debounced.
+See [`server/README.md`](../server/README.md) for the full setup.
 
-The room name is the only key. There are **no accounts inside the WebSocket
-room**: it accepts anyone with the link and, optionally, a shared
-`WORLD_ROOM_SECRET` (plus `NEXT_PUBLIC_WORLD_ROOM_KEY` for the browser). The
-client presents a stable browser id (`w-…`) in the socket URL, so a plot and a
-scheduled session reconnect to the same member, with a name fallback; it is not
-an account and can be spoofed by anyone with the link. Treat a room as an
-invitation, not a security boundary.
+**Members only.** With `WORLD_TOKEN_SECRET` set on both the app and the server
+(required by the server in production), the client fetches a two-minute token
+from `/api/world/token` before each connect. The app signs it only for a
+signed-in member, and the server verifies it (`server/room-token.mjs`). The
+member's opaque world id (`m-…`, the same id the HTTP room uses) is their
+identity: builds, terraces and sessions belong to the account and come back on
+any device; a second tab replaces the first (close code `4000`); a visitor who
+is not signed in is refused (`4401`) and explores alone. Names are unique within
+a room: a second "Mira" appears as "Mira 2". Locally, without a secret, the room
+is link-keyed with a browser id (`w-…`) and a name fallback, as before.
+
+**Storage.** With `DATABASE_URL` set on the server, rooms live in
+`cipher_world_state`, shared with the HTTP room. Writes are version-checked, so
+a concurrent change from the HTTP room is never overwritten; the server reloads
+and re-sends the stored world. Without it, rooms go to `data/world.json`,
+written atomically and debounced. Run one instance: presence is relayed in
+memory.
 
 ### The HTTP/Postgres room (works on Vercel)
 
@@ -363,26 +373,17 @@ tradition, labelled as tradition; the longitudes are astronomy and can be checke
   film grade on a procedural valley. It will not look like a scanned open world.
 - **Two transports, two latency profiles.** HTTP/Postgres works on Vercel with
   no extra host, but presence is ~1.2 s and signals arrive on the next poll. The
-  WebSocket room is the low-latency option and needs a long-lived process.
-- **The WebSocket room has no accounts.** The link is the invitation; names are
-  not unique. A stable browser id lets a plot and a scheduled session reconnect,
-  but it is not an account and can be spoofed. The HTTP room is Clerk-
-  authenticated in production and uses an opaque member hash, but the WebSocket
-  server remains link-keyed. Add token verification before opening a WebSocket
-  room to strangers.
+  WebSocket room is the low-latency option and needs a long-lived process on a
+  separate host (no room server is deployed today).
 - **The world is client-authoritative about bodies.** Moving through a wall is a
   client decision; the server is authoritative about shared objects, claims and
   the session.
-- **The WebSocket bench is a JSON file.** A single process is assumed. For
-  multiple WebSocket instances, move persistence to Postgres/Redis. The HTTP
-  transport already uses Postgres, with optimistic version retries.
+- **One WebSocket instance.** Rooms are stored in Postgres, but presence and
+  chat are relayed in memory, so two instances would not see each other's
+  members. One process comfortably holds rooms of two dozen.
 - **Post-processing is optional.** `quality: low` and `?post=0` render directly.
   This keeps software WebGL and weak mobile GPUs usable at the cost of bloom,
   god rays and height fog.
-- **No moderation console or reporting flow yet.** Names and messages are
-  sanitised, chat is rate-limited, and the HTTP room is authenticated, but there
-  is no mute/report/admin action inside the world. Add one before a large public
-  room.
 - **Preview and production share the project's `DATABASE_URL`.** The preview
   creates test rooms and the demo member in the same Neon database. Use a Neon
   branch (or a separate preview database) if you want preview data isolated.
@@ -391,8 +392,7 @@ tradition, labelled as tradition; the longitudes are astronomy and can be checke
   `session` on Postgres). They are not a recording, a transcript or a course
   lesson.
 - **Avatar images are not uploaded.** The saved avatar is a name, silhouette,
-  colour and crest. There is no photo, no file storage, and no moderation queue
-  for images.
+  colour and crest. There is no photo and no file storage.
 - **Read markers are per browser.** The world and the 2D site share unread in the
   same browser; a phone and a laptop do not. The read state is a convenience, not
   an account-level inbox.

@@ -1,25 +1,28 @@
 # The Cipher — WebSocket room server
 #
 # A tiny, self-contained image for the low-latency room. The Next app can live
-# anywhere; this process needs a persistent volume for data/world.json.
+# anywhere. Set WORLD_TOKEN_SECRET (the same value as on the Next app) so only
+# signed-in members get in, and DATABASE_URL so rooms are kept in Postgres and
+# no volume is needed.
 #
 #   docker build -t cipher-world ./server
-#   docker run -p 8787:8787 -v cipher-world:/data \
-#     -e WORLD_DATA_FILE=/data/world.json cipher-world
+#   docker run -p 8787:8787 \
+#     -e WORLD_TOKEN_SECRET=… -e DATABASE_URL=postgres://… cipher-world
 
 FROM node:22-alpine AS runtime
 WORKDIR /app
 
-RUN npm init -y >/dev/null 2>&1 && npm install --omit=dev ws@8.22.0 >/dev/null 2>&1
+RUN npm init -y >/dev/null 2>&1 \
+  && npm install --omit=dev ws@8.22.0 @neondatabase/serverless@1.2.0 >/dev/null 2>&1
 
-COPY world-server.mjs ./
+COPY world-server.mjs room-token.mjs ./
 
 ENV NODE_ENV=production \
     PORT=8787 \
     WORLD_DATA_FILE=/data/world.json
 
+# Only used when DATABASE_URL is not set.
 RUN mkdir -p /data
-VOLUME ["/data"]
 EXPOSE 8787
 
 HEALTHCHECK --interval=30s --timeout=4s --start-period=5s --retries=3 \

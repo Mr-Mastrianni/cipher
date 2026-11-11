@@ -16,20 +16,40 @@
  * production). If the app is served behind a reverse proxy that maps /ws to this
  * process, no variable is needed.
  *
- * Persistence is a single JSON file (atomic write, debounced). Presence is
- * in-memory and deliberately ephemeral. There are no accounts here: the room name
- * is the only key, exactly as the invitation should be. Set WORLD_ROOM_SECRET to
- * require a shared key as well.
+ * Identity. With WORLD_TOKEN_SECRET set (required in production), every
+ * connection presents a short-lived token signed by the Next app's
+ * `/api/world/token` for the signed-in member. The member's opaque world id is
+ * their identity here: builds, terraces and sessions belong to the account, not
+ * to whoever types the same name. Without it (local development only) the room
+ * is link-keyed as before, and WORLD_ROOM_SECRET can still require a shared key.
+ *
+ * Persistence. With DATABASE_URL set, rooms live in Postgres
+ * (`cipher_world_state`, the same table the HTTP room uses), so the server needs
+ * no volume and survives redeploys. Without it, a single JSON file is used
+ * (atomic write, debounced). Presence is in-memory and deliberately ephemeral.
  */
 
 import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
 import { WebSocketServer } from "ws";
+import { verifyRoomToken } from "./room-token.mjs";
 
 const PORT = Number(process.env.PORT || process.env.WORLD_PORT || 8787);
 const HOST = process.env.HOST || "0.0.0.0";
 const SECRET = process.env.WORLD_ROOM_SECRET || "";
+const TOKEN_SECRET = process.env.WORLD_TOKEN_SECRET || "";
+const DATABASE_URL = process.env.DATABASE_URL || "";
+const PRODUCTION = process.env.NODE_ENV === "production";
+const ALLOW_ANONYMOUS = process.env.WORLD_ALLOW_ANONYMOUS === "1";
+
+if (PRODUCTION && !TOKEN_SECRET && !ALLOW_ANONYMOUS) {
+  console.error(
+    "[world] WORLD_TOKEN_SECRET is not set. In production the room only admits signed-in members;\n" +
+      "        set the same WORLD_TOKEN_SECRET here and on the Next app (or WORLD_ALLOW_ANONYMOUS=1 to opt out).",
+  );
+  process.exit(1);
+}
 const MAX_PLAYERS = Number(process.env.WORLD_MAX_PLAYERS || 24);
 const MAX_BUILDS = Number(process.env.WORLD_MAX_BUILDS || 1200);
 const DATA_FILE =
@@ -66,11 +86,124 @@ const ROOM_RE = /^[a-z0-9-]{1,40}$/;
 
 /* ── persistence ─────────────────────────────────────────────────────────── */
 
-/** @type {Record<string, {builds: any[], plots: Record<string, any>, session: any|null, updatedAt: number}>} */
+/** @type {Record<string, {builds: any[], plots: Record<string, any>, session: any|null, updatedAt: number, version?: number}>} */
 let data = {};
 let saveTimer = null;
+/** Rooms changed since the last write (Postgres writes only what changed). */
+const dirty = new Set();
+/** @type {Map<string, Promise<void>>} rooms being read from Postgres */
+const loading = new Map();
+let sql = null;
+let saving = Promise.resolve();
+
+async function initDatabase() {
+  const { neon } = await import("@neondatabase/serverless");
+  sql = neon(DATABASE_URL);
+  await sql`
+    CREATE TABLE IF NOT EXISTS cipher_world_state (
+      room text PRIMARY KEY,
+      builds jsonb NOT NULL DEFAULT '[]'::jsonb,
+      plots jsonb NOT NULL DEFAULT '{}'::jsonb,
+      session jsonb,
+      signals jsonb NOT NULL DEFAULT '[]'::jsonb,
+      version bigint NOT NULL DEFAULT 1,
+      updated_at timestamptz NOT NULL DEFAULT now()
+    )
+  `;
+  console.log("[world] rooms are stored in Postgres (cipher_world_state)");
+}
+
+function jsonColumn(value, fallback) {
+  if (value === null || value === undefined) return fallback;
+  if (typeof value === "string") {
+    try {
+      return JSON.parse(value);
+    } catch {
+      return fallback;
+    }
+  }
+  return value;
+}
+
+async function readRoomRow(room) {
+  await sql`
+    INSERT INTO cipher_world_state (room) VALUES (${room})
+    ON CONFLICT (room) DO NOTHING
+  `;
+  const rows = await sql`
+    SELECT builds, plots, session, version FROM cipher_world_state WHERE room = ${room}
+  `;
+  const row = rows[0] ?? {};
+  return {
+    builds: jsonColumn(row.builds, []) ?? [],
+    plots: jsonColumn(row.plots, {}) ?? {},
+    session: jsonColumn(row.session, null) ?? null,
+    updatedAt: Date.now(),
+    version: Number(row.version ?? 1) || 1,
+  };
+}
+
+/** Make sure a room's saved world is in memory before anyone acts in it. */
+function ensureRoomLoaded(room) {
+  if (!sql || data[room]) return Promise.resolve();
+  let pending = loading.get(room);
+  if (!pending) {
+    pending = readRoomRow(room)
+      .then((state) => {
+        if (!data[room]) data[room] = state;
+      })
+      .finally(() => loading.delete(room));
+    loading.set(room, pending);
+  }
+  return pending;
+}
+
+/**
+ * Write the changed rooms. Each write is conditional on the version this server
+ * last saw, so if something else (the HTTP room on the same database) changed
+ * the room meanwhile, nothing is overwritten: the server reloads the stored
+ * world and shows it to everyone in the room.
+ */
+async function saveDatabase() {
+  const names = [...dirty];
+  dirty.clear();
+  for (const room of names) {
+    const state = data[room];
+    if (!state) continue;
+    const known = state.version ?? 1;
+    try {
+      const rows = await sql`
+        UPDATE cipher_world_state
+        SET builds = ${JSON.stringify(state.builds ?? [])}::jsonb,
+            plots = ${JSON.stringify(state.plots ?? {})}::jsonb,
+            session = ${state.session ? JSON.stringify(state.session) : null}::jsonb,
+            version = ${known + 1}::bigint,
+            updated_at = now()
+        WHERE room = ${room} AND version = ${known}::bigint
+        RETURNING version
+      `;
+      if (rows.length > 0) {
+        state.version = Number(rows[0].version);
+        continue;
+      }
+      console.warn(`[world] room ${room} changed elsewhere; reloading the stored world`);
+      const fresh = await readRoomRow(room);
+      data[room] = fresh;
+      for (const player of rooms.get(room)?.players.values() ?? []) {
+        const owned = Object.values(fresh.plots).find((p) => p.owner === player.id);
+        player.plot = owned ? owned.index : null;
+      }
+      broadcast(room, { t: "world", builds: fresh.builds, plots: plotsList(room), session: fresh.session });
+    } catch (error) {
+      // Keep it for the next attempt rather than dropping the change.
+      dirty.add(room);
+      console.warn(`[world] could not save room ${room}`, error.message);
+    }
+  }
+}
 
 function load() {
+  if (sql) return;
   try {
     if (!fs.existsSync(DATA_FILE)) return;
     const raw = fs.readFileSync(DATA_FILE, "utf8");
@@ -89,7 +222,8 @@ function load() {
   }
 }
 
-function saveSoon() {
+function saveSoon(room) {
+  if (room) dirty.add(room);
   if (saveTimer) return;
   saveTimer = setTimeout(() => {
     saveTimer = null;
@@ -97,7 +231,14 @@ function saveSoon() {
   }, 700);
 }
 
+/** Writes are queued one after another so a version is never raced. */
 function save() {
+  saving = saving.then(() => (sql ? saveDatabase() : saveFile())).catch(() => {});
+  return saving;
+}
+
+function saveFile() {
+  dirty.clear();
   try {
     fs.mkdirSync(path.dirname(DATA_FILE), { recursive: true });
     const tmp = `${DATA_FILE}.${process.pid}.tmp`;
@@ -202,6 +343,26 @@ function cleanText(value, max) {
     .slice(0, max);
 }
 
+/**
+ * Two people in a room never share a name: a second "Mira" becomes "Mira 2".
+ * The member who already holds it keeps it.
+ */
+function uniqueName(roomName, playerId, wanted) {
+  const room = rooms.get(roomName);
+  if (!room) return wanted;
+  const taken = new Set();
+  for (const other of room.players.values()) {
+    if (other.id !== playerId && other.greeted) taken.add(other.name.toLowerCase());
+  }
+  if (!taken.has(wanted.toLowerCase())) return wanted;
+  for (let n = 2; n < 100; n += 1) {
+    const suffix = ` ${n}`;
+    const candidate = `${wanted.slice(0, 32 - suffix.length)}${suffix}`;
+    if (!taken.has(candidate.toLowerCase())) return candidate;
+  }
+  return wanted;
+}
+
 function cleanColor(value) {
   const v = String(value ?? "");
   return /^#[0-9a-f]{6}$/i.test(v) ? v : "#d4ff3f";
@@ -289,17 +450,42 @@ wss.on("connection", (ws, request) => {
     ws.close(1008, "key required");
     return;
   }
+  // A signed-in member's identity comes from the token, never from the client.
+  let memberId = null;
+  if (TOKEN_SECRET) {
+    const checked = verifyRoomToken(TOKEN_SECRET, url.searchParams.get("token"));
+    if (!checked.ok) {
+      send(ws, { t: "error", message: "Sign in to join the room.", code: "auth" });
+      ws.close(4401, "sign in required");
+      return;
+    }
+    memberId = checked.sub;
+  }
+
   const roomName = sanitizeRoom(url.searchParams.get("room"));
   const room = roomFor(roomName);
-  if (room.players.size >= MAX_PLAYERS) {
+
+  // The same member opening the world again (another tab or device) takes
+  // over: the earlier connection is closed, not duplicated.
+  if (memberId && room.players.has(memberId)) {
+    for (const client of room.clients) {
+      if (client.meta?.playerId === memberId) {
+        send(client, { t: "error", message: "You opened the world somewhere else.", code: "replaced" });
+        client.close(4000, "opened elsewhere");
+      }
+    }
+  }
+
+  if (room.players.size >= MAX_PLAYERS && !(memberId && room.players.has(memberId))) {
     send(ws, { t: "error", message: `This room is full (${MAX_PLAYERS} members).` });
     ws.close(1013, "room full");
     return;
   }
 
   const requestedId = url.searchParams.get("id") || "";
-  const stableId =
-    /^w-[a-z0-9-]{6,40}$/.test(requestedId) && !room.players.has(requestedId)
+  const stableId = memberId
+    ? memberId
+    : /^w-[a-z0-9-]{6,40}$/.test(requestedId) && !room.players.has(requestedId)
       ? requestedId
       : newPlayerId();
   const player = {
@@ -324,19 +510,42 @@ wss.on("connection", (ws, request) => {
   room.clients.add(ws);
   room.players.set(player.id, player);
 
-  const state = roomData(roomName);
-  // Restore a plot this member owned on a previous visit, if the name matches.
-  send(ws, {
-    t: "welcome",
-    you: { id: player.id, plot: null },
-    room: roomName,
-    players: playersList(roomName),
-    builds: state.builds ?? [],
-    plots: plotsList(roomName),
-    session: state.session ?? null,
-  });
+  // The saved world is read (from Postgres, if used) before the welcome and
+  // before any message is handled; messages queue behind it in order.
+  const ready = ensureRoomLoaded(roomName).then(
+    () => {
+      const state = roomData(roomName);
+      // A member keeps their terrace across visits by account, not by name.
+      const owned = memberId
+        ? Object.values(state.plots ?? {}).find((p) => p.owner === player.id)
+        : null;
+      if (owned) player.plot = owned.index;
+      send(ws, {
+        t: "welcome",
+        you: { id: player.id, plot: player.plot },
+        room: roomName,
+        players: playersList(roomName),
+        builds: state.builds ?? [],
+        plots: plotsList(roomName),
+        session: state.session ?? null,
+      });
+      return true;
+    },
+    (error) => {
+      console.warn(`[world] could not load room ${roomName}`, error.message);
+      send(ws, { t: "error", message: "The room could not be opened. Try again shortly." });
+      ws.close(1011, "room unavailable");
+      return false;
+    },
+  );
 
   ws.on("message", (raw) => {
+    ready.then((ok) => {
+      if (ok) handleMessage(raw);
+    });
+  });
+
+  function handleMessage(raw) {
     let msg;
     try {
       msg = JSON.parse(String(raw));
@@ -346,11 +555,20 @@ wss.on("connection", (ws, request) => {
     if (!msg || typeof msg !== "object") return;
     const now = Date.now();
     player.at = now;
+    const state = roomData(roomName);
 
     switch (String(msg.t ?? "")) {
       case "hello": {
         const previousName = player.name;
-        player.name = cleanText(msg.name, 32) || "A traveller";
+        const wanted = cleanText(msg.name, 32) || "A traveller";
+        player.name = uniqueName(roomName, player.id, wanted);
+        if (player.name !== wanted) {
+          send(ws, {
+            t: "system",
+            text: `Someone here is already called ${wanted}; you appear as ${player.name}.`,
+            at: now,
+          });
+        }
         player.color = cleanColor(msg.color);
         player.form = FORMS.has(msg.form) ? msg.form : "cloak";
         player.crest = cleanText(msg.crest, 4) || "\u2726";
@@ -362,13 +580,19 @@ wss.on("connection", (ws, request) => {
         }
         // If the member already owned a plot under this name and it is unclaimed
         // in this room, reconnect them to it.
-        const owned = Object.values(state.plots ?? {}).find((p) => p.ownerName === player.name);
-        if (owned && !player.plot) {
+        // Anonymous rooms (local development) can only match by name. Signed-in
+        // members were matched by account when they connected.
+        const owned = memberId
+          ? null
+          : Object.values(state.plots ?? {}).find(
+              (p) => p.ownerName === player.name && !room.players.has(p.owner),
+            );
+        if (owned && player.plot === null) {
           player.plot = owned.index;
           owned.owner = player.id;
           // Everyone needs the new socket id, not only the member returning.
           broadcast(roomName, { t: "plot:claim", plot: owned });
-          saveSoon();
+          saveSoon(roomName);
         }
         send(ws, { t: "players", players: playersList(roomName) });
         broadcast(roomName, { t: "players", players: playersList(roomName) }, ws);
@@ -460,7 +684,7 @@ wss.on("connection", (ws, request) => {
         };
         state.builds.push(clean);
         state.updatedAt = now;
-        saveSoon();
+        saveSoon(roomName);
         broadcast(roomName, { t: "build:add", piece: clean });
         break;
       }
@@ -476,7 +700,7 @@ wss.on("connection", (ws, request) => {
         }
         state.builds.splice(index, 1);
         state.updatedAt = now;
-        saveSoon();
+        saveSoon(roomName);
         broadcast(roomName, { t: "build:remove", id });
         break;
       }
@@ -508,7 +732,7 @@ wss.on("connection", (ws, request) => {
         state.plots[String(index)] = plot;
         state.updatedAt = now;
         player.plot = index;
-        saveSoon();
+        saveSoon(roomName);
         broadcast(roomName, { t: "plot:claim", plot });
         broadcast(roomName, { t: "players", players: playersList(roomName) });
         break;
@@ -527,7 +751,7 @@ wss.on("connection", (ws, request) => {
         existing.motto = cleanText(msg.motto, 80);
         existing.at = now;
         state.updatedAt = now;
-        saveSoon();
+        saveSoon(roomName);
         broadcast(roomName, { t: "plot:claim", plot: existing });
         break;
       }
@@ -541,7 +765,7 @@ wss.on("connection", (ws, request) => {
         delete state.plots[String(index)];
         state.updatedAt = now;
         player.plot = null;
-        saveSoon();
+        saveSoon(roomName);
         broadcast(roomName, { t: "plot:release", index });
         broadcast(roomName, { t: "world", builds: state.builds, plots: plotsList(roomName), session: state.session });
         break;
@@ -576,7 +800,7 @@ wss.on("connection", (ws, request) => {
         };
         state.session = session;
         state.updatedAt = now;
-        saveSoon();
+        saveSoon(roomName);
         broadcast(roomName, { t: "session", session });
         break;
       }
@@ -612,7 +836,7 @@ wss.on("connection", (ws, request) => {
           callTitle: cleanText(msg.callTitle, 100) || undefined,
         };
         state.updatedAt = now;
-        saveSoon();
+        saveSoon(roomName);
         broadcast(roomName, { t: "session", session: state.session });
         break;
       }
@@ -645,7 +869,7 @@ wss.on("connection", (ws, request) => {
             };
         }
         state.updatedAt = now;
-        saveSoon();
+        saveSoon(roomName);
         broadcast(roomName, { t: "session", session: state.session });
         break;
       }
@@ -664,7 +888,7 @@ wss.on("connection", (ws, request) => {
         if (session.slide === index) return;
         state.session = { ...session, slide: index };
         state.updatedAt = now;
-        saveSoon();
+        saveSoon(roomName);
         broadcast(roomName, { t: "session", session: state.session });
         break;
       }
@@ -677,7 +901,7 @@ wss.on("connection", (ws, request) => {
         }
         state.session = null;
         state.updatedAt = now;
-        saveSoon();
+        saveSoon(roomName);
         broadcast(roomName, { t: "session", session: null });
         break;
       }
@@ -707,10 +931,13 @@ wss.on("connection", (ws, request) => {
       default:
         break;
     }
-  });
+  }
 
   ws.on("close", () => {
     room.clients.delete(ws);
+    // A member who reopened the world elsewhere is already here under the same
+    // id; closing the old connection must not remove the new one.
+    if (room.players.get(player.id) !== player) return;
     room.players.delete(player.id);
     if (room.players.size === 0) {
       // Keep the persisted world, but release the in-memory presence.
@@ -738,24 +965,40 @@ setInterval(() => {
 
 setInterval(() => save(), 30_000);
 
+let closing = false;
 function shutdown() {
+  if (closing) return;
+  closing = true;
   console.log("[world] saving and closing");
-  save();
   for (const room of rooms.values()) {
     for (const client of room.clients) client.close(1001, "server closing");
   }
   wss.close();
-  server.close(() => process.exit(0));
-  setTimeout(() => process.exit(0), 2000);
+  setTimeout(() => process.exit(0), 5000);
+  save().finally(() => server.close(() => process.exit(0)));
 }
 
 process.on("SIGINT", shutdown);
 process.on("SIGTERM", shutdown);
 
-load();
-server.listen(PORT, HOST, () => {
-  console.log(`[world] The Cipher room server is listening on ws://${HOST}:${PORT}/ws`);
-  console.log(`[world] health: http://${HOST}:${PORT}/health`);
-  if (SECRET) console.log("[world] WORLD_ROOM_SECRET is set; clients must present the key.");
-  if (!fs.existsSync(DATA_FILE)) console.log(`[world] no world yet; will create ${DATA_FILE}`);
-});
+async function start() {
+  if (DATABASE_URL) {
+    try {
+      await initDatabase();
+    } catch (error) {
+      console.error("[world] could not reach the database in DATABASE_URL", error.message);
+      process.exit(1);
+    }
+  }
+  load();
+  server.listen(PORT, HOST, () => {
+    console.log(`[world] The Cipher room server is listening on ws://${HOST}:${PORT}/ws`);
+    console.log(`[world] health: http://${HOST}:${PORT}/health`);
+    if (TOKEN_SECRET) console.log("[world] members sign in: WORLD_TOKEN_SECRET is set.");
+    else console.log("[world] no WORLD_TOKEN_SECRET: the room is link-keyed (development only).");
+    if (SECRET) console.log("[world] WORLD_ROOM_SECRET is set; clients must present the key.");
+    if (!sql && !fs.existsSync(DATA_FILE)) console.log(`[world] no world yet; will create ${DATA_FILE}`);
+  });
+}
+
+start();

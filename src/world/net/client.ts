@@ -33,7 +33,7 @@ const MOVE_HZ = 12;
 const MAX_SILENT_ATTEMPTS = 3;
 
 /** Resolve the room server. Explicit env wins; otherwise sensible local paths. */
-export function worldServerUrl(room: string, playerId?: string): string {
+export function worldServerUrl(room: string, playerId?: string, token?: string): string {
   const explicit = process.env.NEXT_PUBLIC_WORLD_WS_URL;
   const base = (() => {
     if (explicit) return explicit;
@@ -49,10 +49,32 @@ export function worldServerUrl(room: string, playerId?: string): string {
   url.searchParams.set("room", room);
   const key = process.env.NEXT_PUBLIC_WORLD_ROOM_KEY;
   if (key) url.searchParams.set("key", key);
-  if (playerId && /^w-[a-z0-9-]{6,40}$/.test(playerId)) {
+  if (token) {
+    url.searchParams.set("token", token);
+  } else if (playerId && /^w-[a-z0-9-]{6,40}$/.test(playerId)) {
     url.searchParams.set("id", playerId);
   }
   return url.toString();
+}
+
+type RoomPass = { token?: string } | { refused: string };
+
+/**
+ * Ask the app for a room token. 404 means tokens are not configured (local
+ * development) and the room is entered without one; 401 means the visitor
+ * must sign in first.
+ */
+async function fetchRoomPass(): Promise<RoomPass> {
+  try {
+    const response = await fetch("/api/world/token", { cache: "no-store", credentials: "same-origin" });
+    if (response.status === 404) return {};
+    const body = (await response.json().catch(() => null)) as { token?: string; error?: string } | null;
+    if (response.ok && body?.token) return { token: body.token };
+    if (response.status === 401) return { refused: "Sign in to meet other members in the world. You can still explore alone." };
+    return { refused: body?.error ?? "The room could not check your membership." };
+  } catch {
+    return {};
+  }
 }
 
 export class WorldNet implements RoomTransport {
@@ -75,11 +97,22 @@ export class WorldNet implements RoomTransport {
 
   connect() {
     this.closedByUs = false;
-    const store = getStore();
-    store.set({ connecting: true });
+    getStore().set({ connecting: true });
+    // A fresh token on every attempt: they are short-lived on purpose.
+    void fetchRoomPass().then((pass) => {
+      if (this.closedByUs) return;
+      if ("refused" in pass) {
+        this.fallback(pass.refused);
+        return;
+      }
+      this.open(pass.token);
+    });
+  }
+
+  private open(token?: string) {
     let ws: WebSocket;
     try {
-      ws = new WebSocket(worldServerUrl(this.room, this.playerId));
+      ws = new WebSocket(worldServerUrl(this.room, this.playerId, token));
     } catch {
       this.fallback("The room server address is not usable.");
       return;
@@ -116,11 +149,21 @@ export class WorldNet implements RoomTransport {
       this.handle(msg);
     });
 
-    ws.addEventListener("close", () => {
+    ws.addEventListener("close", (event) => {
       this.ws = null;
       this.stopPing();
       getStore().set({ connected: false, connecting: false });
       if (this.closedByUs) return;
+      // Not worth retrying: the member must sign in, or has the world open in
+      // another tab (retrying would push that one out in turn).
+      if (event.code === 4401) {
+        this.fallback("Sign in to meet other members in the world. You can still explore alone.");
+        return;
+      }
+      if (event.code === 4000) {
+        this.fallback("You opened the world in another tab or device. Reconnect here to bring it back.");
+        return;
+      }
       this.retry = Math.min(this.retry + 1, 5);
       this.silentAttempts += 1;
       if (this.silentAttempts >= MAX_SILENT_ATTEMPTS) {
@@ -332,6 +375,8 @@ export class WorldNet implements RoomTransport {
     }
 
     if (t === "error") {
+      // Connection-level refusals are explained by the close handler instead.
+      if (msg.code === "auth" || msg.code === "replaced") return;
       toast("The world could not do that", String(msg.message ?? ""), "danger");
     }
   }
